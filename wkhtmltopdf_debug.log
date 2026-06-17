@@ -1,0 +1,26 @@
+Array
+(
+    [Current directory] => C:\xampp\htdocs\helpdesk-dev
+    [FCPATH] => C:\xampp\htdocs\helpdesk-dev\
+    [Full path to try] => C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe
+    [Short path to try] => C:\Progra~1\wkhtmltopdf\bin\wkhtmltopdf.exe
+    [Directory exists?] => No
+    [File exists?] => No
+    [Temp directory] => C:\xampp\htdocs\helpdesk-dev\tmp
+    [Output directory] => C:\xampp\htdocs\helpdesk-dev\assets\uploads\pdf_generated
+    [PHP Version] => 7.2.11
+    [OS] => WINNT
+)
+
+Using binary path: C:\xampp\htdocs\helpdesk-dev\vendor\wkhtmltopdf\bin\wkhtmltopdf.exe
+
+Attempting to generate PDF: 
+Output path: C:\xampp\htdocs\helpdesk-dev\assets\uploads\pdf_generated\ZPM_Job_Order_08262500002_20250828092829.pdf
+Output dir exists: Yes
+
+Error: The option 'debug' does not exist.
+Stack trace: #0 C:\xampp\htdocs\helpdesk-dev\application\libraries\pdf_generator.php(108): Knp\Snappy\AbstractGenerator->setOption('debug', true)
+#1 C:\xampp\htdocs\helpdesk-dev\application\modules\dashboard\controllers\View_Conversation.php(864): Pdf_generator->generate('<html>\r\n<head>\r...', 'assets/uploads/...')
+#2 C:\xampp\htdocs\helpdesk-dev\system\core\CodeIgniter.php(533): View_Conversation->print_zpm_order()
+#3 C:\xampp\htdocs\helpdesk-dev\index.php(315): require_once('C:\\xampp\\htdocs...')
+#4 {main}

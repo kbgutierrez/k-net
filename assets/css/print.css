@@ -1,0 +1,97 @@
+@media print {
+    @page {
+        size: A4;
+        margin-top: 20mm;
+        margin-left: 10mm;
+
+        @top-center { 
+            /* content: element(topCenter); */
+            content: "BAD ORDER LIQUIDATION FORM (BOLF)"
+        }
+
+        @top-left {
+            content: element(topLeft);
+            background-image: url('../../assets/img/--distri-icon.png');
+            background-repeat: no-repeat;
+        }
+
+        @top-right {
+            content: counter(page);
+        }
+
+        .headerMid::before {
+            content: "BAD ORDER LIQUIDATION FORM (BOLF)";
+            font-weight: bold;
+        }
+
+    }
+
+    body {
+    /* margin: 1in; */
+        margin-top: 10mm;
+        color: #000;
+        background-color: #fff;
+    }
+
+    h1 {
+        font-size: 2em;
+    }
+
+    .headerLeft {
+        position: running(headerLeft);
+    }
+
+    .headerTop {
+        position: running(headerTop);
+    }
+
+    p {
+        margin-top: 0;
+        margin-bottom: 0;
+    }
+
+    .tableDetails thead tr th {
+        /* border: 1px solid #333; */
+        white-space: nowrap;
+        padding: 1mm;
+    }
+
+    .tableDetails, td, th {
+        border: 1px solid #333;
+    }
+
+    .tableDetails {
+        border-collapse: collapse;
+        width: 100%;
+    }
+
+
+
+    /* p,
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6,
+    label {
+        font-family: "Poppins", sans-serif;
+    } */
+
+  
+  }
+
+  .header {
+    margin-top: auto;
+    margin-bottom: auto;
+  }
+
+  .ls-logo {
+    margin-right: 20px;
+  }
+
+  .befc-header {
+    /* text-align: center; */
+    font-weight: bold;
+  }
+  

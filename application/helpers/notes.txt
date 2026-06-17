@@ -1,0 +1,11 @@
+All masterdata will be fetched using librarie
+
+* TODO
+  - APIS
+    - Optional columns,
+    - Optional Parameters
+
+- Orders
+- Customers
+- Inventory
+-

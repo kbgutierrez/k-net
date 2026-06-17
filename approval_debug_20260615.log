@@ -1,0 +1,49 @@
+2026-06-15 15:42:23 | === api_submit_decisions START ===
+2026-06-15 15:42:23 | Headers set
+2026-06-15 15:42:23 | Raw input length: 187
+2026-06-15 15:42:23 | Raw input: {"reference_no":"CA2026061000001","transaction_type":"CASH_ADVANCE","overall_remarks":"","decisions":[{"item_key":"ca_7","decision":"approve","remark":"","amount":2000,"detail_id":null}]}
+2026-06-15 15:42:23 | Payload parsed successfully
+2026-06-15 15:42:23 | Fields: ref=CA2026061000001, type=CASH_ADVANCE, decisions=1
+2026-06-15 15:42:23 | User ID from session: 32049
+2026-06-15 15:42:23 | Overall decision: APPROVE
+2026-06-15 15:42:23 | Main SP: sp_approval_decision ?,?,?,?,?, Params: {"ReferenceId":"CA2026061000001","ApproverId":32049,"Status":"APPROVE","Remarks":"","RejectionReason":null}
+2026-06-15 15:43:06 | === api_submit_decisions START ===
+2026-06-15 15:43:06 | Headers set
+2026-06-15 15:43:06 | Raw input length: 247
+2026-06-15 15:43:06 | Raw input: reference_no=CA2026061000001&transaction_type=CASH_ADVANCE&overall_remarks=&decisions%5B0%5D%5Bitem_key%5D=ca_7&decisions%5B0%5D%5Bdecision%5D=approve&decisions%5B0%5D%5Bremark%5D=&decisions%5B0%5D%5Bamount%5D=2000&decisions%5B0%5D%5Bdetail_id%5D=
+2026-06-15 15:43:06 | FATAL/ERROR: Exception | JSON parse error: Syntax error
+2026-06-15 15:43:06 | File: C:\xampp\htdocs\k-net\application\modules\approvals\controllers\Approvals.php Line: 143
+2026-06-15 15:43:06 | Trace: #0 C:\xampp\htdocs\k-net\system\core\CodeIgniter.php(533): Approvals->api_submit_decisions()
+#1 C:\xampp\htdocs\k-net\index.php(315): require_once('C:\\xampp\\htdocs...')
+#2 {main}
+2026-06-15 15:44:33 | === api_submit_decisions START ===
+2026-06-15 15:44:33 | Headers set
+2026-06-15 15:44:33 | Raw input length: 187
+2026-06-15 15:44:33 | Raw input: {"reference_no":"CA2026061000001","transaction_type":"CASH_ADVANCE","overall_remarks":"","decisions":[{"item_key":"ca_7","decision":"approve","remark":"","amount":2000,"detail_id":null}]}
+2026-06-15 15:44:33 | Payload parsed successfully
+2026-06-15 15:44:33 | Fields: ref=CA2026061000001, type=CASH_ADVANCE, decisions=1
+2026-06-15 15:44:33 | User ID from session: 32049
+2026-06-15 15:44:33 | Overall decision: APPROVE
+2026-06-15 15:44:33 | Main SP: sp_approval_decision ?,?,?,?,?, Params: {"ReferenceId":"CA2026061000001","ApproverId":32049,"Status":"APPROVE","Remarks":"","RejectionReason":null}
+2026-06-15 15:49:10 | === api_submit_decisions START ===
+2026-06-15 15:49:10 | Headers set
+2026-06-15 15:49:10 | Raw input length: 187
+2026-06-15 15:49:10 | Fields: ref=CA2026061000001, type=CASH_ADVANCE, decisions=1
+2026-06-15 15:49:10 | User ID from session: 32049
+2026-06-15 15:49:10 | Overall decision: APPROVED
+2026-06-15 15:49:10 | Main SP: sp_approval_decision ?,?,?,?,?, Params: {"ReferenceId":"CA2026061000001","ApproverId":32049,"Status":"APPROVED","Remarks":"","RejectionReason":null}
+2026-06-15 15:49:10 | SP result type: array
+2026-06-15 15:49:10 | SP result count: 1
+2026-06-15 15:49:10 | SP row: {"next_approver_id":32051,"header_status":null,"approval_header_id":1,"reference_id":"CA2026061000001"}
+2026-06-15 15:49:10 | SUCCESS: {"next_approver_id":32051,"header_status":null,"approval_header_id":1,"reference_id":"CA2026061000001"}
+2026-06-15 15:51:10 | === api_submit_decisions START ===
+2026-06-15 15:51:10 | Headers set
+2026-06-15 15:51:10 | Raw input length: 192
+2026-06-15 15:51:10 | Fields: ref=CA2026061000001, type=CASH_ADVANCE, decisions=1
+2026-06-15 15:51:10 | User ID from session: 32049
+2026-06-15 15:51:10 | Overall decision: APPROVED
+2026-06-15 15:51:10 | Main SP: sp_approval_decision ?,?,?,?,?, Params: {"ReferenceId":"CA2026061000001","ApproverId":32049,"Status":"APPROVED","Remarks":"Hello","RejectionReason":null}
+2026-06-15 15:51:10 | SP result type: array
+2026-06-15 15:51:10 | SP result count: 1
+2026-06-15 15:51:10 | SP row: {"next_approver_id":32051,"header_status":null,"approval_header_id":1,"reference_id":"CA2026061000001"}
+2026-06-15 15:51:10 | SUCCESS: {"next_approver_id":32051,"header_status":null,"approval_header_id":1,"reference_id":"CA2026061000001"}

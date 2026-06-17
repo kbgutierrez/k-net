@@ -1,0 +1,27 @@
+<?php
+
+require 'vendor/autoload.php';
+(defined('BASEPATH')) or exit('No direct script access allowed');
+
+class Policy_Thresholds extends MY_Controller
+{
+    public function __construct()
+    {
+        parent::__construct();
+    }
+
+    public function index()
+    {
+        $data = array(
+            'title' => 'Policy and Threshold Settings',
+            'main_view' => '../modules/policy-thresholds/views/index',
+            'module_group' => $this->module_group,
+            'module' => $this->module,
+            'scripts' => array(
+                'index.js',
+            ),
+        );
+
+        $this->load->view('main', $data);
+    }
+}

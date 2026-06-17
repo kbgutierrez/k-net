@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "dragula": "^3.7.3",
+    "gsap": "^3.12.3"
+  }
+}
