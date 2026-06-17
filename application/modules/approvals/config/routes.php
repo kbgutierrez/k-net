@@ -6,3 +6,4 @@ $route['transactions/approvals/review/(:any)'] = 'Approvals/review/$1';
 $route['transactions/approvals/api/get/header'] = 'Approvals/api_get_header';
 $route['transactions/approvals/api/get/details'] = 'Approvals/api_get_details';
 $route['transactions/approvals/api/submit_decisions'] = 'Approvals/api_submit_decisions';
+$route['transactions/approvals/api/per/item/decision'] = 'Approvals/api_per_item_decision';

@@ -42,7 +42,7 @@
     .kna-timeline-item-date { font-size: 11px; color: #6b7280; }
     .kna-timeline-item-remarks { color: #4b5563; font-size: 11px; }
 
-    /* ─── Desktop Table with Sticky Action Column ─── */
+    /* ─── SPLIT TABLE SHELL (same pattern as index.php) ─── */
     .kna-review-desktop {
         width: 100%;
         border: 1px solid #e5ecf3;
@@ -50,10 +50,15 @@
         overflow: hidden;
         background: #fff;
     }
-    .kna-review-table-scroll {
+    .kna-review-table-shell {
+        display: flex;
+        width: 100%;
+        border-bottom: 1px solid #e5ecf3;
+    }
+    .kna-review-table-wrap-main {
+        flex: 1 1 auto;
         overflow-x: auto;
         overflow-y: hidden;
-        -webkit-overflow-scrolling: touch;
     }
     .kna-review-table-main {
         min-width: 1100px;
@@ -70,6 +75,8 @@
         border-bottom: 1px solid #f1f5f9;
         border-right: 1px solid #f1f5f9;
         color: #1f2937;
+        /* Ensure consistent height calculation */
+        box-sizing: border-box;
     }
     .kna-review-table-main th {
         background: #f8fbff;
@@ -79,36 +86,60 @@
         text-transform: uppercase;
         letter-spacing: .3px;
         white-space: nowrap;
-        position: sticky;
-        top: 0;
-        z-index: 2;
     }
-    .kna-review-table-main tbody tr:nth-child(odd) td:not(.kna-col-action) { background: #ffffff; }
-    .kna-review-table-main tbody tr:nth-child(even) td:not(.kna-col-action) { background: #f8fafc; }
-    .kna-review-table-main tbody tr:hover td:not(.kna-col-action) { background: #f0f9ff; }
+    .kna-review-table-main tbody tr:nth-child(odd) td { background: #ffffff; }
+    .kna-review-table-main tbody tr:nth-child(even) td { background: #f8fafc; }
+    .kna-review-table-main tbody tr:hover td { background: #f0f9ff; }
 
-    /* Sticky Action Column — wider for remarks */
+    /* Row state coloring */
+    .kna-review-table-main tbody tr.is-approved td { background: #f0fdf4 !important; }
+    .kna-review-table-main tbody tr.is-rejected td { background: #fef2f2 !important; }
+
+    /* Action table — separate, naturally frozen (no sticky needed) */
+    .kna-review-table-wrap-action {
+        width: 180px;
+        flex: 0 0 180px;
+        overflow: hidden;
+    }
+    .kna-review-table-action {
+        width: 100%;
+        margin-bottom: 0;
+        font-size: 12px;
+        border-collapse: separate;
+        border-spacing: 0;
+        border-left: 2px solid #e5ecf3;
+    }
+    .kna-review-table-action th,
+    .kna-review-table-action td {
+        padding: 10px;
+        vertical-align: middle;
+        border-bottom: 1px solid #f1f5f9;
+        text-align: center;
+        background: #fff;
+        /* Ensure consistent height calculation */
+        box-sizing: border-box;
+    }
+    .kna-review-table-action th {
+        background: #f8fbff;
+        font-size: 11px;
+        font-weight: 700;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: .3px;
+    }
+    .kna-review-table-action tbody tr:nth-child(odd) td { background: #ffffff; }
+    .kna-review-table-action tbody tr:nth-child(even) td { background: #f8fafc; }
+    .kna-review-table-action tbody tr.is-approved td { background: #f0fdf4 !important; }
+    .kna-review-table-action tbody tr.is-rejected td { background: #fef2f2 !important; }
+
+    /* Action column cell content */
     .kna-col-action {
-        position: sticky;
-        right: 0;
         width: 180px;
         min-width: 180px;
         max-width: 180px;
-        background: #fff !important;
-        border-left: 2px solid #e5ecf3;
-        z-index: 1;
         padding: 10px !important;
         text-align: center;
     }
-    .kna-review-table-main thead th.kna-col-action {
-        background: #f8fbff !important;
-        z-index: 3;
-        text-align: center;
-    }
-
-    /* Row state coloring — data cells only */
-    .kna-review-table-main tbody tr.is-approved td:not(.kna-col-action) { background: #f0fdf4 !important; }
-    .kna-review-table-main tbody tr.is-rejected td:not(.kna-col-action) { background: #fef2f2 !important; }
 
     /* ─── Toggle Decision Buttons ─── */
     .kna-item-decision {
@@ -166,7 +197,7 @@
         box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
     }
 
-    /* Remark textarea — properly sized */
+    /* Remark textarea */
     .kna-item-remark {
         font-size: 12px;
         padding: 8px 10px;
@@ -455,8 +486,46 @@
         .kna-thumb { width: 52px; height: 46px; }
         .kna-timeline-item { min-width: 0; flex-basis: 100%; }
     }
+        /* ─── Remark required shake animation ─── */
+    @keyframes kna-remark-shake {
+        0%, 100% { transform: translateX(0); }
+        20% { transform: translateX(-4px); }
+        40% { transform: translateX(4px); }
+        60% { transform: translateX(-3px); }
+        80% { transform: translateX(3px); }
+    }
+    .kna-remark-required {
+        border-color: #e03131 !important;
+        background: #fff5f5 !important;
+        animation: kna-remark-shake 0.4s ease-in-out;
+    }
+  /* ─── Cancel Reject Button ─── */
+    .kna-cancel-reject {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        width: 100%;
+        padding: 5px 8px;
+        margin-top: 6px;
+        border: 1px solid #d1d5db;
+        border-radius: 4px;
+        background: #f9fafb;
+        color: #6b7280;
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all .15s ease;
+    }
+    .kna-cancel-reject:hover {
+        background: #f3f4f6;
+        color: #374151;
+        border-color: #9ca3af;
+    }
+    .kna-cancel-reject i {
+        font-size: 10px;
+    }
 </style>
-
 <div class="page-inner kna-page">
     <input type="hidden" id="approvalRef" value="<?=html_escape($approval_id);?>">
 

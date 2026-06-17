@@ -98,7 +98,10 @@ class Approvals extends MY_Controller
             $data = $this->getRequestPayload();
             $refereceNo = isset($data['ReferenceNo']) ? $data['ReferenceNo'] : null;
     
-            $params = array("ReferenceNo" => $refereceNo);
+            $params = array(
+                "ReferenceNo" => $refereceNo,
+                "ApproverId" => $this->session->userdata('user_id'),
+                );
             $result = $this->sp->readData(
                 build_sp('sp_fetch_transaction_details', count($params)),
                 $params,
@@ -111,6 +114,61 @@ class Approvals extends MY_Controller
         }
     }
 
+    /**
+     * Per-item decision (before final submit)
+     * For liquidation: approver clicks approve/reject on individual item
+     */
+    public function api_per_item_decision()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $approvalPerItemId = isset($data['approval_per_item_id']) ? (int)$data['approval_per_item_id'] : 0;
+            $status            = isset($data['status']) ? trim((string)$data['status']) : '';
+            $remarks           = isset($data['remarks']) ? trim((string)$data['remarks']) : '';
+            $isNotify          = isset($data['is_notify']) ? (int)(bool)$data['is_notify'] : 0;
+
+            if ($approvalPerItemId <= 0) {
+                throw new Exception('Missing approval_per_item_id');
+            }
+            if ($status === '') {
+                throw new Exception('Missing status');
+            }
+
+            $userId = (int) $this->session->userdata('user_id');
+            if ($userId <= 0) {
+                throw new Exception('User not authenticated.');
+            }
+
+            $spParams = array(
+                'ApprovalPerItemId' => $approvalPerItemId,
+                'ApproverId'        => $userId,
+                'Status'            => $status,
+                'Remarks'           => $remarks,
+                'IsNotify'          => $isNotify,
+            );
+
+            $result = $this->sp->readData(
+                build_sp('sp_approval_per_item_decision', count($spParams)),
+                $spParams,
+                'result'
+            );
+
+            if (!is_array($result) || count($result) === 0) {
+                throw new Exception('Per-item decision returned no result.');
+            }
+
+            return $this->respondSuccess('Item decision recorded.', $result[0]);
+
+        } catch (Throwable $e) {
+            return $this->respondError($e->getMessage());
+        }
+    }
+
+    /**
+     * Final submit of all decisions
+     */
     public function api_submit_decisions()
     {
         try {
