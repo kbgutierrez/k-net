@@ -244,7 +244,10 @@ const renderDesktopTable = (rows) => {
 		const isDraft = row.statusCode === 'LQ_DRAFT' || row.status === 'Draft';
 		const actionButton = isDraft
 			? `<button type="button" class="btn btn-sm btn-outline-secondary" data-action="edit" data-ref="${escapeHtml(row.liquidationNo)}">Edit Draft</button>`
-			: `<button type="button" class="btn btn-sm btn-outline-primary" data-action="view" data-ref="${escapeHtml(row.liquidationNo)}">View</button>`;
+			: (row.status === 'Submitted' || row.status === 'Pending Approval')
+				? `<button type="button" class="btn btn-sm btn-outline-warning" data-action="edit-submitted" data-ref="${escapeHtml(row.liquidationNo)}">Edit</button>
+           <button type="button" class="btn btn-sm btn-outline-primary" data-action="view" data-ref="${escapeHtml(row.liquidationNo)}">View</button>`
+				: `<button type="button" class="btn btn-sm btn-outline-primary" data-action="view" data-ref="${escapeHtml(row.liquidationNo)}">View</button>`;
 		const tr = document.createElement('tr');
 		tr.innerHTML = `
 			<td>${escapeHtml(row.liquidationNo)}</td>
@@ -321,7 +324,10 @@ const renderMobileCards = (rows) => {
 		const isDraft = row.statusCode === 'LQ_DRAFT' || row.status === 'Draft';
 		const actionButton = isDraft
 			? `<button type="button" class="btn btn-outline-secondary btn-sm kna-small w-100" data-action="edit" data-ref="${escapeHtml(row.liquidationNo)}">Edit Draft</button>`
-			: `<button type="button" class="btn btn-outline-primary btn-sm kna-small w-100" data-action="view" data-ref="${escapeHtml(row.liquidationNo)}">View Details</button>`;
+			: (row.status === 'Submitted' || row.status === 'Pending Approval')
+				? `<button type="button" class="btn btn-outline-warning btn-sm kna-small w-100 mb-1" data-action="edit-submitted" data-ref="${escapeHtml(row.liquidationNo)}">Edit</button>
+           <button type="button" class="btn btn-outline-primary btn-sm kna-small w-100" data-action="view" data-ref="${escapeHtml(row.liquidationNo)}">View Details</button>`
+				: `<button type="button" class="btn btn-outline-primary btn-sm kna-small w-100" data-action="view" data-ref="${escapeHtml(row.liquidationNo)}">View Details</button>`;
 		const item = document.createElement('div');
 		item.className = 'kna-item';
 		item.innerHTML = `
@@ -447,7 +453,13 @@ const initListPage = () => {
 			return;
 		}
 		goToPath(`transactions/liquidation/view/${btn.getAttribute('data-ref')}`);
+
+		if (action === 'edit-submitted') {
+			goToPath(`transactions/liquidation/edit/${btn.getAttribute('data-ref')}`);
+			return;
+		}
 	});
+
 
 	domList.liquidationMobileList.addEventListener('click', (event) => {
 		const btn = event.target.closest('button[data-action]');
@@ -460,6 +472,10 @@ const initListPage = () => {
 			return;
 		}
 		goToPath(`transactions/liquidation/view/${btn.getAttribute('data-ref')}`);
+		if (action === 'edit-submitted') {
+			goToPath(`transactions/liquidation/edit/${btn.getAttribute('data-ref')}`);
+			return;
+		}
 	});
 
 	if (domList.btnLoadMoreMobile) {
@@ -499,6 +515,8 @@ const initModule = () => {
 		initListPage();
 	} else if (document.getElementById('expenseItemsContainer')) {
 		initAddPage();
+	} else if (document.getElementById('editPageMarker')) {
+		initEditPage();
 	} else if (document.getElementById('liquidationRef')) {
 		initDetailPage();
 	}

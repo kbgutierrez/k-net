@@ -192,8 +192,15 @@
 	}
 
 	/* Info grid rows */
-	.kna-info-row { display: grid; gap: 8px; margin-bottom: 10px; }
-	.kna-info-row-3 { grid-template-columns: repeat(3, 1fr); }
+	.kna-info-row {
+		display: grid;
+		gap: 8px;
+		margin-bottom: 10px;
+	}
+
+	.kna-info-row-3 {
+		grid-template-columns: repeat(3, 1fr);
+	}
 
 	/* Financial summary cards */
 	.kna-fin-card {
@@ -203,9 +210,19 @@
 		border-radius: 6px;
 		padding: 10px 12px;
 	}
-	.kna-fin-card.ca  { border-left-color: #3b82f6; }
-	.kna-fin-card.liq { border-left-color: #0f766e; }
-	.kna-fin-card.var { border-left-color: #f59e0b; }
+
+	.kna-fin-card.ca {
+		border-left-color: #3b82f6;
+	}
+
+	.kna-fin-card.liq {
+		border-left-color: #0f766e;
+	}
+
+	.kna-fin-card.var {
+		border-left-color: #f59e0b;
+	}
+
 	.kna-fin-label {
 		font-size: 11px;
 		font-weight: 600;
@@ -214,6 +231,7 @@
 		letter-spacing: .4px;
 		margin-bottom: 4px;
 	}
+
 	.kna-fin-value {
 		font-size: 15px;
 		font-weight: 700;
@@ -222,14 +240,39 @@
 	}
 
 	/* Variance badges */
-	.kna-var-badge     { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }
-	.kna-var-balanced  { background: #d1fae5; color: #065f46; }
-	.kna-var-return    { background: #fef3c7; color: #92400e; }
-	.kna-var-reimburse { background: #dbeafe; color: #1e40af; }
+	.kna-var-badge {
+		display: inline-block;
+		padding: 2px 10px;
+		border-radius: 20px;
+		font-size: 12px;
+		font-weight: 700;
+	}
+
+	.kna-var-balanced {
+		background: #d1fae5;
+		color: #065f46;
+	}
+
+	.kna-var-return {
+		background: #fef3c7;
+		color: #92400e;
+	}
+
+	.kna-var-reimburse {
+		background: #dbeafe;
+		color: #1e40af;
+	}
 
 	/* Expense table */
-	.kna-exp-wrap { width: 100%; overflow-x: auto; }
-	.kna-exp-mobile { display: none; }
+	.kna-exp-wrap {
+		width: 100%;
+		overflow-x: auto;
+	}
+
+	.kna-exp-mobile {
+		display: none;
+	}
+
 	.kna-exp-table {
 		min-width: 780px;
 		width: 100%;
@@ -237,6 +280,7 @@
 		border-spacing: 0;
 		font-size: 12px;
 	}
+
 	.kna-exp-table th {
 		background: #f1f5f9;
 		border: 1px solid #e2e8f0;
@@ -248,6 +292,7 @@
 		letter-spacing: .3px;
 		white-space: nowrap;
 	}
+
 	.kna-exp-table td {
 		border-bottom: 1px solid #f1f5f9;
 		border-right: 1px solid #f1f5f9;
@@ -255,10 +300,23 @@
 		vertical-align: top;
 		color: #1f2937;
 	}
-	.kna-exp-table td:first-child { border-left: 1px solid #f1f5f9; }
-	.kna-exp-table tbody tr:nth-child(odd)  td { background: #ffffff; }
-	.kna-exp-table tbody tr:nth-child(even) td { background: #f8fafc; }
-	.kna-exp-table tbody tr:hover td { background: #f0f9ff; }
+
+	.kna-exp-table td:first-child {
+		border-left: 1px solid #f1f5f9;
+	}
+
+	.kna-exp-table tbody tr:nth-child(odd) td {
+		background: #ffffff;
+	}
+
+	.kna-exp-table tbody tr:nth-child(even) td {
+		background: #f8fafc;
+	}
+
+	.kna-exp-table tbody tr:hover td {
+		background: #f0f9ff;
+	}
+
 	.kna-exp-table tfoot td {
 		background: #ecfdf5;
 		border-top: 2px solid #6ee7b7;
@@ -267,17 +325,49 @@
 		color: #065f46;
 		vertical-align: middle;
 	}
-	.kna-amount-main      { font-weight: 700; color: #0f766e; }
-	.kna-amount-breakdown { font-size: 10px; color: #9ca3af; margin-top: 2px; }
-	.kna-rownum { color: #9ca3af; font-size: 11px; text-align: center; }
+
+	.kna-amount-main {
+		font-weight: 700;
+		color: #0f766e;
+	}
+
+	.kna-amount-breakdown {
+		font-size: 10px;
+		color: #9ca3af;
+		margin-top: 2px;
+	}
+
+	.kna-rownum {
+		color: #9ca3af;
+		font-size: 11px;
+		text-align: center;
+	}
+
 	.kna-vat-check {
 		width: 15px;
 		height: 15px;
 		margin: 0;
 		accent-color: #2563eb;
 	}
-	.kna-vat-yes { background: #d1fae5; color: #065f46; padding: 2px 7px; border-radius: 10px; font-size: 11px; font-weight: 700; white-space: nowrap; }
-	.kna-vat-no  { background: #f3f4f6; color: #9ca3af;  padding: 2px 7px; border-radius: 10px; font-size: 11px; font-weight: 700; }
+
+	.kna-vat-yes {
+		background: #d1fae5;
+		color: #065f46;
+		padding: 2px 7px;
+		border-radius: 10px;
+		font-size: 11px;
+		font-weight: 700;
+		white-space: nowrap;
+	}
+
+	.kna-vat-no {
+		background: #f3f4f6;
+		color: #9ca3af;
+		padding: 2px 7px;
+		border-radius: 10px;
+		font-size: 11px;
+		font-weight: 700;
+	}
 
 	/* Attachment thumbnails */
 	.kna-thumb-wrap {
@@ -290,6 +380,7 @@
 		vertical-align: top;
 		text-align: center;
 	}
+
 	.kna-thumb {
 		width: 58px;
 		height: 50px;
@@ -298,7 +389,12 @@
 		border: 1px solid #e5e7eb;
 		transition: transform .15s, border-color .15s;
 	}
-	.kna-thumb:hover { transform: scale(1.1); border-color: #6366f1; }
+
+	.kna-thumb:hover {
+		transform: scale(1.1);
+		border-color: #6366f1;
+	}
+
 	.kna-thumb-label {
 		font-size: 10px;
 		color: #6b7280;
@@ -309,9 +405,25 @@
 		white-space: nowrap;
 		display: block;
 	}
-	.kna-file-wrap { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; margin-bottom: 3px; }
-	.kna-file-wrap a { color: #4f46e5; text-decoration: none; font-weight: 600; }
-	.kna-file-wrap a:hover { text-decoration: underline; }
+
+	.kna-file-wrap {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		font-size: 11px;
+		margin-bottom: 3px;
+	}
+
+	.kna-file-wrap a {
+		color: #4f46e5;
+		text-decoration: none;
+		font-weight: 600;
+	}
+
+	.kna-file-wrap a:hover {
+		text-decoration: underline;
+	}
+
 	.kna-exp-card {
 		border: 1px solid #e5e7eb;
 		border-radius: 10px;
@@ -320,6 +432,7 @@
 		margin-bottom: 10px;
 		box-shadow: 0 1px 2px rgba(20, 30, 50, .04);
 	}
+
 	.kna-exp-card-head {
 		display: flex;
 		justify-content: space-between;
@@ -329,39 +442,49 @@
 		border-bottom: 1px solid #eef2f7;
 		margin-bottom: 10px;
 	}
+
 	.kna-exp-card-title {
 		font-size: 13px;
 		font-weight: 700;
 		color: #111827;
 		line-height: 1.3;
 	}
+
 	.kna-exp-card-sub {
 		font-size: 11px;
 		font-weight: 600;
 		color: #6b7280;
 		margin-left: 4px;
 	}
+
 	.kna-exp-card-meta {
 		font-size: 11px;
 		color: #6b7280;
 		margin-top: 3px;
 	}
+
 	.kna-exp-card-amount {
 		text-align: right;
 		flex: 0 0 auto;
 	}
+
 	.kna-exp-card-grid {
 		display: grid;
 		grid-template-columns: 1fr 2fr;
 		gap: 8px;
 		margin-bottom: 10px;
 	}
+
 	.kna-exp-card-field {
 		display: flex;
 		flex-direction: column;
 		gap: 3px;
 	}
-	.kna-exp-card-field-full { grid-column: 1 / -1; }
+
+	.kna-exp-card-field-full {
+		grid-column: 1 / -1;
+	}
+
 	.kna-exp-card-label {
 		font-size: 10px;
 		font-weight: 700;
@@ -369,10 +492,12 @@
 		letter-spacing: .3px;
 		color: #6b7280;
 	}
+
 	.kna-exp-card-value {
 		font-size: 12px;
 		color: #1f2937;
 	}
+
 	.kna-exp-card-attach {
 		display: flex;
 		flex-wrap: wrap;
@@ -387,6 +512,7 @@
 		border-radius: 8px;
 		background: #f0fdf4;
 	}
+
 	.kna-mobile-summary .kna-fin-label {
 		margin-bottom: 2px;
 	}
@@ -394,20 +520,28 @@
 	/* Lightbox */
 	.kna-lightbox {
 		position: fixed;
-		top: 0; left: 0; right: 0; bottom: 0;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
 		background: rgba(0, 0, 0, .88);
 		z-index: 9999;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 	}
-	.kna-lightbox.d-none { display: none !important; }
+
+	.kna-lightbox.d-none {
+		display: none !important;
+	}
+
 	.kna-lightbox-img {
 		max-width: 90vw;
 		max-height: 88vh;
 		border-radius: 6px;
 		box-shadow: 0 8px 40px rgba(0, 0, 0, .6);
 	}
+
 	.kna-lightbox-close {
 		position: fixed;
 		top: 16px;
@@ -422,17 +556,132 @@
 	}
 
 	@media (max-width: 767.98px) {
-		.kna-page { padding: 8px 8px 12px; }
-		.kna-title { font-size: 18px; }
-		.kna-info-row-3 { grid-template-columns: 1fr; }
-		.kna-fin-value { font-size: 14px; }
-		.kna-exp-wrap { overflow: visible; }
-		.kna-exp-mobile { display: block; }
-		.kna-exp-table { display: none !important; }
-		.kna-thumb-wrap { max-width: 68px; margin-right: 4px; }
-		.kna-thumb { width: 52px; height: 46px; }
-		.kna-thumb-label { max-width: 68px; }
-		.kna-mobile-summary { display: block; }
+		.kna-page {
+			padding: 8px 8px 12px;
+		}
+
+		.kna-title {
+			font-size: 18px;
+		}
+
+		.kna-info-row-3 {
+			grid-template-columns: 1fr;
+		}
+
+		.kna-fin-value {
+			font-size: 14px;
+		}
+
+		.kna-exp-wrap {
+			overflow: visible;
+		}
+
+		.kna-exp-mobile {
+			display: block;
+		}
+
+		.kna-exp-table {
+			display: none !important;
+		}
+
+		.kna-thumb-wrap {
+			max-width: 68px;
+			margin-right: 4px;
+		}
+
+		.kna-thumb {
+			width: 52px;
+			height: 46px;
+		}
+
+		.kna-thumb-label {
+			max-width: 68px;
+		}
+
+		.kna-mobile-summary {
+			display: block;
+		}
+	}
+
+	/* ─── Timeline ─── */
+	.kna-timeline {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0;
+	}
+
+	.kna-timeline-item {
+		position: relative;
+		padding: 12px 0 12px 24px;
+		border-left: 2px solid #e5e7eb;
+		font-size: 12px;
+	}
+
+	.kna-timeline-item:last-child {
+		padding-bottom: 0;
+	}
+
+	.kna-timeline-item::before {
+		content: '';
+		position: absolute;
+		left: -7px;
+		top: 14px;
+		width: 12px;
+		height: 12px;
+		border-radius: 50%;
+		border: 2px solid #fff;
+		background: #d1d5db;
+		box-shadow: 0 0 0 2px #e5e7eb;
+	}
+
+	.kna-timeline-item.is-done {
+		border-left-color: #22c55e;
+	}
+
+	.kna-timeline-item.is-done::before {
+		background: #22c55e;
+		box-shadow: 0 0 0 2px #dcfce7;
+	}
+
+	.kna-timeline-item.is-current {
+		border-left-color: #2f6eb4;
+	}
+
+	.kna-timeline-item.is-current::before {
+		background: #2f6eb4;
+		box-shadow: 0 0 0 2px #bfdbfe;
+	}
+
+	.kna-timeline-item.is-pending {
+		border-left-color: #d1d5db;
+	}
+
+	.kna-timeline-item.is-pending::before {
+		background: #d1d5db;
+		box-shadow: 0 0 0 2px #f3f4f6;
+	}
+
+	.kna-timeline-item-top {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-bottom: 4px;
+	}
+
+	.kna-timeline-item-name {
+		font-weight: 700;
+		color: #1f2937;
+		font-size: 12px;
+	}
+
+	.kna-timeline-item-remarks {
+		color: #4b5563;
+		font-size: 12px;
+		line-height: 1.5;
+		word-break: break-word;
 	}
 </style>
 
@@ -442,14 +691,14 @@
 			<div class="kna-title">Liquidation Details</div>
 
 		</div>
-		<a href="<?=base_url('transactions/liquidation');?>" class="btn btn-outline-secondary">
+		<a href="<?= base_url('transactions/liquidation'); ?>" class="btn btn-outline-secondary">
 			<i class="fas fa-arrow-left mr-1"></i> Back
 		</a>
 	</div>
 
 	<div class="card kna-card">
 		<div class="card-body">
-			<input type="hidden" id="liquidationRef" value="<?=html_escape($liquidation_no);?>">
+			<input type="hidden" id="liquidationRef" value="<?= html_escape($liquidation_no); ?>">
 
 			<div class="kna-section-title">
 				<i class="fas fa-info-circle"></i>
@@ -468,7 +717,8 @@
 				</div>
 				<div class="form-group">
 					<label class="kna-form-label">Status</label>
-					<div class="kna-readonly" id="viewStatus" style="background:transparent;border-color:transparent;padding-left:0;">-</div>
+					<div class="kna-readonly" id="viewStatus"
+						style="background:transparent;border-color:transparent;padding-left:0;">-</div>
 				</div>
 			</div>
 
@@ -507,7 +757,8 @@
 			<!-- Notes -->
 			<div class="form-group" style="margin-bottom:12px;">
 				<label class="kna-form-label">Notes / Purpose</label>
-				<div class="kna-readonly" id="viewPurpose" style="min-height:48px;align-items:flex-start;padding-top:8px;"></div>
+				<div class="kna-readonly" id="viewPurpose"
+					style="min-height:48px;align-items:flex-start;padding-top:8px;"></div>
 			</div>
 
 			<hr />
@@ -523,10 +774,9 @@
 
 			<div class="kna-section-title">
 				<i class="fas fa-history"></i>
-				Timeline
+				History
 			</div>
-
-			<div id="viewTimeline"></div>
+			<ul class="kna-timeline" id="viewTimeline"></ul>
 		</div>
 	</div>
 </div>
@@ -536,3 +786,6 @@
 	<button class="kna-lightbox-close" id="knaLightboxClose">&#x2715;</button>
 	<img id="knaLightboxImg" class="kna-lightbox-img" src="" alt="Attachment">
 </div>
+<script>
+	window.currentUserId = <?= json_encode((int) $this->session->userdata('user_id')); ?>;
+</script>

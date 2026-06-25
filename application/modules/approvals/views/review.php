@@ -11,36 +11,91 @@
     .kna-badge-rejected { background: #fff5f5; color: #e03131; }
     .kna-badge-partial { background: #e9f3ff; color: #1b4f88; }
 
-    .kna-timeline {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-    }
-    .kna-timeline-item {
-        flex: 1 1 280px;
-        min-width: 260px;
-        border: 1px solid #e5ecf3;
-        border-radius: 6px;
-        background: #fff;
-        padding: 8px 10px;
-        font-size: 12px;
-    }
-    .kna-timeline-item.is-current { border-color: #2f6eb4; background: #f7fbff; }
-    .kna-timeline-item.is-done { border-color: #b7ebc8; background: #f3fff7; }
-    .kna-timeline-item.is-pending { border-color: #e5ecf3; background: #f8fafc; }
-    .kna-timeline-item-top {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
-        margin-bottom: 4px;
-    }
-    .kna-timeline-item-name { font-weight: 700; color: #1f2937; }
-    .kna-timeline-item-date { font-size: 11px; color: #6b7280; }
-    .kna-timeline-item-remarks { color: #4b5563; font-size: 11px; }
+ /* ─── Timeline ─── */
+.kna-timeline {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.kna-timeline-item {
+    position: relative;
+    padding: 12px 0 12px 24px;
+    border-left: 2px solid #e5e7eb;
+    font-size: 12px;
+}
+
+.kna-timeline-item:last-child {
+    padding-bottom: 0;
+}
+
+.kna-timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -7px;
+    top: 14px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    background: #d1d5db;
+    box-shadow: 0 0 0 2px #e5e7eb;
+}
+
+.kna-timeline-item.is-done {
+    border-left-color: #22c55e;
+}
+
+.kna-timeline-item.is-done::before {
+    background: #22c55e;
+    box-shadow: 0 0 0 2px #dcfce7;
+}
+
+.kna-timeline-item.is-current {
+    border-left-color: #2f6eb4;
+}
+
+.kna-timeline-item.is-current::before {
+    background: #2f6eb4;
+    box-shadow: 0 0 0 2px #bfdbfe;
+}
+
+.kna-timeline-item.is-pending {
+    border-left-color: #d1d5db;
+}
+
+.kna-timeline-item.is-pending::before {
+    background: #d1d5db;
+    box-shadow: 0 0 0 2px #f3f4f6;
+}
+
+.kna-timeline-item-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.kna-timeline-item-name {
+    font-weight: 700;
+    color: #1f2937;
+    font-size: 12px;
+}
+
+.kna-timeline-item-date {
+    font-size: 11px;
+    color: #6b7280;
+}
+
+.kna-timeline-item-remarks {
+    color: #4b5563;
+    font-size: 12px;
+    line-height: 1.5;
+    word-break: break-word;
+}
 
     /* ─── SPLIT TABLE SHELL (same pattern as index.php) ─── */
     .kna-review-desktop {
@@ -196,6 +251,14 @@
     .kna-toggle-btn.is-active {
         box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
     }
+    .kna-toggle-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    .kna-toggle-btn:disabled:hover {
+        background: #fff;
+        color: #6b7280;
+    }
 
     /* Remark textarea */
     .kna-item-remark {
@@ -221,6 +284,11 @@
         font-size: 11px;
     }
     .kna-item-remark.d-none { display: none !important; }
+    .kna-item-remark[readonly] {
+        background: #f3f4f6;
+        color: #6b7280;
+        cursor: default;
+    }
 
     /* ─── Footer ─── */
     .kna-review-footer {
@@ -270,6 +338,10 @@
         margin: 0;
         accent-color: #2563eb;
         cursor: pointer;
+    }
+    .kna-vat-check:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
     }
 
     /* Attachments */
@@ -486,7 +558,7 @@
         .kna-thumb { width: 52px; height: 46px; }
         .kna-timeline-item { min-width: 0; flex-basis: 100%; }
     }
-        /* ─── Remark required shake animation ─── */
+    /* ─── Remark required shake animation ─── */
     @keyframes kna-remark-shake {
         0%, 100% { transform: translateX(0); }
         20% { transform: translateX(-4px); }
@@ -525,9 +597,36 @@
     .kna-cancel-reject i {
         font-size: 10px;
     }
+    /* ─── Read-only Status Display ─── */
+    .kna-readonly-status {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        margin-bottom: 4px;
+    }
+    .kna-readonly-by {
+        font-size: 10px;
+        color: #9ca3af;
+        text-align: center;
+        margin-bottom: 6px;
+    }
+    .kna-readonly-remark {
+        font-size: 11px;
+        color: #e03131;
+        background: #fff5f5;
+        border: 1px solid #fecaca;
+        border-radius: 4px;
+        padding: 6px 8px;
+        text-align: left;
+        line-height: 1.4;
+        max-width: 160px;
+        word-break: break-word;
+    }
 </style>
 <div class="page-inner kna-page">
     <input type="hidden" id="approvalRef" value="<?=html_escape($approval_id);?>">
+    <input type="hidden" id="currentUserId" value="<?=(int)$this->session->userdata('user_id');?>">
 
     <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap" style="gap: 8px;">
         <div>
@@ -587,7 +686,7 @@
     <div class="kna-review-context-grid">
         <div class="card kna-card mb-2">
             <div class="card-body py-2">
-                <div class="kna-small font-weight-bold text-muted mb-2 text-uppercase">Approval Matrix Path</div>
+                <div class="kna-small font-weight-bold text-muted mb-2 text-uppercase">History</div>
                 <ul class="kna-timeline" id="reviewTimeline"></ul>
             </div>
         </div>

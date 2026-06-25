@@ -84,6 +84,10 @@
     background: #e9f3ff;
     color: #1b4f88;
   }
+  .kna-badge-completed {
+    background: #e8f7ee;
+    color: #17663a;
+  }
 
   .kna-mobile-list .kna-item {
     border: 1px solid #dde3eb;
@@ -145,9 +149,11 @@
   <div class="d-flex align-items-center justify-content-between mb-2 kna-stack-mobile">
     <div>
       <div class="kna-title">Cash Advance</div>
-      <!-- <div class="kna-small text-muted"> </div> -->
     </div>
-    <button type="button" class="btn btn-primary btn-sm kna-small kna-mobile-cta" id="btnOpenNew">
+    <button type="button" class="btn btn-primary btn-sm kna-small kna-mobile-cta" id="btnOpenNew"
+      data-has-pending="<?=!empty($has_pending_ca) ? '1' : '0';?>"
+      data-pending-id="<?=html_escape($pending_ca_id ?? '');?>"
+      data-pending-status="<?=html_escape($pending_ca_status ?? '');?>">
       New Request
     </button>
   </div>
@@ -246,7 +252,6 @@
             </tr>
           </thead>
           <tbody id="cashAdvanceTbody">
-            <!-- Rendered by JS -->
           </tbody>
         </table>
       </div>
@@ -274,107 +279,3 @@
     </div>
   </div>
 </div>
-
-<!-- New Modal -->
-<div class="modal fade" id="modalNewCashAdvance" tabindex="-1" role="dialog" aria-labelledby="modalNewCashAdvanceLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" role="document">
-    <div class="modal-content">
-      <div class="modal-header py-2">
-        <h5 class="modal-title kna-small" id="modalNewCashAdvanceLabel">New Cash Advance Request</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-
-      <div class="modal-body">
-        <form id="formNewCashAdvance">
-          <div class="row">
-            <div class="col-md-4 mb-2 mb-md-0">
-              <label class="kna-small kna-form-label">Amount (PHP)</label>
-              <input type="number" class="form-control form-control-sm kna-small" id="newAmount" min="1" step="0.01" placeholder="0.00" required>
-            </div>
-            <div class="col-md-4 mb-2 mb-md-0">
-              <label class="kna-small kna-form-label">Date Needed</label>
-              <input type="date" class="form-control form-control-sm kna-small" id="newNeededDate" required>
-            </div>
-          </div>
-
-          <div class="row mt-2">
-            <div class="col-md-12">
-              <label class="kna-small kna-form-label">Purpose</label>
-              <textarea class="form-control form-control-sm kna-small" id="newPurpose" rows="3" placeholder="Provide the reason for this cash advance request." required></textarea>
-            </div>
-          </div>
-
-        
-        </form>
-      </div>
-
-      <div class="modal-footer py-2">
-        <button type="button" class="btn btn-outline-secondary btn-sm kna-small" data-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-primary btn-sm kna-small" id="btnSaveNewCashAdvance">Submit Request</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- View Modal -->
-<div class="modal fade" id="modalViewCashAdvance" tabindex="-1" role="dialog" aria-labelledby="modalViewCashAdvanceLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" role="document">
-    <div class="modal-content">
-      <div class="modal-header py-2">
-        <h5 class="modal-title kna-small" id="modalViewCashAdvanceLabel">Cash Advance Details</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-
-      <div class="modal-body">
-        <div class="row">
-          <div class="col-md-4 col-6 mb-2 mb-md-0">
-            <div class="kna-small text-muted">Cash Advance No</div>
-            <div class="kna-small font-weight-bold" id="viewRefNo">—</div>
-          </div>
-          <div class="col-md-4 col-6 mb-2 mb-md-0">
-            <div class="kna-small text-muted">Status</div>
-            <div id="viewStatus">—</div>
-          </div>
-          <div class="col-md-4 col-12">
-            <div class="kna-small text-muted">Amount</div>
-            <div class="kna-small font-weight-bold" id="viewAmount">—</div>
-          </div>
-        </div>
-
-        <hr class="my-2" />
-
-        <div class="row">
-          <div class="col-md-6 col-6 mb-2 mb-md-0">
-            <div class="kna-small text-muted">Date Needed</div>
-            <div class="kna-small font-weight-bold" id="viewNeededDate">—</div>
-          </div>
-          <div class="col-md-6 col-6 mb-2 mb-md-0">
-            <div class="kna-small text-muted">Requested Date</div>
-            <div class="kna-small font-weight-bold" id="viewRequestedDate">—</div>
-          </div>
-        </div>
-
-        <div class="row mt-2">
-          <div class="col-md-12">
-            <div class="kna-small text-muted">Purpose</div>
-            <div class="kna-small" id="viewPurpose" style="white-space:pre-wrap;">—</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-footer py-2">
-        <button type="button" class="btn btn-outline-secondary btn-sm kna-small" data-dismiss="modal">Close</button>
-        <button type="button" class="btn btn-primary btn-sm kna-small" id="btnPrintView">Print</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-
-
-
-

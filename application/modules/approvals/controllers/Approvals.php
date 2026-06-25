@@ -37,6 +37,24 @@ class Approvals extends MY_Controller
         $this->load->view('main', $data);
     }
 
+   
+
+    // ─── HELPER: Get transaction info from approval_per_item_id ───
+    private function getTransactionInfoFromApprovalItem($approvalPerItemId)
+    {
+        $params = array(
+            'ApprovalPerItemId' => (int)$approvalPerItemId,
+        );
+
+        $result = $this->sp->readData(
+            build_sp('sp_fetch_transaction_info_by_item', count($params)),
+            $params,
+            'row'
+        );
+
+        return $result ?: null;
+    }
+
     public function api_get_header()
     {
         try {
@@ -116,7 +134,6 @@ class Approvals extends MY_Controller
 
     /**
      * Per-item decision (before final submit)
-     * For liquidation: approver clicks approve/reject on individual item
      */
     public function api_per_item_decision()
     {
@@ -141,6 +158,11 @@ class Approvals extends MY_Controller
                 throw new Exception('User not authenticated.');
             }
 
+            // Get transaction info BEFORE calling SP (need old status for audit)
+            $txInfo = $this->getTransactionInfoFromApprovalItem($approvalPerItemId);
+            $referenceNo = $txInfo ? ($txInfo['reference_id'] ?? '') : '';
+            $oldStatus = $txInfo ? ($txInfo['status'] ?? 'PENDING') : 'PENDING';
+
             $spParams = array(
                 'ApprovalPerItemId' => $approvalPerItemId,
                 'ApproverId'        => $userId,
@@ -157,6 +179,27 @@ class Approvals extends MY_Controller
 
             if (!is_array($result) || count($result) === 0) {
                 throw new Exception('Per-item decision returned no result.');
+            }
+
+  
+            $transactionType = '';
+            if (strpos($referenceNo, 'CA') === 0) {
+                $transactionType = 'CASH_ADVANCE';
+            } elseif (strpos($referenceNo, 'LQ') === 0) {
+                $transactionType = 'LIQUIDATION';
+            }
+
+            if ($transactionType !== '' && $oldStatus !== $status) {
+                $this->logAuditTrail(
+                    $transactionType,
+                    $referenceNo,
+                    $status,              // 'APPROVED' or 'REJECTED'
+                    'ITEM',
+                    $approvalPerItemId,
+                    'status',
+                    $oldStatus,
+                    $status
+                );
             }
 
             return $this->respondSuccess('Item decision recorded.', $result[0]);
@@ -260,11 +303,76 @@ class Approvals extends MY_Controller
 
             $row = $result[0];
 
+            // ─── LOG AUDIT TRAIL FOR FINAL DECISION ───
+            $this->logAuditTrail(
+                $transactionType,
+                $referenceNo,
+                $overallDecision,     // 'APPROVED' or 'REJECTED'
+                'HEADER',
+                $referenceNo,
+                null,
+                null,
+                $overallRemarks ?: $rejectionReason
+            );
+
             return $this->respondSuccess('Decision submitted successfully.', array(
                 'next_approver_id'    => isset($row['next_approver_id']) ? (int)$row['next_approver_id'] : null,
                 'header_status'       => isset($row['header_status']) ? $row['header_status'] : null,
                 'approval_header_id'  => isset($row['approval_header_id']) ? (int)$row['approval_header_id'] : null,
                 'reference_id'        => isset($row['reference_id']) ? $row['reference_id'] : $referenceNo,
+            ));
+
+        } catch (Throwable $e) {
+            return $this->respondError($e->getMessage());
+        }
+    }
+
+    /**
+     * Fetch approval timeline for review page
+     */
+    public function api_get_approval_timeline()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+            
+            $referenceNo = isset($data['ReferenceNo']) ? trim((string)$data['ReferenceNo']) : '';
+            if ($referenceNo === '') {
+                return $this->respondError('Missing ReferenceNo');
+            }
+
+            // Detect transaction type from prefix
+            $transactionType = '';
+            if (strpos($referenceNo, 'CA') === 0) {
+                $transactionType = 'CASH_ADVANCE';
+            } elseif (strpos($referenceNo, 'LQ') === 0) {
+                $transactionType = 'LIQUIDATION';
+            }
+
+            // Fetch audit trail
+            $auditParams = array(
+                'TransactionId' => $referenceNo,
+            );
+            $auditTrail = $this->sp->readData(
+                build_sp('sp_fetch_audit_trail', count($auditParams)),
+                $auditParams,
+                'result'
+            );
+
+            // Fetch approval matrix
+            $matrixParams = array(
+                'ReferenceId' => $referenceNo,
+            );
+            $approvalMatrix = $this->sp->readData(
+                build_sp('sp_fetch_approval_matrix', count($matrixParams)),
+                $matrixParams,
+                'result'
+            );
+
+            return $this->respondSuccess('Timeline fetched', array(
+                'transaction_type' => $transactionType,
+                'audit_trail'      => is_array($auditTrail) ? $auditTrail : array(),
+                'approval_matrix'  => is_array($approvalMatrix) ? $approvalMatrix : array(),
             ));
 
         } catch (Throwable $e) {

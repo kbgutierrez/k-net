@@ -122,6 +122,60 @@ class Approval_Matrix extends MY_Controller
             return $this->respondError("An error occurred: " . $e->getMessage());
         }
     }
+      public function api_update()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $id = isset($data['id']) ? (int) $data['id'] : 0;
+            if ($id <= 0) {
+                return $this->respondError("Invalid matrix ID");
+            }
+
+            $headerParams = array(
+                'id' => $id,
+                'matrix_name' => $data['matrix_name'],
+                'transaction_type' => $data['transaction_type'],
+                'department_id' => $data['department_id'],
+                'min_amount' => $data['min_amount'],
+                'max_amount' => $data['max_amount'],
+                'is_active' => isset($data['is_active']) ? (int) $data['is_active'] : 1,
+                'updated_by' => $this->session->userdata('user_id')
+            );
+
+            // Update header
+            $this->sp->createData(
+                build_sp('sp_update_approval_matrix_header', count($headerParams)),
+                $headerParams
+            );
+
+            // Delete existing details
+            $this->sp->createData(
+                build_sp('sp_delete_approval_matrix_details', 1),
+                array('matrix_header_id' => $id)
+            );
+
+            // Insert new details
+            $details = isset($data['details']) && is_array($data['details']) ? $data['details'] : array();
+            foreach ($details as $detail) {
+                $detailParams = array(
+                    'matrix_header_id' => $id,
+                    'approver_id' => $detail['approver_id'],
+                    'approval_order' => $detail['approval_order'],
+                    'approval_type' => $detail['approval_type']
+                );
+                $this->sp->createData(
+                    build_sp('sp_insert_approval_matrix_details', count($detailParams)),
+                    $detailParams
+                );
+            }
+
+            return $this->respondSuccess("Approval matrix updated successfully");
+        } catch (Exception $e) {
+            return $this->respondError("An error occurred: " . $e->getMessage());
+        }
+    }
 
     public function api_get_header()
     {

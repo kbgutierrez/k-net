@@ -124,10 +124,19 @@ const syncDateRangeFromDocumentDates = () => {
 };
 
 const loadExpenseTypes = () => {
-	const request = ajax_loader('transactions/liquidation/api/get/expense_types', {});
+	const request = $.ajax({
+		url: base_url + 'transactions/liquidation/api/get/expense_types',
+		type: 'POST',
+		dataType: 'json',
+		headers: {
+			'Authorization': 'Bearer 12345678'
+		}
+	});
 
 	request.done((response) => {
+
 		const res = (typeof response === 'string') ? $.parseJSON(response) : response;
+
 		if (res.status !== 'success') {
 			expenseTypeOptions = [];
 			renderExpenseItems();
@@ -182,14 +191,10 @@ const loadPendingCashAdvanceNumbers = () => {
 		const options = (res.data || []).map((item) => normalizeDate(item.cash_advance_id)).filter(Boolean);
 		domAdd.newCaRef.innerHTML = '<option value="">Select cash advance</option>';
 
-		options.forEach((caNo) => {
-			const option = document.createElement('option');
-			option.value = caNo;
-			option.textContent = caNo;
-			domAdd.newCaRef.appendChild(option);
-		});
-
-		if (options.length === 0) {
+		if (options.length === 1) {
+			domAdd.newCaRef.innerHTML = `<option value="${escapeHtml(options[0])}" selected>${escapeHtml(options[0])}</option>`;
+			syncCashAdvanceDetails();
+		} else if (options.length === 0) {
 			resetCashAdvanceDetails();
 		}
 	}).fail(() => {

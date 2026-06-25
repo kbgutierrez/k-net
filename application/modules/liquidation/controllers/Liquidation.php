@@ -67,8 +67,9 @@ class Liquidation extends MY_Controller
         $this->load->view('main', $data);
     }
 
-    public function api_get_pending_ca_nums_by_userid(){
-        try{
+    public function api_get_pending_ca_nums_by_userid()
+    {
+        try {
             $this->output->set_content_type('application/json');
             $userId = $this->session->userdata('user_id');
             $params = array(
@@ -84,7 +85,7 @@ class Liquidation extends MY_Controller
             return $this->respondSuccess("success", $result);
 
 
-        }catch(Exception $e){
+        } catch (Exception $e) {
             return $this->respondError("An error occurred: " . $e->getMessage());
         }
     }
@@ -98,7 +99,7 @@ class Liquidation extends MY_Controller
         ));
         return;
     }
-       private function respondError($message)
+    private function respondError($message)
     {
         echo json_encode(array(
             'status' => 'error',
@@ -106,7 +107,7 @@ class Liquidation extends MY_Controller
         ));
         return;
     }
-      private function getRequestPayload()
+    private function getRequestPayload()
     {
         $contentType = $this->input->server('CONTENT_TYPE');
         if (is_string($contentType) && stripos($contentType, 'application/json') !== false) {
@@ -216,6 +217,7 @@ class Liquidation extends MY_Controller
     {
         list($targetDir, $absoluteDir) = $this->ensureAttachmentDir();
         $savedPaths = array();
+        $hasNewUpload = false;
 
         $fileCandidates = array(
             'Attachment_' . $index,
@@ -230,20 +232,22 @@ class Liquidation extends MY_Controller
             }
 
             $singleFile = $this->normalizeSingleFileFromInput($_FILES[$fieldName], null);
-            if ($singleFile && isset($singleFile['error']) && (int)$singleFile['error'] === UPLOAD_ERR_OK) {
+            if ($singleFile && isset($singleFile['error']) && (int) $singleFile['error'] === UPLOAD_ERR_OK) {
                 $savedPath = $this->saveUploadedFile($singleFile, $targetDir, $absoluteDir);
                 if ($savedPath) {
                     $savedPaths[] = $savedPath;
+                    $hasNewUpload = true;
                 }
             }
 
             if (is_array($_FILES[$fieldName]['name'])) {
                 foreach ($_FILES[$fieldName]['name'] as $fileIndex => $ignored) {
                     $file = $this->normalizeSingleFileFromInput($_FILES[$fieldName], $fileIndex);
-                    if ($file && isset($file['error']) && (int)$file['error'] === UPLOAD_ERR_OK) {
+                    if ($file && isset($file['error']) && (int) $file['error'] === UPLOAD_ERR_OK) {
                         $savedPath = $this->saveUploadedFile($file, $targetDir, $absoluteDir);
                         if ($savedPath) {
                             $savedPaths[] = $savedPath;
+                            $hasNewUpload = true;
                         }
                     }
                 }
@@ -262,10 +266,11 @@ class Liquidation extends MY_Controller
                             'error' => isset($_FILES['attachments']['error'][$index][$innerIndex]) ? $_FILES['attachments']['error'][$index][$innerIndex] : UPLOAD_ERR_NO_FILE,
                             'size' => isset($_FILES['attachments']['size'][$index][$innerIndex]) ? $_FILES['attachments']['size'][$index][$innerIndex] : 0,
                         );
-                        if ((int)$file['error'] === UPLOAD_ERR_OK) {
+                        if ((int) $file['error'] === UPLOAD_ERR_OK) {
                             $savedPath = $this->saveUploadedFile($file, $targetDir, $absoluteDir);
                             if ($savedPath) {
                                 $savedPaths[] = $savedPath;
+                                $hasNewUpload = true;
                             }
                         }
                     }
@@ -273,43 +278,48 @@ class Liquidation extends MY_Controller
             }
         }
 
-        $base64Candidates = array();
-        if (isset($expense['Attachment'])) {
-            $base64Candidates[] = $expense['Attachment'];
-        }
-        if (isset($expense['attachments']) && is_array($expense['attachments'])) {
-            foreach ($expense['attachments'] as $attachmentItem) {
-                if (is_string($attachmentItem)) {
-                    $base64Candidates[] = $attachmentItem;
-                } elseif (is_array($attachmentItem) && isset($attachmentItem['data'])) {
-                    $base64Candidates[] = $attachmentItem['data'];
+        // Only process Attachment field as existing names if NO new file was uploaded
+        // When editing, the Attachment field contains the NEW filename (not yet saved),
+        // so we must NOT treat it as an existing file to keep
+        if (!$hasNewUpload) {
+            $base64Candidates = array();
+            if (isset($expense['Attachment'])) {
+                $base64Candidates[] = $expense['Attachment'];
+            }
+            if (isset($expense['attachments']) && is_array($expense['attachments'])) {
+                foreach ($expense['attachments'] as $attachmentItem) {
+                    if (is_string($attachmentItem)) {
+                        $base64Candidates[] = $attachmentItem;
+                    } elseif (is_array($attachmentItem) && isset($attachmentItem['data'])) {
+                        $base64Candidates[] = $attachmentItem['data'];
+                    }
                 }
             }
-        }
 
-        foreach ($base64Candidates as $candidate) {
-            $candidateText = is_string($candidate) ? trim($candidate) : '';
-            if ($candidateText === '') {
-                continue;
-            }
-
-            if (stripos($candidateText, 'data:') === 0) {
-                $savedPath = $this->saveBase64Attachment($candidateText, $targetDir, $absoluteDir);
-                if ($savedPath) {
-                    $savedPaths[] = $savedPath;
-                }
-                continue;
-            }
-
-            $existingNames = explode(',', $candidateText);
-            foreach ($existingNames as $existingName) {
-                $trimmedName = trim($existingName);
-                if ($trimmedName === '') {
+            foreach ($base64Candidates as $candidate) {
+                $candidateText = is_string($candidate) ? trim($candidate) : '';
+                if ($candidateText === '') {
                     continue;
                 }
 
-                if (preg_match('/^[A-Za-z0-9._-]+$/', $trimmedName)) {
-                    $savedPaths[] = $trimmedName;
+                if (stripos($candidateText, 'data:') === 0) {
+                    $savedPath = $this->saveBase64Attachment($candidateText, $targetDir, $absoluteDir);
+                    if ($savedPath) {
+                        $savedPaths[] = $savedPath;
+                    }
+                    continue;
+                }
+
+                $existingNames = explode(',', $candidateText);
+                foreach ($existingNames as $existingName) {
+                    $trimmedName = trim($existingName);
+                    if ($trimmedName === '') {
+                        continue;
+                    }
+
+                    if (preg_match('/^[A-Za-z0-9._-]+$/', $trimmedName)) {
+                        $savedPaths[] = $trimmedName;
+                    }
                 }
             }
         }
@@ -481,7 +491,7 @@ class Liquidation extends MY_Controller
             }
 
             $file = $_FILES['image'];
-            if (!isset($file['error']) || (int)$file['error'] !== UPLOAD_ERR_OK) {
+            if (!isset($file['error']) || (int) $file['error'] !== UPLOAD_ERR_OK) {
                 return $this->respondError('Image upload failed.');
             }
 
@@ -540,7 +550,7 @@ class Liquidation extends MY_Controller
 
             $rawResponse = curl_exec($ch);
             $curlError = curl_error($ch);
-            $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
 
             if ($rawResponse === false || $curlError) {
@@ -564,11 +574,11 @@ class Liquidation extends MY_Controller
 
             $result = array(
                 'document_date' => $this->normalizeOcrDate(isset($ocr['document_date']) ? $ocr['document_date'] : ''),
-                'invoice_receipt_no' => isset($ocr['invoice_receipt_no']) ? (string)$ocr['invoice_receipt_no'] : '',
-                'actual_amount' => isset($ocr['actual_amount']) ? (float)$ocr['actual_amount'] : 0,
-                'description' => isset($ocr['description']) ? (string)$ocr['description'] : '',
-                'expense_category_name' => isset($ocr['expense_category_name']) ? (string)$ocr['expense_category_name'] : '',
-                'is_vatable' => isset($ocr['is_vatable']) ? (bool)$ocr['is_vatable'] : false,
+                'invoice_receipt_no' => isset($ocr['invoice_receipt_no']) ? (string) $ocr['invoice_receipt_no'] : '',
+                'actual_amount' => isset($ocr['actual_amount']) ? (float) $ocr['actual_amount'] : 0,
+                'description' => isset($ocr['description']) ? (string) $ocr['description'] : '',
+                'expense_category_name' => isset($ocr['expense_category_name']) ? (string) $ocr['expense_category_name'] : '',
+                'is_vatable' => isset($ocr['is_vatable']) ? (bool) $ocr['is_vatable'] : false,
             );
 
             return $this->respondSuccess('success', $result);
@@ -577,8 +587,9 @@ class Liquidation extends MY_Controller
         }
     }
 
-    public function api_get_ca_details_by_ca_no(){
-        try{
+    public function api_get_ca_details_by_ca_no()
+    {
+        try {
             $this->output->set_content_type('application/json');
             $data = $this->getRequestPayload();
             $requiredFields = array('CashAdvanceId');
@@ -597,28 +608,43 @@ class Liquidation extends MY_Controller
                 $params,
                 'row'
             );
-  
+
             return $this->respondSuccess("success", $result);
-        }catch(Exception $e){
+        } catch (Exception $e) {
             return $this->respondError("An error occurred: " . $e->getMessage());
         }
     }
 
-    public function api_get_expense_types(){
-        try{
+    public function api_get_expense_types()
+    {
+        try {
             $this->output->set_content_type('application/json');
+
+            $authHeader = $this->input->get_request_header('Authorization', TRUE);
+
+            if (!$authHeader || !preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
+                return $this->respondError("Unauthorized: Token missing", 401);
+            }
+
+            $token = $matches[1];
+
+            $secureToken = "12345678";
+
+            if ($token !== $secureToken) {
+                return $this->respondError("Unauthorized: Invalid token.", 401);
+            }
+
             $result = $this->sp->fetchData('sp_fetch_expense_types');
-         
-  
+
             return $this->respondSuccess("success", $result);
-        }catch(Exception $e){
-            return $this->respondError("An error occurred: " . $e->getMessage());
+        } catch (Exception $e) {
+            return $this->respondError("error: " . $e->getMessage());
         }
     }
 
     public function api_save_liquidation()
     {
-        try{
+        try {
 
             $this->output->set_content_type('application/json');
             $data = $this->getRequestPayload();
@@ -628,7 +654,7 @@ class Liquidation extends MY_Controller
                     $data['Expenses'] = $decodedExpenses;
                 }
             }
-            $requestedLiquidationId = isset($data['LiquidationId']) ? trim((string)$data['LiquidationId']) : '';
+            $requestedLiquidationId = isset($data['LiquidationId']) ? trim((string) $data['LiquidationId']) : '';
             if (!isset($data['CashAdvanceId']) || $data['CashAdvanceId'] === '') {
                 return $this->respondError("Missing required field: CashAdvanceId");
             }
@@ -636,21 +662,21 @@ class Liquidation extends MY_Controller
                 return $this->respondError("Missing required field: Expenses");
             }
 
-            $totalAmountSpent = isset($data['TotalAmountSpent']) ? (float)$data['TotalAmountSpent'] : (isset($data['TotalAmount']) ? (float)$data['TotalAmount'] : 0);
+            $totalAmountSpent = isset($data['TotalAmountSpent']) ? (float) $data['TotalAmountSpent'] : (isset($data['TotalAmount']) ? (float) $data['TotalAmount'] : 0);
             if ($totalAmountSpent <= 0) {
                 return $this->respondError("Missing required field: TotalAmountSpent");
             }
 
-            $cashAdvanceAmount = isset($data['CashAdvanceAmount']) ? (float)$data['CashAdvanceAmount'] : 0;
-            $refundAmount = isset($data['RefundAmount']) ? (float)$data['RefundAmount'] : 0;
-            $reimburseAmount = isset($data['ReimburseAmount']) ? (float)$data['ReimburseAmount'] : 0;
-            $expenseRangeFrom = isset($data['ExpenseRangeFrom']) ? trim((string)$data['ExpenseRangeFrom']) : '';
-            $expenseRangeTo = isset($data['ExpenseRangeTo']) ? trim((string)$data['ExpenseRangeTo']) : '';
+            $cashAdvanceAmount = isset($data['CashAdvanceAmount']) ? (float) $data['CashAdvanceAmount'] : 0;
+            $refundAmount = isset($data['RefundAmount']) ? (float) $data['RefundAmount'] : 0;
+            $reimburseAmount = isset($data['ReimburseAmount']) ? (float) $data['ReimburseAmount'] : 0;
+            $expenseRangeFrom = isset($data['ExpenseRangeFrom']) ? trim((string) $data['ExpenseRangeFrom']) : '';
+            $expenseRangeTo = isset($data['ExpenseRangeTo']) ? trim((string) $data['ExpenseRangeTo']) : '';
 
             if ($expenseRangeFrom === '' || $expenseRangeTo === '') {
                 $validExpenseDates = array();
                 foreach ($data['Expenses'] as $expenseItem) {
-                    $docDate = isset($expenseItem['DocumentDate']) ? trim((string)$expenseItem['DocumentDate']) : '';
+                    $docDate = isset($expenseItem['DocumentDate']) ? trim((string) $expenseItem['DocumentDate']) : '';
                     if ($docDate !== '' && strtotime($docDate) !== false) {
                         $validExpenseDates[] = date('Y-m-d', strtotime($docDate));
                     }
@@ -673,7 +699,7 @@ class Liquidation extends MY_Controller
                 $reimburseAmount = $variance < 0 ? abs($variance) : 0;
             }
 
-            $statusCode = isset($data['StatusCode']) && $data['StatusCode'] !== '' ? trim((string)$data['StatusCode']) : 'LQ_DRAFT';
+            $statusCode = isset($data['StatusCode']) && $data['StatusCode'] !== '' ? trim((string) $data['StatusCode']) : 'LQ_DRAFT';
             if ($statusCode !== 'LQ_DRAFT' && $statusCode !== 'LQ_SUBMITTED') {
                 $statusCode = 'LQ_DRAFT';
             }
@@ -685,13 +711,13 @@ class Liquidation extends MY_Controller
                     return $this->respondError('Draft liquidation not found.');
                 }
 
-                $currentUserId = (int)$this->session->userdata('user_id');
-                $createdById = isset($existingHeader['created_by_id']) ? (int)$existingHeader['created_by_id'] : 0;
+                $currentUserId = (int) $this->session->userdata('user_id');
+                $createdById = isset($existingHeader['created_by_id']) ? (int) $existingHeader['created_by_id'] : 0;
                 if ($createdById !== $currentUserId) {
                     return $this->respondError('You are not allowed to update this draft.');
                 }
 
-                $existingStatus = isset($existingHeader['status_code']) ? trim((string)$existingHeader['status_code']) : '';
+                $existingStatus = isset($existingHeader['status_code']) ? trim((string) $existingHeader['status_code']) : '';
                 if ($existingStatus !== 'LQ_DRAFT') {
                     return $this->respondError('Only draft liquidation can be updated.');
                 }
@@ -713,6 +739,13 @@ class Liquidation extends MY_Controller
                 $updateHeaderResult = $this->sp->createData(
                     build_sp('sp_update_liquidation_header_draft', count($updateHeaderParams)),
                     $updateHeaderParams
+                );
+                $this->logAuditTrail(
+                    'LIQUIDATION',
+                    $liquidationId,
+                    'SAVED_DRAFT',
+                    'HEADER',
+                    $liquidationId
                 );
 
                 if ($updateHeaderResult !== TRUE) {
@@ -754,19 +787,30 @@ class Liquidation extends MY_Controller
                 }
 
                 $liquidationId = $headerResult['GeneratedLiquidationID'];
+
+                $this->logAuditTrail(
+                    'LIQUIDATION',
+                    $liquidationId,
+                    'SUBMITTED',
+                    'HEADER',
+                    $liquidationId,
+                    null,
+                    null,
+                    null
+                );
             }
 
             foreach ($data['Expenses'] as $index => $expense) {
-                $actualAmount = isset($expense['ActualAmount']) ? (float)$expense['ActualAmount'] : (isset($expense['amount']) ? (float)$expense['amount'] : 0);
-                $expenseCategory = isset($expense['ExpenseCategory']) ? (int)$expense['ExpenseCategory'] : (isset($expense['expenseType']) ? (int)$expense['expenseType'] : 0);
-                $isVatable = isset($expense['IsVatable']) ? (bool)$expense['IsVatable'] : (isset($expense['isVattable']) ? (bool)$expense['isVattable'] : false);
+                $actualAmount = isset($expense['ActualAmount']) ? (float) $expense['ActualAmount'] : (isset($expense['amount']) ? (float) $expense['amount'] : 0);
+                $expenseCategory = isset($expense['ExpenseCategory']) ? (int) $expense['ExpenseCategory'] : (isset($expense['expenseType']) ? (int) $expense['expenseType'] : 0);
+                $isVatable = isset($expense['IsVatable']) ? (bool) $expense['IsVatable'] : (isset($expense['isVattable']) ? (bool) $expense['isVattable'] : false);
 
                 if ($actualAmount <= 0 || $expenseCategory <= 0) {
                     return $this->respondError("Invalid expense item at index {$index}");
                 }
 
-                $vatAmount = isset($expense['VatAmount']) ? (float)$expense['VatAmount'] : ($isVatable ? round($actualAmount * 0.12 / 1.12, 2) : 0);
-                $netAmount = isset($expense['NetAmount']) ? (float)$expense['NetAmount'] : ($isVatable ? round($actualAmount - $vatAmount, 2) : $actualAmount);
+                $vatAmount = isset($expense['VatAmount']) ? (float) $expense['VatAmount'] : ($isVatable ? round($actualAmount * 0.12 / 1.12, 2) : 0);
+                $netAmount = isset($expense['NetAmount']) ? (float) $expense['NetAmount'] : ($isVatable ? round($actualAmount - $vatAmount, 2) : $actualAmount);
 
                 $attachment = $this->collectAttachmentPaths($expense, $index);
 
@@ -799,12 +843,13 @@ class Liquidation extends MY_Controller
 
             return $this->respondSuccess($message, array('id' => $liquidationId));
 
-        }catch(Exception $e){
+        } catch (Exception $e) {
             return $this->respondError("An error occurred: " . $e->getMessage());
         }
     }
-    public function api_get_header(){
-       try {
+    public function api_get_header()
+    {
+        try {
             $this->output->set_content_type('application/json');
             $userId = $this->session->userdata('user_id');
             $cursorIdRaw = $this->input->post('CursorId');
@@ -860,8 +905,9 @@ class Liquidation extends MY_Controller
         }
     }
 
-    public function api_get_details(){
-        try{
+    public function api_get_details()
+    {
+        try {
             $this->output->set_content_type('application/json');
             $data = $this->getRequestPayload();
             $requiredFields = array('LiquidationId');
@@ -880,10 +926,352 @@ class Liquidation extends MY_Controller
                 $params,
                 'result'
             );
-  
+
             return $this->respondSuccess("success", $result);
-        }catch(Exception $e){
+        } catch (Exception $e) {
             return $this->respondError("An error occurred: " . $e->getMessage());
+        }
+    }
+
+
+
+    public function edit($liquidation_no = '')
+    {
+        $ref = trim((string) $liquidation_no);
+        if ($ref === '') {
+            redirect('transactions/liquidation');
+            return;
+        }
+
+        $data = array(
+            'title' => 'Edit Liquidation',
+            'main_view' => '../modules/liquidation/views/edit',
+            'module_group' => $this->module_group,
+            'module' => $this->module,
+            'liquidation_no' => $ref,
+            'scripts' => array(
+                '../shared/receipt-ocr.js',
+                '../liquidation/edit.js',
+            
+            ),
+        );
+
+        $this->load->view('main', $data);
+    }
+
+    public function api_get_for_edit()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $liquidationId = isset($data['LiquidationId']) ? trim((string) $data['LiquidationId']) : '';
+            if ($liquidationId === '') {
+                return $this->respondError('Missing required field: LiquidationId');
+            }
+
+            // Get header to verify ownership and status
+            $header = $this->getDraftHeaderByLiquidationId($liquidationId);
+            if (!$header) {
+                return $this->respondError('Liquidation not found.');
+            }
+
+            $userId = (int) $this->session->userdata('user_id');
+            $createdById = isset($header['created_by_id']) ? (int) $header['created_by_id'] : 0;
+            if ($createdById !== $userId) {
+                return $this->respondError('You are not allowed to edit this liquidation.');
+            }
+
+            $statusCode = isset($header['status_code']) ? trim((string) $header['status_code']) : '';
+            if ($statusCode !== 'LQ_SUBMITTED') {
+                return $this->respondError('Only submitted liquidations can be edited.');
+            }
+
+            // Get details
+            $detailParams = array(
+                'LiquidationId' => $liquidationId,
+            );
+            $details = $this->sp->readData(
+                build_sp('sp_fetch_liquidation_details', count($detailParams)),
+                $detailParams,
+                'result'
+            );
+
+            // Get approval status per item
+            // This assumes you have a view or SP that joins tbl_approval_per_items
+            $approvalParams = array(
+                'LiquidationId' => $liquidationId,
+            );
+            $approvals = $this->sp->readData(
+                build_sp('sp_fetch_liquidation_approvals', count($approvalParams)),
+                $approvalParams,
+                'result'
+            );
+
+            // Group approvals by line_item_id
+            $approvalMap = array();
+            if (is_array($approvals)) {
+                foreach ($approvals as $approval) {
+                    $lineItemId = isset($approval['line_item_id']) ? (int) $approval['line_item_id'] : 0;
+                    if ($lineItemId > 0) {
+                        if (!isset($approvalMap[$lineItemId])) {
+                            $approvalMap[$lineItemId] = array();
+                        }
+                        $approvalMap[$lineItemId][] = array(
+                            'approver_name' => isset($approval['approver_name']) ? $approval['approver_name'] : '',
+                            'status' => isset($approval['status']) ? $approval['status'] : '',
+                            'remarks' => isset($approval['remarks']) ? $approval['remarks'] : '',
+                        );
+                    }
+                }
+            }
+
+            // Merge approvals into details
+            $detailsWithStatus = array();
+            if (is_array($details)) {
+                foreach ($details as $detail) {
+                    $detailId = isset($detail['id']) ? (int) $detail['id'] : 0;
+                    $detail['approvals'] = isset($approvalMap[$detailId]) ? $approvalMap[$detailId] : array();
+                    $detailsWithStatus[] = $detail;
+                }
+            }
+
+            return $this->respondSuccess('success', array(
+                'header' => $header,
+                'details' => $detailsWithStatus,
+            ));
+        } catch (Exception $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
+    public function api_update_liquidation()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            if (isset($data['Expenses']) && is_string($data['Expenses'])) {
+                $decodedExpenses = json_decode($data['Expenses'], true);
+                if (is_array($decodedExpenses)) {
+                    $data['Expenses'] = $decodedExpenses;
+                }
+            }
+
+            $liquidationId = isset($data['LiquidationId']) ? trim((string) $data['LiquidationId']) : '';
+            if ($liquidationId === '') {
+                return $this->respondError('Missing required field: LiquidationId');
+            }
+
+            // Verify existing liquidation
+            $existingHeader = $this->getDraftHeaderByLiquidationId($liquidationId);
+            if (!$existingHeader) {
+                return $this->respondError('Liquidation not found.');
+            }
+
+            $currentUserId = (int) $this->session->userdata('user_id');
+            $createdById = isset($existingHeader['created_by_id']) ? (int) $existingHeader['created_by_id'] : 0;
+            if ($createdById !== $currentUserId) {
+                return $this->respondError('You are not allowed to update this liquidation.');
+            }
+
+            $existingStatus = isset($existingHeader['status_code']) ? trim((string) $existingHeader['status_code']) : '';
+            if ($existingStatus !== 'LQ_SUBMITTED') {
+                return $this->respondError('Only submitted liquidations can be updated.');
+            }
+
+            if (!isset($data['CashAdvanceId']) || $data['CashAdvanceId'] === '') {
+                return $this->respondError('Missing required field: CashAdvanceId');
+            }
+            if (!isset($data['Expenses']) || !is_array($data['Expenses']) || count($data['Expenses']) === 0) {
+                return $this->respondError('Missing required field: Expenses');
+            }
+
+            $totalAmountSpent = isset($data['TotalAmountSpent']) ? (float) $data['TotalAmountSpent'] : 0;
+            if ($totalAmountSpent <= 0) {
+                return $this->respondError('Missing required field: TotalAmountSpent');
+            }
+
+            $cashAdvanceAmount = isset($data['CashAdvanceAmount']) ? (float) $data['CashAdvanceAmount'] : 0;
+            $refundAmount = isset($data['RefundAmount']) ? (float) $data['RefundAmount'] : 0;
+            $reimburseAmount = isset($data['ReimburseAmount']) ? (float) $data['ReimburseAmount'] : 0;
+            $expenseRangeFrom = isset($data['ExpenseRangeFrom']) ? trim((string) $data['ExpenseRangeFrom']) : '';
+            $expenseRangeTo = isset($data['ExpenseRangeTo']) ? trim((string) $data['ExpenseRangeTo']) : '';
+            $statusCode = isset($data['StatusCode']) && $data['StatusCode'] !== '' ? trim((string) $data['StatusCode']) : 'LQ_SUBMITTED';
+
+            // Update header
+            $updateHeaderParams = array(
+                'LiquidationId' => $liquidationId,
+                'UserId' => $currentUserId,
+                'TotalAmountSpent' => $totalAmountSpent,
+                'RefundAmount' => $refundAmount,
+                'ReimburseAmount' => $reimburseAmount,
+                'StatusCode' => $statusCode,
+                'ExpenseRangeFrom' => $expenseRangeFrom,
+                'ExpenseRangeTo' => $expenseRangeTo,
+            );
+
+            $updateHeaderResult = $this->sp->createData(
+                build_sp('sp_update_liquidation_header_submitted', count($updateHeaderParams)),
+                $updateHeaderParams
+            );
+
+            $this->logAuditTrail(
+                'LIQUIDATION',
+                $liquidationId,
+                'RESUBMITTED',
+                'HEADER',
+                $liquidationId
+            );
+            if ($updateHeaderResult !== TRUE) {
+                return $this->respondError('Failed to update liquidation header.');
+            }
+
+            $approvalParams = array(
+                'LiquidationId' => $liquidationId,
+            );
+            $approvals = $this->sp->readData(
+                build_sp('sp_fetch_liquidation_approvals', count($approvalParams)),
+                $approvalParams,
+                'result'
+            );
+
+            $approvedItemIds = array();
+            $itemApprovalStatus = array();
+            if (is_array($approvals)) {
+                foreach ($approvals as $approval) {
+                    $lineItemId = isset($approval['line_item_id']) ? (int) $approval['line_item_id'] : 0;
+                    $status = isset($approval['status']) ? trim((string) $approval['status']) : '';
+                    if ($lineItemId > 0) {
+                        if (!isset($itemApprovalStatus[$lineItemId])) {
+                            $itemApprovalStatus[$lineItemId] = array();
+                        }
+                        $itemApprovalStatus[$lineItemId][] = $status;
+                    }
+                }
+            }
+
+            foreach ($itemApprovalStatus as $itemId => $statuses) {
+                $allApproved = true;
+                foreach ($statuses as $status) {
+                    if ($status !== 'APPROVED') {
+                        $allApproved = false;
+                        break;
+                    }
+                }
+                if ($allApproved && count($statuses) > 0) {
+                    $approvedItemIds[] = $itemId;
+                }
+            }
+
+            $deleteDetailParams = array(
+                'LiquidationId' => $liquidationId,
+                'KeepItemIds' => implode(',', $approvedItemIds),
+            );
+            $deleteDetailResult = $this->sp->createData(
+                build_sp('sp_delete_liquidation_details_except_approved', count($deleteDetailParams)),
+                $deleteDetailParams
+            );
+
+            if ($deleteDetailResult !== TRUE) {
+                return $this->respondError('Failed to refresh expense details.');
+            }
+
+            // Insert new/updated details
+            foreach ($data['Expenses'] as $index => $expense) {
+                $itemId = isset($expense['Id']) ? trim((string) $expense['Id']) : '';
+                $isNew = isset($expense['IsNew']) ? (bool) $expense['IsNew'] : false;
+
+                // Skip fully approved existing items
+                if (!$isNew && $itemId !== '') {
+                    $itemIdNum = (int) $itemId;
+                    if (in_array($itemIdNum, $approvedItemIds)) {
+                        continue;
+                    }
+                }
+
+                $actualAmount = isset($expense['ActualAmount']) ? (float) $expense['ActualAmount'] : 0;
+                $expenseCategory = isset($expense['ExpenseCategory']) ? (int) $expense['ExpenseCategory'] : 0;
+                $isVatable = isset($expense['IsVatable']) ? (bool) $expense['IsVatable'] : false;
+
+                if ($actualAmount <= 0 || $expenseCategory <= 0) {
+                    return $this->respondError('Invalid expense item at index ' . $index);
+                }
+
+                $vatAmount = $isVatable ? round($actualAmount * 0.12 / 1.12, 2) : 0;
+                $netAmount = $isVatable ? round($actualAmount - $vatAmount, 2) : $actualAmount;
+                $attachment = $this->collectAttachmentPaths($expense, $index);
+
+                $detailParams = array(
+                    'LiquidationId' => $liquidationId,
+                    'Description' => isset($expense['Description']) ? $expense['Description'] : '',
+                    'InvoiceReceiptNo' => isset($expense['InvoiceReceiptNo']) ? $expense['InvoiceReceiptNo'] : '',
+                    'ActualAmount' => $actualAmount,
+                    'DocumentDate' => isset($expense['DocumentDate']) ? $expense['DocumentDate'] : '',
+                    'ExpenseCategory' => $expenseCategory,
+                    'IsVatable' => $isVatable ? 1 : 0,
+                    'NetAmount' => $netAmount,
+                    'VatAmount' => $vatAmount,
+                    'Attachment' => $attachment,
+                );
+
+                $detailResult = $this->sp->createData(
+                    build_sp('sp_insert_liquidation_details', count($detailParams)),
+                    $detailParams
+                );
+
+                if ($detailResult !== TRUE) {
+                    return $this->respondError('Failed to save expense detail at index ' . $index);
+                }
+            }
+
+            // if ($statusCode === 'LQ_SUBMITTED') {
+            //     $resetApprovalParams = array(
+            //         'LiquidationId' => $liquidationId,
+            //         'KeepItemIds' => implode(',', $approvedItemIds),
+            //     );
+            //     $this->sp->createData(
+            //         build_sp('sp_reset_approvals_for_edit', count($resetApprovalParams)),
+            //         $resetApprovalParams
+            //     );
+            // }
+
+            $message = $statusCode === 'LQ_DRAFT'
+                ? 'Liquidation saved as draft successfully'
+                : 'Liquidation updated and resubmitted successfully';
+
+            return $this->respondSuccess($message, array('id' => $liquidationId));
+        } catch (Exception $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+       public function api_get_timeline()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $referenceNo = isset($data['ReferenceNo']) ? trim((string) $data['ReferenceNo']) : '';
+            if ($referenceNo === '') {
+                return $this->respondError('Missing ReferenceNo');
+            }
+
+            // Fetch audit trail
+            $auditParams = array(
+                'TransactionId' => $referenceNo,
+            );
+            $auditTrail = $this->sp->readData(
+                build_sp('sp_fetch_audit_trail', count($auditParams)),
+                $auditParams,
+                'result'
+            );
+
+            return $this->respondSuccess('Timeline fetched', array(
+                'audit_trail' => is_array($auditTrail) ? $auditTrail : array(),
+            ));
+
+        } catch (Throwable $e) {
+            return $this->respondError($e->getMessage());
         }
     }
 }

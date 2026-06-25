@@ -56,6 +56,28 @@ class MY_Controller extends MX_Controller
                 'result'
             );
         }
+
+        
+    }
+
+    protected function logAuditTrail($transactionType, $transactionId, $action, $entityType, $entityId, $fieldName = null, $oldValue = null, $newValue = null)
+    {
+        $params = array(
+            'TransactionType' => $transactionType,
+            'TransactionId'   => $transactionId,
+            'Action'          => $action,
+            'EntityType'      => $entityType,
+            'EntityId'        => $entityId,
+            'FieldName'       => $fieldName,
+            'OldValue'        => $oldValue,
+            'NewValue'        => $newValue,
+            'ChangedBy'       => (int)$this->session->userdata('user_id'),
+        );
+
+        return $this->sp->createData(
+            build_sp('sp_insert_audit_trail', count($params)),
+            $params
+        );
     }
 }
 

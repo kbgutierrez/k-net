@@ -1,5 +1,6 @@
 let detailsApproverOptions = [];
 let detailsDepartmentOptions = [];
+let isRefreshingOptions = false;
 
 const detailsDom = {
 	matrixId: null,
@@ -40,15 +41,15 @@ const detailsApproverRowMarkup = (detail = {}) => {
 	const order = Number(detail.approval_order || 1);
 	const type = String(detail.approval_type || 'SEQUENTIAL').toUpperCase() === 'PARALLEL' ? 'PARALLEL' : 'SEQUENTIAL';
 	return `
-		<div class="kna-approver-row" data-approver-row>
+		<div class="kna-approver-row" data-approver-row style="position: relative;">
 			<div class="form-row align-items-end">
-				<div class="form-group col-md-6 mb-1">
+				<div class="form-group col-md-6 mb-1 select2-parent-container">
 					<label class="kna-form-label kna-small">Approver</label>
 					<select class="form-control form-control-sm kna-small js-approver-id">${buildApproverSelectMarkup(approverId)}</select>
 				</div>
 				<div class="form-group col-md-2 mb-1">
 					<label class="kna-form-label kna-small">Order</label>
-					<input type="number" min="1" class="form-control form-control-sm kna-small js-approver-order" value="${escapeHtml(String(order))}">
+					<input type="number" min="1" class="form-control form-control-sm kna-small js-approver-order" value="${escapeHtml(String(order))}" readonly>
 				</div>
 				<div class="form-group col-md-3 mb-1">
 					<label class="kna-form-label kna-small">Approval Type</label>
@@ -66,8 +67,101 @@ const detailsApproverRowMarkup = (detail = {}) => {
 };
 
 const initApproverRowSelect2 = (rowEl) => {
-	$(rowEl).find('.js-approver-id').select2({ width: '100%', placeholder: 'Select approver' });
-	$(rowEl).find('.js-approver-type').select2({ width: '100%', minimumResultsForSearch: Infinity });
+	const $row = $(rowEl);
+	
+	$row.find('.js-approver-id').select2({ 
+		width: '100%', 
+		placeholder: 'Select approver',
+		dropdownParent: $row.find('.select2-parent-container') 
+	});
+	
+	$row.find('.js-approver-type').select2({ 
+		width: '100%', 
+		minimumResultsForSearch: Infinity,
+		dropdownParent: $row 
+	});
+};
+
+const getApproverRows = () => Array.from(document.querySelectorAll('[data-approver-row]'));
+const getApprovalType = (row) => String($(row).find('.js-approver-type').val() || 'SEQUENTIAL').toUpperCase();
+
+const renumberApproverOrders = () => {
+	let currentLevel = 0;
+	let previousApprovalType = 'SEQUENTIAL';
+	getApproverRows().forEach((row, index) => {
+		const orderInput = row.querySelector('.js-approver-order');
+		const approvalType = getApprovalType(row);
+
+		if (index === 0) {
+			currentLevel = 1;
+		} else if (approvalType === 'PARALLEL') {
+			if (previousApprovalType !== 'PARALLEL') {
+				currentLevel += 1;
+			}
+		} else {
+			currentLevel += 1;
+		}
+
+		if (orderInput) {
+			orderInput.value = String(currentLevel);
+		}
+		previousApprovalType = approvalType;
+	});
+};
+
+const normalizeDuplicateApprovers = () => {
+	const seen = new Set();
+	getApproverRows().forEach((row) => {
+		const select = row.querySelector('.js-approver-id');
+		if (!select) return;
+		const value = String(select.value || '');
+		if (!value) return;
+
+		if (seen.has(value)) {
+			$(select).val(null).trigger('change.select2');
+			return;
+		}
+		seen.add(value);
+	});
+};
+
+const refreshApproverOptions = () => {
+	if (isRefreshingOptions) return;
+	isRefreshingOptions = true;
+
+	normalizeDuplicateApprovers();
+
+	const rows = getApproverRows();
+	
+	const selectedIds = rows
+		.map((row) => String(row.querySelector('.js-approver-id')?.value || ''))
+		.filter(Boolean);
+
+	rows.forEach((row) => {
+		const select = row.querySelector('.js-approver-id');
+		if (!select) return;
+
+		const currentValue = String(select.value || '');
+		let hasChanges = false;
+
+		Array.from(select.options).forEach((option) => {
+			const optionValue = String(option.value || '');
+			if (!optionValue) return;
+
+			const shouldDisable = selectedIds.includes(optionValue) && optionValue !== currentValue;
+
+			if (option.disabled !== shouldDisable) {
+				option.disabled = shouldDisable;
+				hasChanges = true;
+			}
+		});
+
+		if (hasChanges) {
+			$(select).trigger('change.select2');
+		}
+	});
+
+	isRefreshingOptions = false;
 };
 
 const renderDetailsApproverRows = (details) => {
@@ -79,6 +173,8 @@ const renderDetailsApproverRows = (details) => {
 	Array.from(detailsDom.approverRows.querySelectorAll('[data-approver-row]')).forEach((row) => {
 		initApproverRowSelect2(row);
 	});
+	renumberApproverOrders();
+	refreshApproverOptions();
 };
 
 const populateDetailsDepartmentSelect = (selectedId) => {
@@ -87,8 +183,8 @@ const populateDetailsDepartmentSelect = (selectedId) => {
 	}
 	detailsDom.departmentId.innerHTML = ['<option value="">Select department</option>'].concat(
 		detailsDepartmentOptions.map((d) => {
-			const sel = String(d.id) === String(selectedId) ? 'selected' : '';
-			return `<option value="${escapeHtml(String(d.id))}" ${sel}>${escapeHtml(d.name)}</option>`;
+			const sel = String(d.department_id) === String(selectedId) ? 'selected' : '';
+			return `<option value="${escapeHtml(String(d.department_id))}" ${sel}>${escapeHtml(d.department)}</option>`;
 		}),
 	).join('');
 	$(detailsDom.departmentId).select2({ width: '100%', placeholder: 'Select department' });
@@ -100,15 +196,24 @@ const loadApprovers = (onDone) => {
 			const res = typeof response === 'string' ? $.parseJSON(response) : response;
 			if (res.status === 'success') {
 				detailsApproverOptions = res.data || [];
-				const seen = {};
-				detailsDepartmentOptions = [];
-				detailsApproverOptions.forEach((item) => {
-					const deptId = String(item.department_id || '');
-					if (deptId && !seen[deptId]) {
-						seen[deptId] = true;
-						detailsDepartmentOptions.push({ id: deptId, name: normalizeText(item.department) });
-					}
-				});
+			}
+			if (typeof onDone === 'function') {
+				onDone();
+			}
+		})
+		.fail(() => {
+			if (typeof onDone === 'function') {
+				onDone();
+			}
+		});
+};
+
+const loadDepartments = (onDone) => {
+	ajax_loader('maintenance/approval-matrix/api/get/departments', {})
+		.done((response) => {
+			const res = typeof response === 'string' ? $.parseJSON(response) : response;
+			if (res.status === 'success') {
+				detailsDepartmentOptions = res.data || [];
 			}
 			if (typeof onDone === 'function') {
 				onDone();
@@ -122,7 +227,6 @@ const loadApprovers = (onDone) => {
 };
 
 const loadMatrixHeader = (matrixId) => {
-	console.log('Loading matrix header for ID:', matrixId);
 	ajax_loader(`maintenance/approval-matrix/api/get/details/header/${matrixId}`, { MatrixId: matrixId })
 		.done((response) => {
 			const res = typeof response === 'string' ? $.parseJSON(response) : response;
@@ -135,7 +239,12 @@ const loadMatrixHeader = (matrixId) => {
 			if (detailsDom.minAmount) detailsDom.minAmount.value = Number(header.min_amount || 0).toFixed(2);
 			if (detailsDom.maxAmount) detailsDom.maxAmount.value = Number(header.max_amount || 0).toFixed(2);
 			if (detailsDom.isActive) detailsDom.isActive.value = Number(header.is_active || 0) ? '1' : '0';
+			
 			populateDetailsDepartmentSelect(String(header.department_id || ''));
+			
+			// Re-init Select2 for header fields after values are set
+			$(detailsDom.transactionType).select2({ width: '100%', minimumResultsForSearch: Infinity });
+			$(detailsDom.isActive).select2({ width: '100%', minimumResultsForSearch: Infinity });
 		});
 };
 
@@ -151,9 +260,9 @@ const loadMatrixDetails = (matrixId) => {
 
 const collectApprovers = () => {
 	const rows = Array.from(document.querySelectorAll('[data-approver-row]'));
-	return rows.map((row, index) => ({
+	return rows.map((row) => ({
 		approver_id: String($(row).find('.js-approver-id').val() || ''),
-		approval_order: Number((row.querySelector('.js-approver-order') || {}).value || (index + 1)),
+		approval_order: Number((row.querySelector('.js-approver-order') || {}).value || 0),
 		approval_type: String($(row).find('.js-approver-type').val() || 'SEQUENTIAL'),
 	})).filter((item) => item.approver_id && item.approval_order > 0);
 };
@@ -178,6 +287,8 @@ const validateDetailsForm = (payload) => {
 };
 
 const saveChanges = () => {
+	renumberApproverOrders();
+
 	const matrixId = Number((detailsDom.matrixId && detailsDom.matrixId.value) || 0);
 
 	const payload = {
@@ -197,21 +308,33 @@ const saveChanges = () => {
 		return;
 	}
 
-	ajax_loader('maintenance/approval-matrix/api/update', payload)
-		.done((response) => {
-			const res = typeof response === 'string' ? $.parseJSON(response) : response;
-			if (res.status === 'success') {
-				Swal.fire({ icon: 'success', title: 'Saved', text: 'Approval matrix updated successfully.' })
-					.then(() => {
-						window.location.href = `${base_url}maintenance/approval-matrix`;
-					});
-			} else {
-				Swal.fire({ icon: 'error', title: 'Error', text: res.response || 'Failed to update.' });
-			}
-		})
-		.fail(() => {
-			Swal.fire({ icon: 'error', title: 'Error', text: 'Unable to save. Please try again.' });
-		});
+	Swal.fire({
+		icon: 'question',
+		title: 'Confirm Update',
+		text: 'Are you sure you want to update this approval matrix?',
+		showCancelButton: true,
+		confirmButtonText: 'Yes',
+		cancelButtonText: 'No',
+		reverseButtons: true,
+	}).then((result) => {
+		if (result.isConfirmed) {
+			ajax_loader('maintenance/approval-matrix/api/update', payload)
+				.done((response) => {
+					const res = typeof response === 'string' ? $.parseJSON(response) : response;
+					if (res.status === 'success') {
+						Swal.fire({ icon: 'success', title: 'Updated', text: 'Approval matrix updated successfully.' })
+							.then(() => {
+								window.location.href = `${base_url}maintenance/approval-matrix`;
+							});
+					} else {
+						Swal.fire({ icon: 'error', title: 'Error', text: res.response || 'Failed to update.' });
+					}
+				})
+				.fail(() => {
+					Swal.fire({ icon: 'error', title: 'Error', text: 'Unable to update. Please try again.' });
+				});
+		}
+	});
 };
 
 const cacheDetailsDom = () => {
@@ -237,7 +360,10 @@ const bindDetailsEvents = () => {
 			const lastRow = detailsDom.approverRows.querySelector('[data-approver-row]:last-child');
 			if (lastRow) {
 				initApproverRowSelect2(lastRow);
+				lastRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 			}
+			renumberApproverOrders();
+			refreshApproverOptions();
 		});
 	}
 
@@ -257,9 +383,35 @@ const bindDetailsEvents = () => {
 		}
 		const row = target.closest('[data-approver-row]');
 		if (row) {
+			// Explicitly unbind Select2 and nullify value BEFORE dropping the row from DOM
+			const $approverSelect = $(row).find('.js-approver-id');
+			const $typeSelect = $(row).find('.js-approver-type');
+			
+			if ($approverSelect.data('select2')) {
+				$approverSelect.val(null).trigger('change.select2');
+				$approverSelect.select2('destroy');
+			}
+			if ($typeSelect.data('select2')) {
+				$typeSelect.select2('destroy');
+			}
+
 			row.remove();
+			
+			renumberApproverOrders();
+			refreshApproverOptions();
 		}
 	});
+
+	if (detailsDom.approverRows) {
+		$(detailsDom.approverRows).on('change select2:select select2:clear', '.js-approver-type', () => {
+			renumberApproverOrders();
+		});
+
+		$(detailsDom.approverRows).on('select2:select select2:clear', '.js-approver-id', function () {
+			refreshApproverOptions();
+			renumberApproverOrders();
+		});
+	}
 };
 
 $(document).ready(() => {
@@ -271,13 +423,12 @@ $(document).ready(() => {
 		return;
 	}
 
-	// Load approvers first, then load matrix data so selects are populated before values are set
+	// Load approvers and departments first, then load matrix data
 	loadApprovers(() => {
-		populateDetailsDepartmentSelect('');
-		$(detailsDom.transactionType).select2({ width: '100%', minimumResultsForSearch: Infinity });
-		$(detailsDom.isActive).select2({ width: '100%', minimumResultsForSearch: Infinity });
-		renderDetailsApproverRows([]);
-		loadMatrixHeader(matrixId);
-		loadMatrixDetails(matrixId);
+		loadDepartments(() => {
+			populateDetailsDepartmentSelect('');
+			loadMatrixHeader(matrixId);
+			loadMatrixDetails(matrixId);
+		});
 	});
 });
