@@ -43,3 +43,4 @@ application/vendor/
 *.zip
 
 assets/js/bert_model/*
+.refact/buddy/state.json
