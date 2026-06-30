@@ -28,7 +28,10 @@
         "box/spout": "*",
         "phpmailer/phpmailer": "^6.9",
         "knplabs/knp-snappy": "*",
-        "mpdf/mpdf": "*"
+        "mpdf/mpdf": "*",
+        "setasign/fpdf": "*",
+        "setasign/fpdi": "*",
+        "tecnickcom/tcpdf": "^6.11"
     },
     "suggest": {
         "paragonie/random_compat": "Provides better randomness in PHP 5.x"

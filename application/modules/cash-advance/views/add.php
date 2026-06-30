@@ -144,6 +144,24 @@
       grid-template-columns: 1fr;
     }
   }
+  .select2-container--default .select2-selection--single {
+    height:32px;
+    border-radius:4px;
+    border:1px solid #ced4da;
+}
+
+.select2-container--default 
+.select2-selection--single 
+.select2-selection__rendered {
+    line-height:30px;
+    font-size:12px;
+}
+
+.select2-container--default 
+.select2-selection--single 
+.select2-selection__arrow {
+    height:30px;
+}
 </style>
 
 <div class="page-inner kna-page">
@@ -177,10 +195,10 @@
           </div>
           <div class="form-group">
             <label class="kna-form-label">Cost Center <span class="text-danger">*</span></label>
-            <select class="form-control form-control-sm" id="newCostCenter" required>
+            <select class="form-control form-control-sm select2" id="newCostCenter" required>
               <option value="">Select</option>
               <?php foreach ($cost_centers as $cc): ?>
-                <option value="<?= $cc['id']; ?>"><?= html_escape($cc['cost_center_name']); ?></option>
+                <option value="<?= $cc['cost_center_code']; ?>"><?= html_escape($cc['cost_center_code'] . ' - ' . $cc['cost_center_name']); ?></option>
               <?php endforeach; ?>
             </select>
           </div>

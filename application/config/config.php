@@ -535,3 +535,8 @@ $config['proxy_ips'] = '';
 $config['modules_locations'] = array(
   APPPATH . 'modules/' => '../modules/',
 );
+
+
+$config['kflow_bridge_path'] = '/var/www/shared/knet_kflow_bridge/'; // MUST be writable by both systems
+$config['kflow_base_url']    = 'https://lsbizportal.lemonsquare.com.ph/k-flow-dev/';     // K-flow base URL
+$config['kflow_secret_key']  = '123456789012345678901234567890123'; // 32-character secret key for K-flow integration

@@ -9,4 +9,5 @@ $route['transactions/cash-advance/api/get'] = 'Cash_Advance/api_get';
 $route['transactions/cash-advance/api/get/detail'] = 'Cash_Advance/api_get_detail';
 $route['transactions/cash-advance/api/get/timeline'] = 'Cash_Advance/api_get_timeline';
 $route['transactions/cash-advance/api/check-pending'] = 'Cash_Advance/api_check_pending';
+$route['transactions/cash-advance/test-pdf-coords'] = 'Cash_Advance/test_pdf_coords';
 ?>
