@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 .DS_Store
 
 application/cache/*
@@ -11,7 +10,6 @@ application/logs/*
 
 composer.lock
 tests/mocks/database/ci_test.sqlite
-=======
 */config/development
 */logs/log-*.php
 !*/logs/index.html
@@ -19,13 +17,11 @@ tests/mocks/database/ci_test.sqlite
 !system/cache/*
 !*/cache/index.html
 !*/cache/.htaccess
->>>>>>> e6d38a1894d9b5a2117870c38981be94c9c907ae
 
 user_guide_src/build/*
 user_guide_src/cilexer/build/*
 user_guide_src/cilexer/dist/*
 user_guide_src/cilexer/pycilexer.egg-info/*
-<<<<<<< HEAD
 /vendor/
 
 .refact
@@ -55,11 +51,9 @@ application/vendor/
 
 assets/js/bert_model/*
 .refact/buddy/state.json
-=======
 
 #codeigniter 3
 application/logs/*
 !application/logs/index.html
 !application/logs/.htaccess
 /vendor/
->>>>>>> e6d38a1894d9b5a2117870c38981be94c9c907ae
