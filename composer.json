@@ -31,7 +31,8 @@
         "mpdf/mpdf": "*",
         "setasign/fpdf": "*",
         "setasign/fpdi": "*",
-        "tecnickcom/tcpdf": "^6.11"
+        "tecnickcom/tcpdf": "^6.11",
+        "vlucas/phpdotenv": "*"
     },
     "suggest": {
         "paragonie/random_compat": "Provides better randomness in PHP 5.x"

@@ -125,11 +125,71 @@ class Approvals extends MY_Controller
                 $params,
                 'result'
             );
+
+            if (is_array($result)) {
+                foreach ($result as &$row) {
+                    if (!is_array($row)) {
+                        continue;
+                    }
+
+                    $finalPath = isset($row['final_pdf_path']) ? $this->normalizeRelativeAssetPath($row['final_pdf_path']) : '';
+                    $generatedPath = isset($row['generated_pdf_path']) ? $this->normalizeRelativeAssetPath($row['generated_pdf_path']) : '';
+
+                    $row['final_pdf_path'] = $finalPath;
+                    $row['generated_pdf_path'] = $generatedPath;
+                    $row['final_pdf_url'] = $this->buildPublicUrlFromRelativePath($finalPath);
+                    $row['generated_pdf_url'] = $this->buildPublicUrlFromRelativePath($generatedPath);
+
+                    // Prefer final PDF for approvers when available.
+                    $activePath = $finalPath !== '' ? $finalPath : $generatedPath;
+                    $row['active_pdf_url'] = $this->buildPublicUrlFromRelativePath($activePath);
+                }
+                unset($row);
+            }
             
             return $this->respondSuccess("Details fetched successfully.", $result);
         } catch (Exception $e) {
             return $this->respondError("An error occurred: " . $e->getMessage());
         }
+    }
+
+    private function normalizeRelativeAssetPath($path)
+    {
+        $value = trim((string) $path);
+        if ($value === '') {
+            return '';
+        }
+
+        $value = str_replace('\\', '/', $value);
+
+        if (preg_match('#^https?://#i', $value)) {
+            return $value;
+        }
+
+        if (strpos($value, 'assets/') === 0) {
+            return $value;
+        }
+
+        $assetsPos = stripos($value, '/assets/');
+        if ($assetsPos !== false) {
+            return ltrim(substr($value, $assetsPos + 1), '/');
+        }
+
+        return '';
+    }
+
+    private function buildPublicUrlFromRelativePath($relativePath)
+    {
+        $relative = $this->normalizeRelativeAssetPath($relativePath);
+        if ($relative === '') {
+            return '';
+        }
+
+        if (preg_match('#^https?://#i', $relative)) {
+            return $relative;
+        }
+
+        return base_url($relative);
     }
 
     /**

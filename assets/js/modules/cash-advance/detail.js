@@ -7,7 +7,20 @@ const domDetail = {
 	viewStatus: null,
 	viewPurpose: null,
 	viewTimeline: null,
+	viewPdfSection: null,
+	viewPdfState: null,
+	viewPdfIframe: null,
+	viewPdfEmpty: null,
+	viewPdfOpenNewTab: null,
+	viewWorkflowSection: null,
+	viewWorkflowIframe: null,
+	viewWorkflowOpenNewTab: null,
+	serverKflowUrl: null,
 };
+
+let forcedKflowEmbedUrl = '';
+const KFLOW_URL_STORAGE_PREFIX = 'knet_ca_kflow_url_';
+const KFLOW_PUBLISHED_STORAGE_PREFIX = 'knet_ca_kflow_published_';
 
 const formatPHP = (amount) => {
 	const value = Number(amount || 0);
@@ -23,6 +36,76 @@ const escapeHtml = (value = '') =>
 		.replace(/>/g, '&gt;')
 		.replace(/"/g, '&quot;')
 		.replace(/'/g, '&#39;');
+
+const getKflowStorageKey = (caRef) => `${KFLOW_URL_STORAGE_PREFIX}${normalizeDate(caRef)}`;
+
+const saveKflowUrlToStorage = (caRef, url) => {
+	if (!caRef || !url) {
+		return;
+	}
+	try {
+		window.localStorage.setItem(getKflowStorageKey(caRef), url);
+	} catch (error) {
+		// Ignore storage issues and continue normally.
+	}
+};
+
+const readKflowUrlFromStorage = (caRef) => {
+	if (!caRef) {
+		return '';
+	}
+	try {
+		return normalizeDate(window.localStorage.getItem(getKflowStorageKey(caRef)) || '');
+	} catch (error) {
+		return '';
+	}
+};
+
+const clearKflowUrlFromStorage = (caRef) => {
+	if (!caRef) {
+		return;
+	}
+	try {
+		window.localStorage.removeItem(getKflowStorageKey(caRef));
+	} catch (error) {
+		// Ignore storage issues and continue normally.
+	}
+};
+
+const getKflowPublishedStorageKey = (caRef) => `${KFLOW_PUBLISHED_STORAGE_PREFIX}${normalizeDate(caRef)}`;
+
+const markKflowPublished = (caRef) => {
+	if (!caRef) {
+		return;
+	}
+	try {
+		window.localStorage.setItem(getKflowPublishedStorageKey(caRef), '1');
+	} catch (error) {
+		// Ignore storage issues and continue normally.
+	}
+};
+
+const isKflowPublished = (caRef) => {
+	if (!caRef) {
+		return false;
+	}
+	try {
+		return window.localStorage.getItem(getKflowPublishedStorageKey(caRef)) === '1';
+	} catch (error) {
+		return false;
+	}
+};
+
+const clearKflowPublished = (caRef) => {
+	if (!caRef) {
+		return;
+	}
+	try {
+		window.localStorage.removeItem(getKflowPublishedStorageKey(caRef));
+	} catch (error) {
+		// Ignore storage issues and continue normally.
+	}
+};
 
 const getStatusBadge = (status) => {
 	if (status === 'Pending Approval') {
@@ -226,6 +309,182 @@ const renderHistoryTimeline = (auditTrail) => {
 	container.innerHTML = html;
 };
 
+const renderDocumentPanels = (record) => {
+	if (!record) {
+		return;
+	}
+
+	const activePdfUrl = normalizeDate(record.active_pdf_url || '');
+	const unsignedPdfUrl = normalizeDate(record.unsigned_pdf_url || '');
+	const signedPdfUrl = normalizeDate(record.signed_pdf_url || '');
+	const apiKflowEmbedUrl = normalizeDate(record.kflow_embed_url || '');
+	const kflowEmbedUrl = forcedKflowEmbedUrl || apiKflowEmbedUrl;
+	const finalApproved = Number(record.is_final_approved || 0) === 1;
+	const kflowDocStatus = Number(record.kflow_doc_status || 0);
+	const isRejected = kflowDocStatus === 3;
+	const caRef = normalizeDate(record.cash_advance_id || (domDetail.cashAdvanceRef ? domDetail.cashAdvanceRef.value : ''));
+	const workflowPublished = isKflowPublished(caRef);
+	const showWorkflow = !isRejected && Boolean(kflowEmbedUrl) && !workflowPublished;
+
+	let stateText = 'Unsigned PDF (Pending Final Approval)';
+	if (finalApproved && signedPdfUrl) {
+		stateText = 'Signed PDF (KFlow Approved)';
+	} else if (!unsignedPdfUrl && !activePdfUrl) {
+		stateText = 'Document Preview Not Available';
+	}
+
+	if (isRejected) {
+		stateText = 'Document Hidden (Rejected in K-flow)';
+	}
+
+	if (domDetail.viewPdfState) {
+		domDetail.viewPdfState.textContent = stateText;
+	}
+
+	if (activePdfUrl) {
+		if (domDetail.viewPdfIframe) {
+			domDetail.viewPdfIframe.src = activePdfUrl;
+			domDetail.viewPdfIframe.classList.remove('d-none');
+		}
+		if (domDetail.viewPdfEmpty) {
+			domDetail.viewPdfEmpty.classList.add('d-none');
+		}
+		if (domDetail.viewPdfOpenNewTab) {
+			domDetail.viewPdfOpenNewTab.href = activePdfUrl;
+			domDetail.viewPdfOpenNewTab.classList.remove('d-none');
+		}
+	} else {
+		if (domDetail.viewPdfIframe) {
+			domDetail.viewPdfIframe.src = 'about:blank';
+			domDetail.viewPdfIframe.classList.add('d-none');
+		}
+		if (domDetail.viewPdfEmpty) {
+			domDetail.viewPdfEmpty.classList.remove('d-none');
+		}
+		if (domDetail.viewPdfOpenNewTab) {
+			domDetail.viewPdfOpenNewTab.removeAttribute('href');
+			domDetail.viewPdfOpenNewTab.classList.add('d-none');
+		}
+	}
+
+	if (domDetail.viewPdfSection) {
+		domDetail.viewPdfSection.classList.toggle('d-none', showWorkflow || isRejected);
+	}
+
+	if (showWorkflow) {
+		forcedKflowEmbedUrl = kflowEmbedUrl;
+		saveKflowUrlToStorage(caRef, kflowEmbedUrl);
+
+		if (domDetail.viewWorkflowSection) {
+			domDetail.viewWorkflowSection.classList.remove('d-none');
+		}
+		if (domDetail.viewWorkflowIframe) {
+			const currentSrc = domDetail.viewWorkflowIframe.getAttribute('src') || '';
+			if (currentSrc !== kflowEmbedUrl) {
+				domDetail.viewWorkflowIframe.src = kflowEmbedUrl;
+			}
+		}
+		if (domDetail.viewWorkflowOpenNewTab) {
+			domDetail.viewWorkflowOpenNewTab.href = kflowEmbedUrl;
+			domDetail.viewWorkflowOpenNewTab.classList.remove('d-none');
+		}
+	} else {
+		if (domDetail.viewWorkflowSection) {
+			domDetail.viewWorkflowSection.classList.add('d-none');
+		}
+		if (domDetail.viewWorkflowIframe) {
+			domDetail.viewWorkflowIframe.src = 'about:blank';
+		}
+		if (domDetail.viewWorkflowOpenNewTab) {
+			domDetail.viewWorkflowOpenNewTab.removeAttribute('href');
+			domDetail.viewWorkflowOpenNewTab.classList.add('d-none');
+		}
+		if (finalApproved || isRejected) {
+			clearKflowUrlFromStorage(caRef);
+			clearKflowPublished(caRef);
+			forcedKflowEmbedUrl = '';
+		}
+	}
+};
+
+const bindEmbeddedWorkflowEvents = () => {
+	window.addEventListener('message', (event) => {
+		const payload = event && event.data ? event.data : null;
+		if (!payload || payload.type !== 'kflow-document-published') {
+			return;
+		}
+
+		const caRef = normalizeDate(domDetail.cashAdvanceRef ? domDetail.cashAdvanceRef.value : '');
+		if (!caRef) {
+			return;
+		}
+
+		markKflowPublished(caRef);
+		loadDetailData(false);
+	});
+};
+
+const applyEmbeddedKflowChrome = () => {
+	if (!domDetail.viewWorkflowIframe) {
+		return;
+	}
+
+	const iframe = domDetail.viewWorkflowIframe;
+	iframe.addEventListener('load', () => {
+		try {
+			const iframeDoc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
+			if (!iframeDoc) {
+				return;
+			}
+
+			const header = iframeDoc.querySelector('.main-header');
+			if (header) {
+				header.style.display = 'none';
+			}
+
+			const styleId = 'knet-embed-kflow-style';
+			if (!iframeDoc.getElementById(styleId)) {
+				const styleTag = iframeDoc.createElement('style');
+				styleTag.id = styleId;
+				styleTag.textContent = `
+					.main-header { display: none !important; height: 0 !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important; }
+					.main-panel { padding-top: 0 !important; margin-top: 0 !important; }
+					.content { margin-top: 0 !important; padding-top: 0 !important; }
+					.page-inner { margin-top: 0 !important; padding-top: 0 !important; }
+					.wrapper { padding-top: 0 !important; margin-top: 0 !important; }
+					.container { margin-top: 0 !important; padding-top: 0 !important; }
+				`;
+				(iframeDoc.head || iframeDoc.documentElement).appendChild(styleTag);
+			}
+
+			const pageInner = iframeDoc.querySelector('.page-inner');
+			if (pageInner) {
+				pageInner.style.marginTop = '0';
+				pageInner.style.paddingTop = '0';
+			}
+
+			const mainPanel = iframeDoc.querySelector('.main-panel');
+			if (mainPanel) {
+				mainPanel.style.marginTop = '0';
+				mainPanel.style.paddingTop = '0';
+			}
+
+			const content = iframeDoc.querySelector('.content');
+			if (content) {
+				content.style.marginTop = '0';
+				content.style.paddingTop = '0';
+			}
+
+			iframeDoc.querySelectorAll('.container').forEach((containerEl) => {
+				containerEl.style.marginTop = '0';
+				containerEl.style.paddingTop = '0';
+			});
+		} catch (error) {
+			// If cross-origin constraints appear in future env changes, fail gracefully.
+		}
+	});
+};
+
 // ─── FETCH AND DISPLAY AUDIT TRAIL ───
 const loadAuditTrail = () => {
 	const ref = domDetail.cashAdvanceRef ? domDetail.cashAdvanceRef.value : '';
@@ -254,25 +513,26 @@ const cacheDetailDom = () => {
 	domDetail.viewStatus = document.getElementById('viewStatus');
 	domDetail.viewPurpose = document.getElementById('viewPurpose');
 	domDetail.viewTimeline = document.getElementById('viewTimeline');
+	domDetail.viewPdfSection = document.getElementById('viewPdfSection');
+	domDetail.viewPdfState = document.getElementById('viewPdfState');
+	domDetail.viewPdfIframe = document.getElementById('viewPdfIframe');
+	domDetail.viewPdfEmpty = document.getElementById('viewPdfEmpty');
+	domDetail.viewPdfOpenNewTab = document.getElementById('viewPdfOpenNewTab');
+	domDetail.viewWorkflowSection = document.getElementById('viewWorkflowSection');
+	domDetail.viewWorkflowIframe = document.getElementById('viewWorkflowIframe');
+	domDetail.viewWorkflowOpenNewTab = document.getElementById('viewWorkflowOpenNewTab');
+	domDetail.serverKflowUrl = document.getElementById('serverKflowUrl');
+
+	applyEmbeddedKflowChrome();
+	bindEmbeddedWorkflowEvents();
 };
 
-const initDetailPage = () => {
-	cacheDetailDom();
-
+const loadDetailData = (loadTimeline = true) => {
 	const ref = normalizeDate(domDetail.cashAdvanceRef ? domDetail.cashAdvanceRef.value : '');
-
 	if (!ref) {
-		if (domDetail.viewRefNo) {
-			domDetail.viewRefNo.textContent = 'Record not found.';
-		}
 		return;
 	}
 
-	if (domDetail.viewRefNo) {
-		domDetail.viewRefNo.textContent = ref;
-	}
-
-	// Load detail
 	ajax_loader('transactions/cash-advance/api/get/detail', { CashAdvanceId: ref }).done((response) => {
 		const res = (typeof response === 'string') ? $.parseJSON(response) : response;
 		if (res.status !== 'success' || !res.data) {
@@ -303,12 +563,57 @@ const initDetailPage = () => {
 			domDetail.viewPurpose.textContent = normalizeDate(record.description || '') || '-';
 		}
 
-		loadAuditTrail();
+		renderDocumentPanels(record);
+
+		if (loadTimeline) {
+			loadAuditTrail();
+		}
 	}).fail(() => {
 		if (domDetail.viewRefNo) {
 			domDetail.viewRefNo.textContent = 'Could not load record.';
 		}
 	});
+};
+
+const initDetailPage = () => {
+	cacheDetailDom();
+
+	const ref = normalizeDate(domDetail.cashAdvanceRef ? domDetail.cashAdvanceRef.value : '');
+
+	if (!ref) {
+		if (domDetail.viewRefNo) {
+			domDetail.viewRefNo.textContent = 'Record not found.';
+		}
+		return;
+	}
+
+	if (domDetail.viewRefNo) {
+		domDetail.viewRefNo.textContent = ref;
+	}
+
+	const searchParams = new URLSearchParams(window.location.search);
+	const storedKflowUrl = readKflowUrlFromStorage(ref);
+	const serverKflowUrl = normalizeDate(domDetail.serverKflowUrl ? domDetail.serverKflowUrl.value : '');
+	const queryKflowUrl = normalizeDate(searchParams.get('kflow_url') || '');
+
+	forcedKflowEmbedUrl = serverKflowUrl || queryKflowUrl || storedKflowUrl;
+
+	// If a new batch/token URL is provided, clear stale "published" state for this CA.
+	if (forcedKflowEmbedUrl && storedKflowUrl && forcedKflowEmbedUrl !== storedKflowUrl) {
+		clearKflowPublished(ref);
+	}
+
+	if (forcedKflowEmbedUrl) {
+		saveKflowUrlToStorage(ref, forcedKflowEmbedUrl);
+	}
+
+	loadDetailData(true);
+
+	if (searchParams.get('open_workflow') === '1' && domDetail.viewWorkflowSection) {
+		setTimeout(() => {
+			domDetail.viewWorkflowSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		}, 500);
+	}
 };
 
 // Router check

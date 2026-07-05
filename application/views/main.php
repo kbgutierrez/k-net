@@ -198,8 +198,6 @@
 
     <!-- End Sidebar -->
 
-    <div class="desktop-flyout-backdrop" aria-hidden="true"></div>
-
     <div class="main-panel ">
       <div class="container ">
         <!-- <div class="page-inner px-2 " style="padding-top:1px;">

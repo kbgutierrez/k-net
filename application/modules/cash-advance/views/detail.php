@@ -213,9 +213,54 @@
     word-break: break-word;
   }
 
+  .kna-doc-panel {
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #f8fafc;
+    padding: 10px;
+    margin-bottom: 12px;
+  }
+
+  .kna-doc-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .kna-doc-state {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    color: #334155;
+  }
+
+  .kna-doc-frame {
+    width: 100%;
+    height: 600px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #fff;
+  }
+
+  .kna-doc-empty {
+    font-size: 12px;
+    color: #6b7280;
+    padding: 12px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 6px;
+    background: #fff;
+  }
+
   @media (max-width: 768px) {
     .kna-info-row-3 {
       grid-template-columns: 1fr;
+    }
+
+    .kna-doc-frame {
+      height: 460px;
     }
   }
 </style>
@@ -233,6 +278,7 @@
   <div class="card kna-card">
     <div class="card-body">
       <input type="hidden" id="cashAdvanceRef" value="<?=html_escape($cash_advance_no);?>">
+      <input type="hidden" id="serverKflowUrl" value="<?=html_escape(isset($resume_kflow_url) ? $resume_kflow_url : '');?>">
 
       <div class="kna-section-title">
         <i class="fas fa-info-circle"></i>
@@ -271,6 +317,38 @@
       <div class="form-group" style="margin-bottom:12px;">
         <label class="kna-form-label">Purpose / Description</label>
         <div class="kna-readonly" id="viewPurpose" style="min-height:48px;align-items:flex-start;padding-top:8px;">-</div>
+      </div>
+
+      <hr />
+
+      <div id="viewPdfSection">
+        <div class="kna-section-title">
+          <i class="fas fa-file-pdf"></i>
+          Cash Advance Document
+        </div>
+
+        <div class="kna-doc-panel">
+          <div class="kna-doc-meta">
+            <div class="kna-doc-state" id="viewPdfState">Preparing document...</div>
+            <a href="#" id="viewPdfOpenNewTab" class="btn btn-sm btn-outline-secondary d-none" target="_blank" rel="noopener">Open in New Tab</a>
+          </div>
+          <iframe id="viewPdfIframe" class="kna-doc-frame d-none" title="Cash Advance PDF Preview"></iframe>
+          <div id="viewPdfEmpty" class="kna-doc-empty">Document preview is not available yet.</div>
+        </div>
+      </div>
+
+      <div id="viewWorkflowSection" class="d-none">
+        <div class="kna-section-title">
+          <i class="fas fa-route"></i>
+          K-flow Workflow (Embedded)
+        </div>
+        <div class="kna-doc-panel">
+          <div class="kna-doc-meta">
+            <div class="kna-small text-muted">Approval is still in progress. You can monitor and complete K-flow steps here without leaving K-net.</div>
+            <a href="#" id="viewWorkflowOpenNewTab" class="btn btn-sm btn-outline-secondary d-none" target="_blank" rel="noopener">Open Workflow in New Tab</a>
+          </div>
+          <iframe id="viewWorkflowIframe" class="kna-doc-frame" title="Embedded K-flow Workflow"></iframe>
+        </div>
       </div>
 
       <hr />

@@ -193,12 +193,19 @@ const handleSave = () => {
 					title: 'Submitted',
 					html: `${res.response}<br><strong>${escapeHtml(caNo)}</strong>`,
 				}).then(() => {
-					// THE KEY CHANGE: Redirect to K-flow instead of K-net index
-					if (res.data && res.data.redirect_url) {
-						window.location.href = res.data.redirect_url;
-					} else {
-						goToPath('transactions/cash-advance');
+					if (res.data && res.data.view_url) {
+						window.location.href = res.data.view_url;
+						return;
 					}
+
+					if (res.data && res.data.cash_advance_id) {
+						const kflowUrl = res.data && res.data.kflow_url ? encodeURIComponent(res.data.kflow_url) : '';
+						const suffix = kflowUrl ? `?open_workflow=1&kflow_url=${kflowUrl}` : '?open_workflow=1';
+						goToPath(`transactions/cash-advance/view/${encodeURIComponent(res.data.cash_advance_id)}${suffix}`);
+						return;
+					}
+
+					goToPath('transactions/cash-advance');
 				});
 			} else {
 				Swal.fire({ icon: 'error', title: 'Failed', text: res.response || 'An error occurred.' });

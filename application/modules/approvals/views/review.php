@@ -444,6 +444,50 @@
     .kna-review-stat-value.is-amount { font-size: 15px; color: #2f6eb4; }
     .kna-review-stat-value.is-purpose { font-weight: 500; color: #374151; }
 
+    .kna-doc-viewer-wrap {
+        margin-top: 8px;
+        border: 1px solid #dbe3ec;
+        border-radius: 6px;
+        background: #ffffff;
+        overflow: hidden;
+    }
+    .kna-doc-viewer-frame {
+        width: 100%;
+        height: 460px;
+        border: 0;
+        background: #f8fafc;
+    }
+    .kna-doc-controls {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .kna-doc-icon-btn {
+        width: 30px;
+        height: 30px;
+        border: 1px solid #d1d9e3;
+        border-radius: 6px;
+        background: #ffffff;
+        color: #475569;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all .15s ease;
+        text-decoration: none;
+    }
+    .kna-doc-icon-btn:hover {
+        border-color: #2f6eb4;
+        color: #2f6eb4;
+        background: #f8fbff;
+        text-decoration: none;
+    }
+    .kna-doc-icon-btn.is-active {
+        border-color: #2f6eb4;
+        color: #2f6eb4;
+        background: #eef6ff;
+    }
+
     /* ─── Submit Bar ─── */
     .kna-review-items-card .card-body { padding: .75rem .85rem 0; }
     .kna-review-items-head {

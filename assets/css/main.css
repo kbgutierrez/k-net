@@ -497,28 +497,35 @@ table {
   background: transparent !important;
 }
 
+/* ============================================================
+   SIDEBAR - FIXED LAYOUT (user + scrollable menu + logout)
+   ============================================================ */
+
 .sidebar {
   border-right: 1px solid #e6deef !important;
   overflow: hidden !important;
 }
 
+/* Wrapper: flex column, no scroll here */
 .sidebar .sidebar-wrapper {
   display: flex;
   flex-direction: column;
   height: 100%;
   background: #ffffff;
-  overflow: hidden;
+  overflow: hidden !important;
 }
 
+/* Content area: flex column, no scroll here either */
 .sidebar .sidebar-content {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: hidden;
-  padding-bottom: 10px;
+  overflow: hidden !important;
+  padding-bottom: 0;
 }
 
+/* ONLY the nav menu scrolls */
 .sidebar .nav.nav-primary {
   flex: 1 1 auto;
   min-height: 0;
@@ -526,14 +533,70 @@ table {
   overflow-x: hidden;
   margin-bottom: 0;
   padding-bottom: 6px;
+  overscroll-behavior-y: contain;
 }
 
+/* ============================================================
+   HIDDEN SCROLLBAR - forces override of Atlantis template
+   ============================================================ */
+
+/* WebKit: completely hide scrollbar by default */
+body .sidebar.sidebar-style-2 .nav.nav-primary::-webkit-scrollbar {
+  width: 0px !important;
+  height: 0px !important;
+  background: transparent !important;
+}
+
+/* Show on hover */
+body .sidebar.sidebar-style-2 .nav.nav-primary:hover::-webkit-scrollbar {
+  width: 3px !important;
+}
+
+body .sidebar.sidebar-style-2 .nav.nav-primary::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+body .sidebar.sidebar-style-2 .nav.nav-primary::-webkit-scrollbar-thumb {
+  background: transparent !important;
+  border-radius: 3px !important;
+}
+
+body .sidebar.sidebar-style-2 .nav.nav-primary:hover::-webkit-scrollbar-thumb {
+  background: rgba(95, 42, 138, 0.15) !important;
+}
+
+body .sidebar.sidebar-style-2 .nav.nav-primary:hover::-webkit-scrollbar-thumb:hover {
+  background: rgba(95, 42, 138, 0.3) !important;
+}
+
+/* Firefox */
+body .sidebar.sidebar-style-2 .nav.nav-primary {
+  scrollbar-width: none !important;
+  scrollbar-color: transparent transparent !important;
+}
+
+body .sidebar.sidebar-style-2 .nav.nav-primary:hover {
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(95, 42, 138, 0.15) transparent !important;
+}
+
+/* IE/Edge legacy */
+body .sidebar.sidebar-style-2 .nav.nav-primary {
+  -ms-overflow-style: none;
+}
+
+body .sidebar.sidebar-style-2 .nav.nav-primary:hover {
+  -ms-overflow-style: auto;
+}
+
+/* User profile - fixed at top */
 .sidebar .user {
   display: flex;
   align-items: center;
   gap: 10px;
   margin: 10px;
   padding: 12px;
+  flex-shrink: 0;
 }
 
 .sidebar .user .avatar-sm {
@@ -562,6 +625,7 @@ table {
   word-break: break-word;
 }
 
+/* Menu items */
 .sidebar .nav.nav-primary > .nav-item > a {
   display: flex !important;
   align-items: center;
@@ -610,65 +674,25 @@ table {
 }
 
 .sidebar .nav.nav-primary > .nav-item > a.module-toggle[aria-expanded="true"] .caret {
-  transform: rotate(-90deg);
+  transform: rotate(180deg);
 }
 
 .sidebar .nav.nav-primary > .nav-item {
   position: relative;
 }
 
+/* Accordion submenu - clean, no border-left, no rounded corners */
 .sidebar .nav.nav-primary > .nav-item > .module-submenu {
   display: none;
+  overflow: hidden;
+  background: transparent;
+  border-left: none;
+  margin: 0 10px;
+  border-radius: 0;
 }
 
 .sidebar .nav.nav-primary > .nav-item > .module-submenu.is-open {
   display: block;
-  position: fixed !important;
-  overflow-y: auto;
-  overflow-x: hidden;
-  box-sizing: border-box;
-  z-index: 2000;
-  background: #ffffff;
-  border: 1px solid #e7dcf5;
-  border-radius: 10px;
-  box-shadow: 0 10px 24px rgba(45, 18, 70, 0.14);
-}
-
-.desktop-flyout-backdrop {
-  display: none;
-}
-
-@media (min-width: 992px) {
-  .sidebar {
-    z-index: 1601;
-  }
-
-  .sidebar .nav.nav-primary > .nav-item > .module-submenu.is-open {
-    z-index: 1602;
-  }
-
-  .desktop-flyout-backdrop {
-    display: block;
-    position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: 250px;
-    background: rgba(33, 24, 44, 0.28);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.18s ease;
-    z-index: 1500;
-  }
-
-  .sidebar_minimize .desktop-flyout-backdrop {
-    left: 75px;
-  }
-
-  html.desktop_flyout_open .desktop-flyout-backdrop {
-    opacity: 1;
-    pointer-events: auto;
-  }
 }
 
 .sidebar .nav.nav-primary > .nav-item > a.module-toggle[aria-expanded="true"] {
@@ -728,12 +752,12 @@ table {
   word-break: break-word;
 }
 
+/* Logout - fixed at bottom */
 .logout {
   border: 0 !important;
   margin: 10px;
   border-radius: 10px;
   flex-shrink: 0;
-  margin-top: auto;
   background: linear-gradient(110deg, var(--knet-purple-900), var(--knet-purple-700)) !important;
 }
 
@@ -746,6 +770,7 @@ table {
   box-shadow: none !important;
 }
 
+/* Version - fixed at bottom */
 .version-container {
   margin: 0 10px 10px;
   padding-top: 8px;

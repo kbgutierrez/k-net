@@ -20,6 +20,35 @@ const formatPHP = (n) => {
 	return '₱' + num.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
+const resolveApprovalPdfUrl = (row) => {
+	if (!row || typeof row !== 'object') {
+		return '';
+	}
+
+	const candidates = [
+		normalizeDate(row.active_pdf_url),
+		normalizeDate(row.final_pdf_url),
+		normalizeDate(row.generated_pdf_url),
+		normalizeDate(row.final_pdf_path),
+		normalizeDate(row.generated_pdf_path)
+	].filter(Boolean);
+
+	if (!candidates.length) {
+		return '';
+	}
+
+	const first = candidates[0];
+	if (/^https?:\/\//i.test(first)) {
+		return first;
+	}
+
+	if (first.indexOf('assets/') === 0) {
+		return base_url + first;
+	}
+
+	return '';
+};
+
 const normalizeDate = (str) => {
 	if (str == null) return '';
 	const clean = String(str).trim();
@@ -52,6 +81,52 @@ const openLightbox = (url) => {
 		img.src = url;
 		lb.classList.remove('d-none');
 	}
+};
+
+const bindViewerToggleEvents = () => {
+	document.querySelectorAll('[data-toggle-doc-viewer]').forEach((btn) => {
+		if (btn.dataset.bound === '1') {
+			return;
+		}
+
+		btn.dataset.bound = '1';
+		btn.addEventListener('click', () => {
+			const targetId = btn.getAttribute('data-target');
+			if (!targetId) {
+				return;
+			}
+
+			const panel = document.getElementById(targetId);
+			if (!panel) {
+				return;
+			}
+
+			const iframe = panel.querySelector('iframe[data-src]');
+			const isHidden = panel.classList.contains('d-none');
+
+			if (isHidden) {
+				if (iframe && iframe.getAttribute('src') === 'about:blank') {
+					const source = iframe.getAttribute('data-src') || '';
+					if (source) {
+						iframe.setAttribute('src', source);
+					}
+				}
+				panel.classList.remove('d-none');
+				btn.setAttribute('aria-expanded', 'true');
+				btn.classList.add('is-active');
+				btn.setAttribute('title', 'Hide document');
+				btn.setAttribute('aria-label', 'Hide document');
+				btn.innerHTML = '<i class="fas fa-file-pdf"></i>';
+			} else {
+				panel.classList.add('d-none');
+				btn.setAttribute('aria-expanded', 'false');
+				btn.classList.remove('is-active');
+				btn.setAttribute('title', 'Show document');
+				btn.setAttribute('aria-label', 'Show document');
+				btn.innerHTML = '<i class="fas fa-file-pdf"></i>';
+			}
+		});
+	});
 };
 
 const calculateVat = (grossAmount, isVatable) => {
@@ -218,6 +293,9 @@ const renderCashAdvance = (data) => {
 	if (domReview.reviewStatusBadge)
 		domReview.reviewStatusBadge.innerHTML = getStatusBadge(h.status_name);
 
+	const approvalPdfUrl = resolveApprovalPdfUrl(h);
+	const hasApprovalPdf = Boolean(approvalPdfUrl);
+
 	const overviewHtml = `
         <div class="kna-review-overview-grid">
             <div class="kna-review-stat">
@@ -244,6 +322,21 @@ const renderCashAdvance = (data) => {
                 <div class="kna-review-stat-label">Purpose / Description</div>
                 <div class="kna-review-stat-value is-purpose">${escapeHtml(h.description || '-')}</div>
             </div>
+			<div class="kna-review-stat kna-review-stat-wide">
+				<div class="kna-review-stat-label">Document</div>
+				<div class="kna-review-stat-value is-purpose">
+					${hasApprovalPdf ? `
+						<div class="kna-doc-controls">
+							<button type="button" class="kna-doc-icon-btn" data-toggle-doc-viewer data-target="ca-doc-viewer" aria-expanded="false" title="Show document" aria-label="Show document">
+								<i class="fas fa-file-pdf"></i>
+							</button>
+						</div>
+						<div id="ca-doc-viewer" class="kna-doc-viewer-wrap d-none">
+							<iframe class="kna-doc-viewer-frame" src="about:blank" data-src="${escapeHtml(approvalPdfUrl)}" title="Cash Advance Document Viewer"></iframe>
+						</div>
+					` : 'No document available'}
+				</div>
+			</div>
         </div>
     `;
 
@@ -355,6 +448,8 @@ const renderCashAdvance = (data) => {
 
 	if (domReview.viewApprovalItems)
 		domReview.viewApprovalItems.innerHTML = desktopHtml + mobileHtml;
+
+	bindViewerToggleEvents();
 
 	requestAnimationFrame(() => {
 		requestAnimationFrame(syncRowHeights);

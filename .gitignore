@@ -58,3 +58,4 @@ application/logs/*
 !application/logs/.htaccess
 /vendor/
 .env
+application/config/constants.php
