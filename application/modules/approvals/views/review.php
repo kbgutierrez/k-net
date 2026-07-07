@@ -615,6 +615,9 @@
         background: #fff5f5 !important;
         animation: kna-remark-shake 0.4s ease-in-out;
     }
+    /* ─── Vendor display ─── */
+    .kna-vendor-display { font-size: 12px; line-height: 1.4; }
+    .kna-vendor-sub { font-size: 11px; color: #6b7280; margin-top: 2px; }
   /* ─── Cancel Reject Button ─── */
     .kna-cancel-reject {
         display: flex;
@@ -667,6 +670,104 @@
         max-width: 160px;
         word-break: break-word;
     }
+
+    /* ─── CA Attachments in Review Page (same as detail.php) ─── */
+    .kna-attachment-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 6px;
+    }
+    .kna-attachment-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        background: #fff;
+        transition: background 0.15s ease, box-shadow 0.15s ease;
+    }
+    .kna-attachment-item:hover {
+        background: #f8fafc;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+    .kna-attachment-thumb-wrap {
+        width: 48px;
+        height: 48px;
+        border-radius: 6px;
+        overflow: hidden;
+        border: 1px solid #e5e7eb;
+        background: #f8fafc;
+        flex-shrink: 0;
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .kna-attachment-thumb-wrap:hover {
+        transform: scale(1.05);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        border-color: #bfdbfe;
+    }
+    .kna-attachment-thumb-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center;
+        display: block;
+    }
+    .kna-attachment-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 6px;
+        background: #eff6ff;
+        color: #2563eb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        flex-shrink: 0;
+    }
+    .kna-attachment-icon.img {
+        background: #f0fdf4;
+        color: #16a34a;
+    }
+    .kna-attachment-icon.pdf {
+        background: #fef2f2;
+        color: #dc2626;
+    }
+    .kna-attachment-icon.doc {
+        background: #eff6ff;
+        color: #2563eb;
+    }
+    .kna-attachment-info {
+        flex: 1;
+        min-width: 0;
+    }
+    .kna-attachment-name {
+        font-size: 12px;
+        font-weight: 600;
+        color: #1f2937;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .kna-attachment-meta {
+        font-size: 11px;
+        color: #6b7280;
+    }
+    .kna-attachment-actions {
+        display: flex;
+        gap: 4px;
+        flex-shrink: 0;
+    }
+    .kna-attachment-actions .btn {
+        padding: 4px 8px;
+        font-size: 11px;
+    }
+    
 </style>
 <div class="page-inner kna-page">
     <input type="hidden" id="approvalRef" value="<?=html_escape($approval_id);?>">

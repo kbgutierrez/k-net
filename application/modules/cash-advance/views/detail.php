@@ -254,6 +254,117 @@
     background: #fff;
   }
 
+  /* Attachments */
+  .kna-attachment-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .kna-attachment-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #fff;
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .kna-attachment-item:hover {
+    background: #f8fafc;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+
+  /* Attachment thumbnail styles */
+  .kna-attachment-thumb-wrap {
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+    background: #f8fafc;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .kna-attachment-thumb-wrap:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    border-color: #bfdbfe;
+  }
+
+  .kna-attachment-thumb-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+  }
+
+  .kna-attachment-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    background: #eff6ff;
+    color: #2563eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .kna-attachment-icon.img {
+    background: #f0fdf4;
+    color: #16a34a;
+  }
+
+  .kna-attachment-icon.pdf {
+    background: #fef2f2;
+    color: #dc2626;
+  }
+
+  .kna-attachment-icon.doc {
+    background: #eff6ff;
+    color: #2563eb;
+  }
+
+  .kna-attachment-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .kna-attachment-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: #1f2937;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .kna-attachment-meta {
+    font-size: 11px;
+    color: #6b7280;
+  }
+
+  .kna-attachment-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .kna-attachment-actions .btn {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
   @media (max-width: 768px) {
     .kna-info-row-3 {
       grid-template-columns: 1fr;
@@ -262,6 +373,76 @@
     .kna-doc-frame {
       height: 460px;
     }
+  }
+
+  /* Image Preview Modal */
+  .kna-preview-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+    padding: 20px;
+  }
+
+  .kna-preview-modal.active {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .kna-preview-modal-inner {
+    position: relative;
+    max-width: 90vw;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .kna-preview-modal-img {
+    max-width: 100%;
+    max-height: 80vh;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    object-fit: contain;
+  }
+
+  .kna-preview-modal-caption {
+    color: #fff;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: center;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    max-width: 80vw;
+    word-break: break-word;
+  }
+
+  .kna-preview-modal-close {
+    position: absolute;
+    top: -44px;
+    right: 0;
+    background: rgba(255,255,255,0.15);
+    border: none;
+    color: #fff;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease;
+  }
+
+  .kna-preview-modal-close:hover {
+    background: rgba(255,255,255,0.3);
   }
 </style>
 
@@ -319,6 +500,17 @@
         <div class="kna-readonly" id="viewPurpose" style="min-height:48px;align-items:flex-start;padding-top:8px;">-</div>
       </div>
 
+      <!-- Attachments -->
+      <div id="viewAttachmentsSection">
+        <div class="kna-section-title">
+          <i class="fas fa-paperclip"></i>
+          Attachments
+        </div>
+        <div id="viewAttachmentsList" class="kna-attachment-list">
+          <div class="kna-doc-empty">Loading attachments...</div>
+        </div>
+      </div>
+
       <hr />
 
       <div id="viewPdfSection">
@@ -359,5 +551,16 @@
       </div>
       <ul class="kna-timeline" id="viewTimeline"></ul>
     </div>
+  </div>
+</div>
+
+<!-- Image Preview Modal -->
+<div id="attachmentPreviewModal" class="kna-preview-modal">
+  <div class="kna-preview-modal-inner">
+    <button type="button" class="kna-preview-modal-close" id="attachmentPreviewClose">
+      <i class="fas fa-times"></i>
+    </button>
+    <img id="attachmentPreviewImg" src="" alt="Preview" class="kna-preview-modal-img">
+    <div class="kna-preview-modal-caption" id="attachmentPreviewCaption"></div>
   </div>
 </div>

@@ -3,7 +3,6 @@ let editExpenseItemCounter = 0;
 let editExpenseTypeOptions = [];
 let editLiquidationData = null;
 
-// === OCR module instance for edit page ===
 let editReceiptOcr = null;
 
 const domEdit = {
@@ -26,12 +25,13 @@ const domEdit = {
     btnAddNewItem: null,
     btnSaveEdit: null,
     btnSaveAsDraft: null,
+    btnSaveEditMobile: null,
+    btnSaveAsDraftMobile: null,
 };
 
 const EDIT_IMG_EXTS = /\.(jpg|jpeg|png|gif|webp)$/i;
 const MAX_ATTACHMENT_BYTES = 2 * 1024 * 1024;
 
-// Store object URLs to prevent memory leaks
 const editObjectUrls = new Map();
 
 const revokeEditObjectUrls = (editId) => {
@@ -50,8 +50,6 @@ const storeEditObjectUrl = (editId, url) => {
     }
     editObjectUrls.get(editId).push(url);
 };
-
-// ===== ATTACHMENT HELPERS =====
 
 const getEditItemAttachmentNames = (item) => {
     const existing = (item.existingAttachments || []).map((name) => normalizeDate(name)).filter(Boolean);
@@ -180,6 +178,35 @@ const goToPath = (path) => {
 	window.location.href = `${base_url}${path}`;
 };
 
+const buildEditOcrStatusHtml = (editId) => {
+    if (!editReceiptOcr) return '';
+    const state = editReceiptOcr.getItemOcrState(editId);
+    if (!state || state.status === 'idle') return '';
+    if (state.status === 'scanning') {
+        return `<div class="kna-ocr-status kna-ocr-scanning">
+            <i class="fas fa-spinner fa-spin"></i> <span>Reading receipt…</span>
+            <button type="button" class="kna-ocr-manual-btn" data-edit-action="ocrManual" data-edit-id="${editId}">Enter manually</button>
+        </div>`;
+    }
+    if (state.status === 'success') {
+        const fields = (state.appliedFields || []).map((f) => {
+            const map = { date: 'Date', category: 'Category', ref: 'Ref', amount: 'Amount', vat: 'VAT', desc: 'Desc' };
+            return map[f] || f;
+        }).join(', ');
+        const hint = fields ? `Auto-filled: ${fields}` : 'Receipt read';
+        return `<div class="kna-ocr-status kna-ocr-success"><i class="fas fa-check-circle"></i> <span>${escapeHtml(hint)}</span></div>`;
+    }
+    if (state.status === 'timeout' || state.status === 'error') {
+        return `<div class="kna-ocr-status kna-ocr-error">
+            <i class="fas fa-exclamation-triangle"></i> <span>${escapeHtml(state.error)}</span>
+            <button type="button" class="kna-ocr-manual-btn" data-edit-action="ocrManual" data-edit-id="${editId}">Enter manually</button>
+        </div>`;
+    }
+    if (state.status === 'manual') {
+        return `<div class="kna-ocr-status kna-ocr-manual"><i class="fas fa-hand-pointer"></i> <span>Manual entry</span></div>`;
+    }
+    return '';
+};
 
 const renderEditExpenseItems = () => {
     const container = domEdit.editExpenseItems;
@@ -194,7 +221,6 @@ const renderEditExpenseItems = () => {
 
     let rejectedCount = 0;
 
-    // Desktop: grid-based table rows
     let desktopRowsHtml = '';
     editExpenseItems.forEach((item, i) => {
         const approval = getItemApprovalStatus(item);
@@ -219,22 +245,20 @@ const renderEditExpenseItems = () => {
         const removedAttachments = item.removedAttachments || [];
         const newAttachments = item.newAttachments || [];
 
-        const isOcrLoading = editReceiptOcr ? editReceiptOcr.isItemOcrLoading(item._editId) : false;
+        const ocrState = editReceiptOcr ? editReceiptOcr.getItemOcrState(item._editId) : { status: 'idle' };
+        const isOcrLoading = ocrState.status === 'scanning';
         const hasCompressed = newAttachments.some((f) => f._wasCompressed);
 
-        // === CHANGED: Single attachment display - show ONLY new OR existing (not both) ===
         let attachHtml = '';
         let hasAttachment = false;
         
-        // Priority: show new attachment (it replaces existing)
         if (newAttachments.length > 0) {
             const file = newAttachments[0];
             const name = file.name || file.fileName || 'New file';
-            // Use stored object URL or create new one
             let objectUrl = file._objectUrl;
             if (!objectUrl) {
                 objectUrl = URL.createObjectURL(file);
-                file._objectUrl = objectUrl; // Store on file object to persist across renders
+                file._objectUrl = objectUrl;
                 storeEditObjectUrl(item._editId, objectUrl);
             }
             attachHtml = `<span class="kna-thumb-wrap" data-new-file="true" data-edit-id="${item._editId}">
@@ -243,9 +267,7 @@ const renderEditExpenseItems = () => {
                 <button type="button" class="kna-thumb-remove" data-edit-action="removeNewAttachment" data-edit-id="${item._editId}" data-file-index="0" title="Remove">&#x2715;</button>
             </span>`;
             hasAttachment = true;
-        } 
-        // Otherwise show existing attachment (if not removed)
-        else if (existingAttachments.length > 0) {
+        } else if (existingAttachments.length > 0) {
             const name = existingAttachments[0];
             const isRemoved = removedAttachments.includes(name);
             attachHtml = renderEditAttachment(name, item, isRemoved);
@@ -277,8 +299,14 @@ const renderEditExpenseItems = () => {
                 <div><input type="text" class="kna-edit-input" data-edit-field="reference" data-edit-id="${item._editId}" value="${escapeHtml(reference)}" placeholder="Invoice / OR no." ${disabledAttr}></div>
                 <div><input type="number" min="0" step="0.01" class="kna-edit-input kna-edit-number" data-edit-field="amount" data-edit-id="${item._editId}" value="${escapeHtml(amount)}" placeholder="0.00" ${disabledAttr}></div>
                 <div class="text-center"><label class="kna-vat-wrap"><input type="checkbox" class="kna-edit-checkbox" data-edit-field="isVattable" data-edit-id="${item._editId}" ${isVattable ? 'checked' : ''} ${disabledAttr}></label></div>
+                <div class="kna-vendor-cell">
+                    <input type="text" class="kna-edit-input" data-edit-field="vendorName" data-edit-id="${item._editId}" value="${escapeHtml(item.vendor_name || '')}" placeholder="Vendor name" ${disabledAttr}>
+                    <input type="text" class="kna-edit-input" data-edit-field="vendorAddress" data-edit-id="${item._editId}" value="${escapeHtml(item.vendor_address || '')}" placeholder="Address" ${disabledAttr}>
+                    <input type="text" class="kna-edit-input" data-edit-field="vendorTin" data-edit-id="${item._editId}" value="${escapeHtml(item.vendor_tin || '')}" placeholder="TIN" ${disabledAttr}>
+                </div>
                 <div>
                     <div class="kna-attachment-cell">${attachHtml}${ocrLoadingIcon}${compressedIcon}</div>
+                    ${buildEditOcrStatusHtml(item._editId)}
                     ${!isLocked ? `<button type="button" class="btn btn-outline-primary btn-sm kna-small" data-edit-action="attach" data-edit-id="${item._editId}">${attachBtnLabel}</button>` : ''}
                     <input type="file" class="d-none" data-edit-file="upload" data-edit-id="${item._editId}" accept="image/*">
                     <input type="file" class="d-none" data-edit-file="camera" data-edit-id="${item._editId}" accept="image/*" capture="environment">
@@ -294,7 +322,6 @@ const renderEditExpenseItems = () => {
         `;
     });
 
-    // Mobile cards
     const mobileCardsHtml = editExpenseItems
         .map((item, i) => {
             const approval = getItemApprovalStatus(item);
@@ -317,7 +344,8 @@ const renderEditExpenseItems = () => {
             const removedAttachments = item.removedAttachments || [];
             const newAttachments = item.newAttachments || [];
 
-            const isOcrLoading = editReceiptOcr ? editReceiptOcr.isItemOcrLoading(item._editId) : false;
+            const ocrState = editReceiptOcr ? editReceiptOcr.getItemOcrState(item._editId) : { status: 'idle' };
+            const isOcrLoading = ocrState.status === 'scanning';
             const hasCompressed = newAttachments.some((f) => f._wasCompressed);
 
             let attachHtml = '';
@@ -363,7 +391,7 @@ const renderEditExpenseItems = () => {
             const cardLockedClass = isLocked ? ' kna-row-locked' : '';
             const cardStatus = isRejected ? 'rejected' : (isLocked ? 'approved' : 'pending');
 
-            const attachmentButtonLabel = hasAttachment ? 'Replace' : 'Attach';
+            const attachmentButtonLabel = hasAttachment ? 'Replace Receipt' : 'Attach Receipt';
 
             const ocrLoadingIcon = isOcrLoading ? ' <i class="fas fa-spinner fa-spin" title="OCR in progress"></i>' : '';
             const compressedIcon = hasCompressed ? ' <i class="fas fa-compress-alt" title="Compressed"></i>' : '';
@@ -371,52 +399,68 @@ const renderEditExpenseItems = () => {
             return `
                 <div class="${cardClass}${cardLockedClass}" data-edit-item-id="${item._editId}" data-status="${cardStatus}">
                     <div class="kna-exp-card-head">
-                        <div>
-                            <div class="kna-exp-card-title">${lockIcon}${escapeHtml(selectedExpenseType?.categoryName || 'Expense Item')} <span class="kna-exp-card-sub">#${i + 1}</span></div>
+                        <div class="kna-exp-card-head-left">
+                            <div class="kna-exp-card-badge">${i + 1}</div>
+                            <div class="kna-exp-card-title">${lockIcon}${escapeHtml(selectedExpenseType?.categoryName || 'Expense Item')}</div>
                             <div class="kna-exp-card-meta">${escapeHtml(docDate)} • ${escapeHtml(reference)}</div>
                             ${rejectionBlock}
                         </div>
                         <div class="kna-exp-card-actions">
-                            ${!isLocked ? `<button type="button" class="btn btn-outline-primary btn-sm kna-small" data-edit-action="attach" data-edit-id="${item._editId}">${attachmentButtonLabel}</button>` : ''}
-                            ${!isLocked ? `<button type="button" class="btn btn-outline-danger btn-sm kna-small" data-edit-action="remove" data-edit-id="${item._editId}" title="Remove item"><i class="fas fa-trash"></i></button>` : ''}
+                            ${!isLocked ? `<button type="button" class="kna-exp-card-remove" data-edit-action="remove" data-edit-id="${item._editId}" title="Remove item"><i class="fas fa-trash"></i></button>` : ''}
                         </div>
                     </div>
 
-                    <div class="kna-exp-card-grid">
-                        <div class="kna-exp-card-field">
-                            <span class="kna-exp-card-label">Document Date</span>
-                            <input type="date" class="kna-edit-input" data-edit-field="documentDate" data-edit-id="${item._editId}" value="${escapeHtml(docDate)}" ${disabledAttr}>
+                    <div class="kna-exp-card-body">
+                        <div class="kna-exp-card-grid">
+                            <div class="kna-exp-card-field">
+                                <span class="kna-exp-card-label">Document Date</span>
+                                <input type="date" class="kna-edit-input" data-edit-field="documentDate" data-edit-id="${item._editId}" value="${escapeHtml(docDate)}" ${disabledAttr}>
+                            </div>
+                            <div class="kna-exp-card-field">
+                                <span class="kna-exp-card-label">Expense Type</span>
+                                <select class="kna-edit-select" data-edit-field="expenseCategory" data-edit-id="${item._editId}" ${disabledAttr}>${editExpenseTypeOptionsMarkup(category)}</select>
+                            </div>
+                            <div class="kna-exp-card-field">
+                                <span class="kna-exp-card-label">Reference</span>
+                                <input type="text" class="kna-edit-input" data-edit-field="reference" data-edit-id="${item._editId}" value="${escapeHtml(reference)}" placeholder="Invoice / OR no." ${disabledAttr}>
+                            </div>
+                            <div class="kna-exp-card-field">
+                                <span class="kna-exp-card-label">Amount</span>
+                                <input type="number" min="0" step="0.01" class="kna-edit-input kna-edit-number" data-edit-field="amount" data-edit-id="${item._editId}" value="${escapeHtml(amount)}" placeholder="0.00" ${disabledAttr}>
+                            </div>
+                            <div class="kna-exp-card-field kna-exp-card-field-full">
+                                <span class="kna-exp-card-label">Vendor Name</span>
+                                <input type="text" class="kna-edit-input" data-edit-field="vendorName" data-edit-id="${item._editId}" value="${escapeHtml(item.vendor_name || '')}" placeholder="Vendor name" ${disabledAttr}>
+                            </div>
+                            <div class="kna-exp-card-field kna-exp-card-field-full">
+                                <span class="kna-exp-card-label">Vendor Address</span>
+                                <input type="text" class="kna-edit-input" data-edit-field="vendorAddress" data-edit-id="${item._editId}" value="${escapeHtml(item.vendor_address || '')}" placeholder="Address" ${disabledAttr}>
+                            </div>
+                            <div class="kna-exp-card-field">
+                                <span class="kna-exp-card-label">Vendor TIN</span>
+                                <input type="text" class="kna-edit-input" data-edit-field="vendorTin" data-edit-id="${item._editId}" value="${escapeHtml(item.vendor_tin || '')}" placeholder="TIN" ${disabledAttr}>
+                            </div>
+                            <div class="kna-exp-card-field kna-exp-card-field-full kna-vat-toggle-row">
+                                <label class="kna-vat-toggle">
+                                    <input type="checkbox" class="kna-edit-checkbox" data-edit-field="isVattable" data-edit-id="${item._editId}" ${isVattable ? 'checked' : ''} ${disabledAttr}>
+                                    <span class="kna-vat-toggle-slider"></span>
+                                    <span class="kna-vat-toggle-label">VAT Inclusive</span>
+                                </label>
+                            </div>
                         </div>
-                        <div class="kna-exp-card-field">
-                            <span class="kna-exp-card-label">Expense Type</span>
-                            <select class="kna-edit-select" data-edit-field="expenseCategory" data-edit-id="${item._editId}" ${disabledAttr}>${editExpenseTypeOptionsMarkup(category)}</select>
-                        </div>
-                        <div class="kna-exp-card-field">
-                            <span class="kna-exp-card-label">Reference</span>
-                            <input type="text" class="kna-edit-input" data-edit-field="reference" data-edit-id="${item._editId}" value="${escapeHtml(reference)}" placeholder="Invoice / OR no." ${disabledAttr}>
-                        </div>
-                        <div class="kna-exp-card-field">
-                            <span class="kna-exp-card-label">Amount</span>
-                            <input type="number" min="0" step="0.01" class="kna-edit-input kna-edit-number" data-edit-field="amount" data-edit-id="${item._editId}" value="${escapeHtml(amount)}" placeholder="0.00" ${disabledAttr}>
-                        </div>
-                        <div class="kna-exp-card-field">
-                            <span class="kna-exp-card-label">VAT</span>
-                            <label class="kna-vat-wrap">
-                                <input type="checkbox" class="kna-edit-checkbox" data-edit-field="isVattable" data-edit-id="${item._editId}" ${isVattable ? 'checked' : ''} ${disabledAttr}>
-                                ${isVattable ? 'Vattable' : 'Non-vattable'}
-                            </label>
-                        </div>
-                        <div class="kna-exp-card-field kna-exp-card-field-full">
-                            <span class="kna-exp-card-label">Attachment</span>
-                            <span class="kna-exp-card-value kna-exp-card-attach">
-                                ${attachHtml}${ocrLoadingIcon}${compressedIcon}
-                            </span>
+                        <div class="kna-attach-section">
+                            <div class="kna-attach-header">
+                                <span class="kna-exp-card-label">Receipt / Attachment</span>
+                                <span class="kna-attach-status">${attachHtml}${ocrLoadingIcon}${compressedIcon}</span>
+                            </div>
+                            ${buildEditOcrStatusHtml(item._editId)}
+                            ${!isLocked ? `<button type="button" class="btn btn-outline-primary btn-sm kna-attach-btn" data-edit-action="attach" data-edit-id="${item._editId}"><i class="fas ${hasAttachment ? 'fa-sync-alt' : 'fa-camera'} mr-1"></i> ${attachmentButtonLabel}</button>` : ''}
                             <input type="file" class="d-none" data-edit-file="upload" data-edit-id="${item._editId}" accept="image/*">
                             <input type="file" class="d-none" data-edit-file="camera" data-edit-id="${item._editId}" accept="image/*" capture="environment">
                         </div>
-                        <div class="kna-exp-card-field kna-exp-card-field-full">
+                        <div class="kna-remarks-section">
                             <span class="kna-exp-card-label">Remarks</span>
-                            <input type="text" class="kna-edit-input" data-edit-field="description" data-edit-id="${item._editId}" value="${escapeHtml(description)}" placeholder="Remarks" ${disabledAttr}>
+                            <input type="text" class="kna-edit-input" data-edit-field="description" data-edit-id="${item._editId}" value="${escapeHtml(description)}" placeholder="Enter remarks..." ${disabledAttr}>
                         </div>
                     </div>
                 </div>
@@ -437,6 +481,7 @@ const renderEditExpenseItems = () => {
                     <div>Reference</div>
                     <div>Amount</div>
                     <div>Vattable</div>
+                    <div>Vendor</div>
                     <div>Attachment</div>
                     <div>Remarks</div>
                     <div>Actions</div>
@@ -510,6 +555,9 @@ const createNewEditItem = () => ({
     vat_amount: 0,
     approvals: [],
     isNew: true,
+    vendor_name: '',
+    vendor_address: '',
+    vendor_tin: '',
 });
 
 const findEditItem = (editId) => editExpenseItems.find((item) => item._editId === editId);
@@ -747,7 +795,6 @@ const sendEditUpdate = (statusCode) => {
     const ref = normalizeDate(domEdit.liquidationRef ? domEdit.liquidationRef.value : '');
     const caId = normalizeDate(domEdit.cashAdvanceId ? domEdit.cashAdvanceId.value : '');
 
-    // === ADDED: Confirmation dialogs before saving ===
     const doSave = () => {
         const expensePayload = editExpenseItems.map((item) => ({
             Id: item.isNew ? null : item.id,
@@ -759,6 +806,9 @@ const sendEditUpdate = (statusCode) => {
             Description: item.description,
             Attachment: getEditItemAttachmentNamesCsv(item),
             IsNew: item.isNew || false,
+            VendorName: item.vendor_name || '',
+            VendorAddress: item.vendor_address || '',
+            VendorTin: item.vendor_tin || '',
         }));
 
         const formData = new FormData();
@@ -810,7 +860,6 @@ const sendEditUpdate = (statusCode) => {
         });
     };
 
-    // === ADDED: Confirmation before save ===
     if (statusCode === 'LQ_DRAFT') {
         Swal.fire({
             icon: 'question',
@@ -829,7 +878,6 @@ const sendEditUpdate = (statusCode) => {
         return;
     }
 
-    // LQ_SUBMITTED
     Swal.fire({
         icon: 'question',
         title: 'Resubmit for Approval?',
@@ -846,7 +894,6 @@ const sendEditUpdate = (statusCode) => {
     });
 };
 
-// ===== ATTACHMENT SOURCE PROMPT =====
 const promptEditAttachmentSource = (editId) => {
     if (!editReceiptOcr) return;
 
@@ -889,6 +936,8 @@ const cacheEditDom = () => {
     domEdit.btnAddNewItem = document.getElementById('btnAddNewItem');
     domEdit.btnSaveEdit = document.getElementById('btnSaveEdit');
     domEdit.btnSaveAsDraft = document.getElementById('btnSaveAsDraft');
+    domEdit.btnSaveEditMobile = document.getElementById('btnSaveEditMobile');
+    domEdit.btnSaveAsDraftMobile = document.getElementById('btnSaveAsDraftMobile');
 
     const lbEl = document.getElementById('knaLightbox');
     if (lbEl) {
@@ -913,17 +962,11 @@ const cacheEditDom = () => {
 const initEditPage = () => {
     cacheEditDom();
 
-    // === CHANGED: Initialize SharedReceiptOcr with direct item accessor ===
-    // We don't use a proxy because Array.push() bypasses setters.
-    // Instead, we let the OCR module push to item.attachments, then we manually
-    // enforce single-attachment by moving the result to item.newAttachments.
     editReceiptOcr = window.SharedReceiptOcr.create({
         maxAttachmentBytes: MAX_ATTACHMENT_BYTES,
         getExpenseItem: (itemId) => {
             const item = findEditItem(itemId);
             if (!item) return null;
-            // The OCR module will push to item.attachments
-            // We handle the transfer in the change event handler
             if (!item.attachments) {
                 item.attachments = [];
             }
@@ -934,8 +977,8 @@ const initEditPage = () => {
         normalizeDate,
         escapeHtml,
         swal: Swal,
-        ajaxLoaderFormDataLoading: ajax_loader_formdata_loading,
         ocrEndpoint: 'transactions/liquidation/api/ocr',
+        baseUrl: base_url,
     });
 
     loadEditExpenseTypes();
@@ -954,9 +997,14 @@ const initEditPage = () => {
     if (domEdit.btnSaveAsDraft) {
         domEdit.btnSaveAsDraft.addEventListener('click', () => sendEditUpdate('LQ_DRAFT'));
     }
+    if (domEdit.btnSaveEditMobile) {
+        domEdit.btnSaveEditMobile.addEventListener('click', () => sendEditUpdate('LQ_SUBMITTED'));
+    }
+    if (domEdit.btnSaveAsDraftMobile) {
+        domEdit.btnSaveAsDraftMobile.addEventListener('click', () => sendEditUpdate('LQ_DRAFT'));
+    }
 
     if (domEdit.editExpenseItems) {
-        // Input events for text/number/select fields
         domEdit.editExpenseItems.addEventListener('input', (event) => {
             const target = event.target;
             const editId = Number(target.getAttribute('data-edit-id'));
@@ -977,6 +1025,9 @@ const initEditPage = () => {
                 reference: 'invoice_receipt_no',
                 amount: 'actual_amount',
                 description: 'description',
+                vendorName: 'vendor_name',
+                vendorAddress: 'vendor_address',
+                vendorTin: 'vendor_tin',
             };
 
             const dataField = fieldMap[field] || field;
@@ -987,7 +1038,6 @@ const initEditPage = () => {
             }
         });
 
-        // === CHANGED: File upload handler - properly handle single attachment replacement ===
         domEdit.editExpenseItems.addEventListener('change', async (event) => {
             const target = event.target;
             const editId = Number(target.getAttribute('data-edit-id'));
@@ -1000,7 +1050,8 @@ const initEditPage = () => {
             const files = Array.from(target.files || []);
             if (!files.length) return;
 
-            // Mark ALL existing attachments as removed (new replaces old)
+            // ── SINGLE ATTACHMENT ONLY: clear everything first ──
+            // 1. Mark all existing attachments as removed
             if (item.existingAttachments && item.existingAttachments.length > 0) {
                 if (!item.removedAttachments) {
                     item.removedAttachments = [];
@@ -1012,7 +1063,7 @@ const initEditPage = () => {
                 });
             }
 
-            // Clear previous new attachments and object URLs
+            // 2. Revoke old object URLs and clear previous new attachments
             if (item.newAttachments && item.newAttachments.length > 0) {
                 item.newAttachments.forEach((f) => {
                     if (f._objectUrl) {
@@ -1021,33 +1072,32 @@ const initEditPage = () => {
                 });
             }
             item.newAttachments = [];
-            // Also clear the temporary attachments array the OCR module uses
             item.attachments = [];
 
-            // Let OCR module handle compression and validation
-            // It pushes accepted files to item.attachments
+            // 3. Cancel any running OCR
+            if (editReceiptOcr) editReceiptOcr.cancelOcr(editId);
+
+            // 4. Process the new file(s) — but we only keep the first one
             const acceptedFiles = await editReceiptOcr.addItemAttachments(editId, files);
 
-            // === CRITICAL: Move files from item.attachments to item.newAttachments ===
-            // The OCR module pushed to item.attachments, but we need them in item.newAttachments
-            if (item.attachments && item.attachments.length > 0) {
-                // Take only the last one (single attachment policy) and move to newAttachments
-                const lastFile = item.attachments[item.attachments.length - 1];
-                item.newAttachments = [lastFile];
-                // Clear the temporary array
-                item.attachments = [];
+            // 5. Take only the first accepted file and put it in newAttachments
+            if (acceptedFiles && acceptedFiles.length > 0) {
+                item.newAttachments = [acceptedFiles[0]];
             }
 
-            // Run OCR autofill on the accepted file
+            // 6. Clear the shared attachments array so it doesn't duplicate
+            item.attachments = [];
+
+            renderEditExpenseItems();
+
+            // 7. Run OCR on the single new attachment
             if (item.newAttachments.length > 0) {
-                await editReceiptOcr.runOcrAutofillForItem(editId, item.newAttachments[0]);
+                editReceiptOcr.runOcrAutofillForItem(editId, item.newAttachments[0]);
             }
 
             target.value = '';
-            renderEditExpenseItems();
         });
 
-        // Click events for actions
         domEdit.editExpenseItems.addEventListener('click', (event) => {
             const actionBtn = event.target.closest('[data-edit-action]');
             if (!actionBtn) return;
@@ -1060,6 +1110,7 @@ const initEditPage = () => {
             if (!item) return;
 
             if (action === 'remove') {
+                if (editReceiptOcr) editReceiptOcr.cancelOcr(editId);
                 if (item && !item.isNew) {
                     Swal.fire({
                         icon: 'warning',
@@ -1087,6 +1138,11 @@ const initEditPage = () => {
                 return;
             }
 
+            if (action === 'ocrManual') {
+                if (editReceiptOcr) editReceiptOcr.markManual(editId);
+                return;
+            }
+
             if (action === 'removeAttachment') {
                 const filename = actionBtn.getAttribute('data-filename');
                 if (!filename) return;
@@ -1111,7 +1167,6 @@ const initEditPage = () => {
             }
 
             if (action === 'removeNewAttachment') {
-                // Clear the new attachment and revoke its object URL
                 if (item.newAttachments && item.newAttachments.length > 0) {
                     item.newAttachments.forEach((f) => {
                         if (f._objectUrl) {

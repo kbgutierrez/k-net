@@ -479,6 +479,9 @@ const renderLiquidation = (data) => {
 	);
 	const varianceAmount = Number(first.variance) || 0;
 
+	const approvalPdfUrl = resolveApprovalPdfUrl(first);
+	const hasApprovalPdf = Boolean(approvalPdfUrl);
+
 	const overviewHtml = `
         <div class="kna-review-overview-grid">
             <div class="kna-review-stat">
@@ -508,6 +511,21 @@ const renderLiquidation = (data) => {
             <div class="kna-review-stat">
                 <div class="kna-review-stat-label">Variance</div>
                 <div class="kna-review-stat-value is-amount">${formatPHP(varianceAmount)}</div>
+            </div>
+            <div class="kna-review-stat kna-review-stat-wide">
+                <div class="kna-review-stat-label">Document</div>
+                <div class="kna-review-stat-value is-purpose">
+                    ${hasApprovalPdf ? `
+                        <div class="kna-doc-controls">
+                            <button type="button" class="kna-doc-icon-btn" data-toggle-doc-viewer data-target="ca-doc-viewer" aria-expanded="false" title="Show document" aria-label="Show document">
+                                <i class="fas fa-file-pdf"></i>
+                            </button>
+                        </div>
+                        <div id="ca-doc-viewer" class="kna-doc-viewer-wrap d-none">
+                            <iframe class="kna-doc-viewer-frame" src="about:blank" data-src="${escapeHtml(approvalPdfUrl)}" title="Cash Advance Document Viewer"></iframe>
+                        </div>
+                    ` : 'No document available'}
+                </div>
             </div>
         </div>
     `;
@@ -560,6 +578,21 @@ const renderLiquidation = (data) => {
 			: '<span class="text-muted kna-small">—</span>';
 		const docDate = normalizeDate(item.document_date || '').slice(0,10) || '—';
 
+		const vendorName = normalizeDate(item.vendor_name || '');
+		const vendorAddress = normalizeDate(item.vendor_address || '');
+		const vendorTin = normalizeDate(item.vendor_tin || '');
+
+		let vendorHtml = '<span class="text-muted kna-small">—</span>';
+		if (vendorName || vendorAddress || vendorTin) {
+			vendorHtml = `
+				<div class="kna-vendor-display">
+					${vendorName ? `<div>${escapeHtml(vendorName)}</div>` : ''}
+					${vendorAddress ? `<div class="kna-vendor-sub">${escapeHtml(vendorAddress)}</div>` : ''}
+					${vendorTin ? `<div class="kna-vendor-sub">TIN: ${escapeHtml(vendorTin)}</div>` : ''}
+				</div>
+			`;
+		}
+
 		const rowClass = itemStatus === 'APPROVED' ? 'is-approved' : (itemStatus === 'REJECTED' ? 'is-rejected' : '');
 
 		// Pre-select based on actual status from SP
@@ -586,6 +619,7 @@ const renderLiquidation = (data) => {
                 <td class="text-right kna-net-cell">${formatPHP(vatCalc.netAmount)}</td>
                 <td class="text-right kna-vat-amt-cell">${formatPHP(vatCalc.vatAmount)}</td>
                 <td>${attachHtml}</td>
+                <td>${vendorHtml}</td>
             </tr>
         `;
 
@@ -689,6 +723,18 @@ const renderLiquidation = (data) => {
                             ${attachNames.length ? attachNames.map(renderAttachment).join('') : '<span class="text-muted">—</span>'}
                         </span>
                     </div>
+                    <div class="kna-exp-card-field kna-exp-card-field-full">
+                        <span class="kna-exp-card-label">Vendor Name</span>
+                        <span class="kna-exp-card-value">${escapeHtml(vendorName || '—')}</span>
+                    </div>
+                    <div class="kna-exp-card-field kna-exp-card-field-full">
+                        <span class="kna-exp-card-label">Vendor Address</span>
+                        <span class="kna-exp-card-value">${escapeHtml(vendorAddress || '—')}</span>
+                    </div>
+                    <div class="kna-exp-card-field">
+                        <span class="kna-exp-card-label">Vendor TIN</span>
+                        <span class="kna-exp-card-value">${escapeHtml(vendorTin || '—')}</span>
+                    </div>
                 </div>
                 ${mobileDecisionHtml}
             </div>
@@ -720,6 +766,7 @@ const renderLiquidation = (data) => {
                                 <th class="text-right">Net</th>
                                 <th class="text-right">VAT Amt</th>
                                 <th>Attachment</th>
+                                <th>Vendor</th>
                             </tr>
                         </thead>
                         <tbody>${mainRows}</tbody>
@@ -749,6 +796,8 @@ const renderLiquidation = (data) => {
 
 	if (domReview.viewApprovalItems)
 		domReview.viewApprovalItems.innerHTML = desktopHtml + mobileHtml;
+
+	bindViewerToggleEvents();
 
 	requestAnimationFrame(() => {
 		requestAnimationFrame(syncRowHeights);

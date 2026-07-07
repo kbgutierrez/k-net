@@ -144,14 +144,14 @@
 	}
 	.kna-item-table {
 		display: grid;
-		grid-template-columns: 128px 154px 154px 112px 76px minmax(180px, 1.2fr) minmax(220px, 1.4fr) 64px;
+		grid-template-columns: 110px 1.4fr 1.1fr 100px 44px 1.2fr 140px 1.6fr 44px;
 		gap: 10px;
 		align-items: center;
 		background: #f8f9fc;
 		border: 1px solid #e5e7eb;
 		border-radius: 6px;
 		padding: 8px 10px;
-		min-width: 1120px;
+		min-width: 100%;
 	}
 	.kna-item-table-head {
 		background: #e5e7eb;
@@ -188,6 +188,20 @@
 		height: 14px;
 		margin: 0;
 		accent-color: #2563eb;
+	}
+
+	/* Vendor cell (desktop) */
+	.kna-vendor-cell {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+	.kna-vendor-cell .kna-edit-input {
+		width: 100%;
+		font-size: 12px;
+	}
+	.kna-vendor-cell .kna-edit-input:last-child {
+		color: #6b7280;
 	}
 
 	/* Attachment thumbnails */
@@ -314,51 +328,56 @@
 	/* ===== MOBILE CARDS (matching add.php) ===== */
 	.kna-exp-card {
 		border: 1px solid #e5e7eb;
-		border-radius: 10px;
+		border-radius: 12px;
 		background: #fff;
-		padding: 8px 10px;
-		box-shadow: 0 1px 2px rgba(20, 30, 50, .04);
-		margin-bottom: 8px;
-		position: relative;
+		padding: 0;
+		box-shadow: 0 2px 8px rgba(20, 30, 50, .06);
+		margin-bottom: 12px;
 		overflow: hidden;
 	}
-	.kna-exp-card::before {
-		content: '';
-		position: absolute;
-		left: 0;
-		top: 0;
-		bottom: 0;
-		width: 3px;
-	}
-	.kna-exp-card[data-status="approved"]::before { background: #22c55e; }
-	.kna-exp-card[data-status="rejected"]::before { background: #ef4444; }
-	.kna-exp-card[data-status="pending"]::before  { background: #f59e0b; }
-
 	.kna-exp-card-head {
 		display: flex;
 		justify-content: space-between;
 		gap: 10px;
 		align-items: flex-start;
-		padding-bottom: 8px;
+		padding: 10px 12px;
 		border-bottom: 1px solid #eef2f7;
-		margin-bottom: 8px;
+		background: #fafbfc;
+	}
+	.kna-exp-card-head-left {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		min-width: 0;
+	}
+	.kna-exp-card-badge {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 22px;
+		height: 22px;
+		border-radius: 50%;
+		background: #6366f1;
+		color: #fff;
+		font-size: 10px;
+		font-weight: 700;
+		margin-bottom: 2px;
 	}
 	.kna-exp-card-title {
-		font-size: 13px;
+		font-size: 12px;
 		font-weight: 700;
 		color: #111827;
 		line-height: 1.3;
 	}
 	.kna-exp-card-sub {
-		font-size: 11px;
+		font-size: 10px;
 		font-weight: 600;
 		color: #6b7280;
 		margin-left: 4px;
 	}
 	.kna-exp-card-meta {
-		font-size: 11px;
+		font-size: 10px;
 		color: #6b7280;
-		margin-top: 3px;
 	}
 	.kna-exp-card-actions {
 		display: flex;
@@ -368,16 +387,38 @@
 		flex-wrap: wrap;
 		justify-content: flex-end;
 	}
+	.kna-exp-card-remove {
+		width: 32px;
+		height: 32px;
+		border-radius: 8px;
+		border: 1px solid #fecaca;
+		background: #fef2f2;
+		color: #dc2626;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		font-size: 12px;
+		transition: all .15s;
+	}
+	.kna-exp-card-remove:hover {
+		background: #fee2e2;
+		border-color: #ef4444;
+	}
+	.kna-exp-card-body {
+		padding: 10px 12px;
+	}
 	.kna-exp-card-grid {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 8px;
-		margin-bottom: 8px;
+		gap: 10px;
+		margin-bottom: 10px;
 	}
 	.kna-exp-card-field {
 		display: flex;
 		flex-direction: column;
-		gap: 3px;
+		gap: 4px;
+		min-width: 0;
 	}
 	.kna-exp-card-field-full { grid-column: 1 / -1; }
 	.kna-exp-card-label {
@@ -397,6 +438,107 @@
 		gap: 6px;
 	}
 	.kna-exp-card-field .form-control { min-width: 0; }
+
+	/* VAT Toggle */
+	.kna-vat-toggle-row { padding: 4px 0; }
+	.kna-vat-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: 10px;
+		cursor: pointer;
+		user-select: none;
+	}
+	.kna-vat-toggle input {
+		position: absolute;
+		opacity: 0;
+		width: 0;
+		height: 0;
+	}
+	.kna-vat-toggle-slider {
+		position: relative;
+		width: 40px;
+		height: 22px;
+		background: #d1d5db;
+		border-radius: 22px;
+		transition: background .2s;
+		flex-shrink: 0;
+	}
+	.kna-vat-toggle-slider::before {
+		content: '';
+		position: absolute;
+		left: 2px;
+		top: 2px;
+		width: 18px;
+		height: 18px;
+		background: #fff;
+		border-radius: 50%;
+		transition: transform .2s;
+		box-shadow: 0 1px 3px rgba(0,0,0,.15);
+	}
+	.kna-vat-toggle input:checked + .kna-vat-toggle-slider {
+		background: #6366f1;
+	}
+	.kna-vat-toggle input:checked + .kna-vat-toggle-slider::before {
+		transform: translateX(18px);
+	}
+	.kna-vat-toggle-label {
+		font-size: 11px;
+		font-weight: 600;
+		color: #374151;
+	}
+
+	/* Attachment Section */
+	.kna-attach-section {
+		border: 1.5px dashed #d1d5db;
+		border-radius: 8px;
+		padding: 10px 12px;
+		margin-bottom: 10px;
+		background: #f8fafc;
+		transition: border-color .15s, background .15s;
+	}
+	.kna-attach-section:hover {
+		border-color: #6366f1;
+		background: #f5f3ff;
+	}
+	.kna-attach-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 6px;
+	}
+	.kna-attach-status {
+		font-size: 10px;
+		color: #6b7280;
+		font-weight: 600;
+	}
+	.kna-attach-btn {
+		width: 100%;
+		min-height: 40px;
+		border-radius: 6px;
+		font-size: 11px;
+		font-weight: 600;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+	}
+	.kna-remarks-section {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.kna-exp-card::before {
+		content: '';
+		position: absolute;
+		left: 0;
+		top: 0;
+		bottom: 0;
+		width: 3px;
+	}
+	.kna-exp-card[data-status="approved"]::before { background: #22c55e; }
+	.kna-exp-card[data-status="rejected"]::before { background: #ef4444; }
+	.kna-exp-card[data-status="pending"]::before  { background: #f59e0b; }
 
 	/* Mobile rejected card */
 	.kna-exp-card-rejected {
@@ -600,6 +742,11 @@
 		text-decoration: underline;
 	}
 
+	/* Mobile sticky actions */
+	.kna-mobile-sticky-actions {
+		display: none;
+	}
+
 	@media (max-width: 767.98px) {
 		.kna-page { padding: 8px 8px 12px; }
 		.kna-title { font-size: 18px; }
@@ -612,16 +759,71 @@
 		.kna-thumb { width: 52px; height: 46px; }
 		.kna-thumb-label { max-width: 68px; }
 		.kna-mobile-summary { display: block; }
-		.kna-edit-actions {
-			flex-direction: column;
+		.kna-edit-actions { display: none; }
+		.kna-mobile-sticky-actions {
+			display: flex;
+			gap: 8px;
+			position: fixed;
+			bottom: 0;
+			left: 0;
+			right: 0;
+			background: #fff;
+			border-top: 1px solid #e5e7eb;
+			padding: 10px 14px;
+			box-shadow: 0 -4px 12px rgba(0,0,0,0.06);
+			z-index: 1030;
 		}
-		.kna-edit-actions .btn {
-			width: 100%;
+		.kna-mobile-sticky-actions .btn {
+			flex: 1;
+			font-size: 12px;
+			padding: 10px 8px;
+			min-height: 44px;
+			border-radius: 8px;
 		}
-		.kna-exp-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+		.kna-mobile-sticky-actions .btn-outline-secondary {
+			flex: 0 0 auto;
+			padding: 10px 14px;
+		}
+		body { padding-bottom: 72px; }
+		.kna-exp-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 		.kna-exp-card-head { gap: 8px; }
 		.kna-exp-card-attach { flex-direction: row; }
+		.form-control, .form-control-sm {
+			min-height: 40px;
+			font-size: 12px;
+		}
+		select.form-control {
+			height: 40px;
+		}
 	}
+	  /* ─── OCR Status Indicators ─── */
+  .kna-ocr-status {
+    font-size: 11px;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    line-height: 1.3;
+  }
+  .kna-ocr-scanning { color: #2563eb; }
+  .kna-ocr-success  { color: #059669; }
+  .kna-ocr-error    { color: #dc2626; }
+  .kna-ocr-manual   { color: #6b7280; }
+  .kna-ocr-status i { font-size: 12px; width: 14px; text-align: center; }
+
+  .kna-ocr-manual-btn {
+    background: none;
+    border: none;
+    color: #4f46e5;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+    line-height: 1;
+  }
+  .kna-ocr-manual-btn:hover { color: #4338ca; }
 </style>
 
 <div class="page-inner kna-page">
@@ -718,8 +920,6 @@
 				</button>
 			</div>
 
-
-
 			<div id="editExpenseItems"></div>
 
 			<hr />
@@ -734,6 +934,19 @@
 				</button>
 			</div>
 		</div>
+	</div>
+
+	<!-- Mobile sticky actions -->
+	<div class="kna-mobile-sticky-actions">
+		<a href="<?=base_url('transactions/liquidation');?>" class="btn btn-outline-secondary">
+			<i class="fas fa-arrow-left"></i>
+		</a>
+		<button type="button" class="btn btn-warning" id="btnSaveAsDraftMobile">
+			<i class="fas fa-save"></i> Draft
+		</button>
+		<button type="button" class="btn btn-primary" id="btnSaveEditMobile">
+			<i class="fas fa-check"></i> Resubmit
+		</button>
 	</div>
 </div>
 

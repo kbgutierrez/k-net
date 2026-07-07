@@ -891,5 +891,144 @@ class Cash_Advance extends MY_Controller
             'debug' => $debug,
         ));
     }
+
+    public function api_get_attachments()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $cashAdvanceId = isset($data['CashAdvanceId']) ? trim((string) $data['CashAdvanceId']) : '';
+            if ($cashAdvanceId === '') {
+                return $this->respondError('Missing required field: CashAdvanceId');
+            }
+
+            $params = array(
+                'cash_advance_id' => $cashAdvanceId,
+            );
+
+            $attachments = $this->sp->readData(
+                build_sp('sp_fetch_ca_attachments_by_caid', count($params)),
+                $params,
+                'result'
+            );
+
+            $processed = array();
+            foreach ($attachments as $att) {
+                $caRef = isset($att['cash_advance_id']) ? trim((string) $att['cash_advance_id']) : '';
+                $fileName = isset($att['file_name']) ? trim((string) $att['file_name']) : '';
+                $filePath = isset($att['file_path']) ? trim((string) $att['file_path']) : '';
+
+                // Get file size if file exists
+                $fileSize = 0;
+                if ($filePath !== '' && file_exists($filePath)) {
+                    $fileSize = filesize($filePath);
+                }
+
+                $processed[] = array(
+                    'id' => $att['id'] ?? null,
+                    'cash_advance_id' => $caRef,
+                    'original_name' => $att['original_name'] ?? '',
+                    'file_name' => $fileName,
+                    'file_path' => $filePath,
+                    'file_size' => $fileSize,
+                    'uploaded_date' => $att['uploaded_date'] ?? '',
+                    'view_url' => base_url('transactions/cash-advance/attachment/view?ca=' . urlencode($caRef) . '&file=' . urlencode($fileName)),
+                    'download_url' => base_url('transactions/cash-advance/attachment/view?ca=' . urlencode($caRef) . '&file=' . urlencode($fileName) . '&download=1'),
+                );
+            }
+
+            return $this->respondSuccess('Attachments fetched', array(
+                'attachments' => $processed,
+                'count' => count($processed),
+            ));
+        } catch (Exception $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
+    public function view_attachment()
+    {
+        $caRef = trim((string) $this->input->get('ca'));
+        $fileName = trim((string) $this->input->get('file'));
+
+        if ($caRef === '' || $fileName === '') {
+            show_404();
+            return;
+        }
+
+        // Security: prevent path traversal
+        $fileName = basename($fileName);
+        if (strpos($fileName, '..') !== false) {
+            show_404();
+            return;
+        }
+
+        // Fetch attachments for this CA using the existing SP
+        $params = array('cash_advance_id' => $caRef);
+        $attachments = $this->sp->readData(
+            build_sp('sp_fetch_ca_attachments_by_caid', count($params)),
+            $params,
+            'result'
+        );
+
+        $target = null;
+        foreach ($attachments as $att) {
+            if (isset($att['file_name']) && $att['file_name'] === $fileName) {
+                $target = $att;
+                break;
+            }
+        }
+
+        if (!$target) {
+            show_404();
+            return;
+        }
+
+        $filePath = isset($target['file_path']) ? trim((string) $target['file_path']) : '';
+        if ($filePath === '' || !file_exists($filePath)) {
+            show_404();
+            return;
+        }
+
+        $originalName = isset($target['original_name']) ? $target['original_name'] : $fileName;
+        $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+
+        $mimeTypes = array(
+            'pdf'  => 'application/pdf',
+            'jpg'  => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png'  => 'image/png',
+            'gif'  => 'image/gif',
+            'bmp'  => 'image/bmp',
+            'webp' => 'image/webp',
+            'svg'  => 'image/svg+xml',
+            'doc'  => 'application/msword',
+            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'xls'  => 'application/vnd.ms-excel',
+            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'csv'  => 'text/csv',
+            'txt'  => 'text/plain',
+            'zip'  => 'application/zip',
+        );
+
+        $mime = isset($mimeTypes[$ext]) ? $mimeTypes[$ext] : 'application/octet-stream';
+        $isDownload = $this->input->get('download') === '1';
+        $disposition = $isDownload ? 'attachment' : 'inline';
+
+        // Clean output buffers before sending file headers
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        header('Content-Type: ' . $mime);
+        header('Content-Disposition: ' . $disposition . '; filename="' . $originalName . '"');
+        header('Content-Length: ' . filesize($filePath));
+        header('Cache-Control: private, max-age=86400');
+        header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 86400) . ' GMT');
+
+        readfile($filePath);
+        exit;
+    }
 }
 ?>

@@ -511,8 +511,14 @@ class Liquidation extends MY_Controller
 
             $imageDataUrl = 'data:' . $mimeType . ';base64,' . base64_encode($binary);
 
-            $prompt = "Extract receipt fields and respond with STRICT JSON only. Use keys: document_date, invoice_receipt_no, actual_amount, description, expense_category_name, is_vatable. document_date must be YYYY-MM-DD if possible. actual_amount must be number only. is_vatable must be true or false. If unknown, return empty string for text fields and 0 for amount.";
-
+          $prompt = "Extract receipt fields and respond with STRICT JSON only. Use keys: 
+                    document_date, invoice_receipt_no, actual_amount, description, expense_category_name, 
+                    is_vatable, vendor_name, vendor_address, vendor_tin. 
+                    document_date must be YYYY-MM-DD if possible. 
+                    actual_amount must be number only. 
+                    is_vatable must be true or false. 
+                    vendor_tin should be numeric TIN with dashes if present (e.g., 123-456-789-000).
+                    If unknown, return empty string for text fields and 0 for amount.";
             $payload = array(
                 'model' => 'meta-llama/llama-4-scout-17b-16e-instruct',
                 'temperature' => 0.2,
@@ -579,6 +585,10 @@ class Liquidation extends MY_Controller
                 'description' => isset($ocr['description']) ? (string) $ocr['description'] : '',
                 'expense_category_name' => isset($ocr['expense_category_name']) ? (string) $ocr['expense_category_name'] : '',
                 'is_vatable' => isset($ocr['is_vatable']) ? (bool) $ocr['is_vatable'] : false,
+                // NEW: Vendor fields
+                'vendor_name' => isset($ocr['vendor_name']) ? (string) $ocr['vendor_name'] : '',
+                'vendor_address' => isset($ocr['vendor_address']) ? (string) $ocr['vendor_address'] : '',
+                'vendor_tin' => isset($ocr['vendor_tin']) ? (string) $ocr['vendor_tin'] : '',
             );
 
             return $this->respondSuccess('success', $result);
@@ -825,6 +835,9 @@ class Liquidation extends MY_Controller
                     "NetAmount" => $netAmount,
                     "VatAmount" => $vatAmount,
                     "Attachment" => $attachment,
+                    "VendorName" => isset($expense['VendorName']) ? $expense['VendorName'] : '',
+                    "VendorAddress" => isset($expense['VendorAddress']) ? $expense['VendorAddress'] : '',
+                    "VendorTin" => isset($expense['VendorTin']) ? $expense['VendorTin'] : '',
                 );
 
                 $detailResult = $this->sp->createData(
@@ -1203,16 +1216,20 @@ class Liquidation extends MY_Controller
                 $attachment = $this->collectAttachmentPaths($expense, $index);
 
                 $detailParams = array(
-                    'LiquidationId' => $liquidationId,
-                    'Description' => isset($expense['Description']) ? $expense['Description'] : '',
-                    'InvoiceReceiptNo' => isset($expense['InvoiceReceiptNo']) ? $expense['InvoiceReceiptNo'] : '',
-                    'ActualAmount' => $actualAmount,
-                    'DocumentDate' => isset($expense['DocumentDate']) ? $expense['DocumentDate'] : '',
-                    'ExpenseCategory' => $expenseCategory,
-                    'IsVatable' => $isVatable ? 1 : 0,
-                    'NetAmount' => $netAmount,
-                    'VatAmount' => $vatAmount,
-                    'Attachment' => $attachment,
+                    "LiquidationId" => $liquidationId,
+                    "Description" => isset($expense['Description']) ? $expense['Description'] : '',
+                    "InvoiceReceiptNo" => isset($expense['InvoiceReceiptNo']) ? $expense['InvoiceReceiptNo'] : '',
+                    "ActualAmount" => $actualAmount,
+                    "DocumentDate" => isset($expense['DocumentDate']) ? $expense['DocumentDate'] : '',
+                    "ExpenseCategory" => $expenseCategory,
+                    "IsVatable" => $isVatable ? 1 : 0,
+                    "NetAmount" => $netAmount,
+                    "VatAmount" => $vatAmount,
+                    "Attachment" => $attachment,
+                    // NEW
+                    "VendorName" => isset($expense['VendorName']) ? $expense['VendorName'] : '',
+                    "VendorAddress" => isset($expense['VendorAddress']) ? $expense['VendorAddress'] : '',
+                    "VendorTin" => isset($expense['VendorTin']) ? $expense['VendorTin'] : '',
                 );
 
                 $detailResult = $this->sp->createData(

@@ -504,6 +504,154 @@ const loadAuditTrail = () => {
 		});
 };
 
+// ─── FETCH AND DISPLAY ATTACHMENTS ───
+const getFileIconClass = (fileName) => {
+    const ext = (fileName || '').split('.').pop().toLowerCase();
+    const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'];
+    const pdfExts = ['pdf'];
+    const docExts = ['doc', 'docx', 'txt', 'rtf'];
+    const sheetExts = ['xls', 'xlsx', 'csv'];
+    const zipExts = ['zip', 'rar', '7z', 'tar', 'gz'];
+
+    if (imageExts.includes(ext)) return { icon: 'fa-image', css: 'img' };
+    if (pdfExts.includes(ext)) return { icon: 'fa-file-pdf', css: 'pdf' };
+    if (docExts.includes(ext)) return { icon: 'fa-file-word', css: 'doc' };
+    if (sheetExts.includes(ext)) return { icon: 'fa-file-excel', css: 'doc' };
+    if (zipExts.includes(ext)) return { icon: 'fa-file-archive', css: 'doc' };
+    return { icon: 'fa-file', css: '' };
+};
+
+const formatFileSize = (bytes) => {
+    if (!bytes || bytes === 0) return '';
+    const kb = bytes / 1024;
+    if (kb < 1024) return Math.round(kb) + ' KB';
+    return (kb / 1024).toFixed(1) + ' MB';
+};
+
+const isImageFile = (fileName) => {
+    const ext = (fileName || '').split('.').pop().toLowerCase();
+    return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(ext);
+};
+
+const renderAttachments = (attachments) => {
+    const container = document.getElementById('viewAttachmentsList');
+    if (!container) return;
+
+    if (!attachments || attachments.length === 0) {
+        container.innerHTML = '<div class="kna-doc-empty">No attachments uploaded.</div>';
+        return;
+    }
+
+    const html = attachments.map((att) => {
+        const fileName = escapeHtml(att.original_name || att.file_name || 'Unknown');
+        const uploadedDate = normalizeDate(att.uploaded_date || '');
+        const viewUrl = normalizeDate(att.view_url || '');
+        const downloadUrl = normalizeDate(att.download_url || '');
+        const { icon, css } = getFileIconClass(fileName);
+        const isImage = isImageFile(fileName);
+
+ 
+
+        const downloadBtn = downloadUrl
+            ? `<a href="${escapeHtml(downloadUrl)}" class="btn btn-sm btn-outline-secondary" title="Download">
+                 <i class="fas fa-download"></i>
+               </a>`
+            : '';
+
+        // For images, show a clickable thumbnail preview; for others, show the icon
+        let preview;
+        if (isImage && viewUrl) {
+            preview = `<div class="kna-attachment-thumb-wrap" 
+                             onclick="openAttachmentPreview('${escapeHtml(viewUrl)}', '${fileName}')"
+                             title="Click to preview">
+                            <img src="${escapeHtml(viewUrl)}" 
+                                 alt="${fileName}" 
+                                 class="kna-attachment-thumb-img"
+                                 loading="lazy"
+                                 onerror="this.parentElement.innerHTML='<div class=\'kna-attachment-icon ${css}\'><i class=\'fas ${icon}\'></i></div>'">
+                        </div>`;
+        } else {
+            preview = `<div class="kna-attachment-icon ${css}">
+                         <i class="fas ${icon}"></i>
+                       </div>`;
+        }
+
+        return `
+            <div class="kna-attachment-item">
+                ${preview}
+                <div class="kna-attachment-info">
+                    <div class="kna-attachment-name" title="${fileName}">${fileName}</div>
+                    <div class="kna-attachment-meta">
+                        ${uploadedDate ? `Uploaded on ${uploadedDate}` : ''}
+                    </div>
+                </div>
+                <div class="kna-attachment-actions">
+               
+                    ${downloadBtn}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = html;
+};
+
+const openAttachmentPreview = (imgUrl, caption) => {
+    const modal = document.getElementById('attachmentPreviewModal');
+    const img = document.getElementById('attachmentPreviewImg');
+    const cap = document.getElementById('attachmentPreviewCaption');
+
+    if (!modal || !img) return;
+
+    img.src = imgUrl;
+    if (cap) cap.textContent = caption || '';
+    modal.classList.add('active');
+};
+
+const closeAttachmentPreview = () => {
+    const modal = document.getElementById('attachmentPreviewModal');
+    const img = document.getElementById('attachmentPreviewImg');
+    if (modal) modal.classList.remove('active');
+    if (img) img.src = '';
+};
+
+const bindAttachmentPreviewEvents = () => {
+    const modal = document.getElementById('attachmentPreviewModal');
+    const closeBtn = document.getElementById('attachmentPreviewClose');
+
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeAttachmentPreview);
+    }
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeAttachmentPreview();
+        });
+    }
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeAttachmentPreview();
+    });
+};
+
+const loadAttachments = () => {
+    const ref = domDetail.cashAdvanceRef ? domDetail.cashAdvanceRef.value : '';
+    if (!ref) return;
+
+    ajax_loader('transactions/cash-advance/api/get/attachments', { CashAdvanceId: ref })
+        .done((response) => {
+            const res = (typeof response === 'string') ? $.parseJSON(response) : response;
+            if (res.status !== 'success') {
+                renderAttachments([]);
+                return;
+            }
+            renderAttachments(res.data && res.data.attachments ? res.data.attachments : []);
+        })
+        .fail(() => {
+            renderAttachments([]);
+        });
+};
+
+
+
 const cacheDetailDom = () => {
 	domDetail.cashAdvanceRef = document.getElementById('cashAdvanceRef');
 	domDetail.viewRefNo = document.getElementById('viewRefNo');
@@ -567,6 +715,7 @@ const loadDetailData = (loadTimeline = true) => {
 
 		if (loadTimeline) {
 			loadAuditTrail();
+			loadAttachments();
 		}
 	}).fail(() => {
 		if (domDetail.viewRefNo) {
@@ -577,6 +726,7 @@ const loadDetailData = (loadTimeline = true) => {
 
 const initDetailPage = () => {
 	cacheDetailDom();
+	bindAttachmentPreviewEvents();
 
 	const ref = normalizeDate(domDetail.cashAdvanceRef ? domDetail.cashAdvanceRef.value : '');
 

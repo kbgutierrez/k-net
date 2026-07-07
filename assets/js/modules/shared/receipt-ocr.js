@@ -106,36 +106,60 @@
 
 	const create = (options = {}) => {
 		const state = {
-			loadingByItem: {},
+			ocrByItem: {},
 		};
 
 		const swal = options.swal || window.Swal;
-		const ajaxLoaderFormDataLoading = options.ajaxLoaderFormDataLoading || window.ajax_loader_formdata_loading;
 		const renderItems = typeof options.renderItems === 'function' ? options.renderItems : () => {};
 		const getExpenseItem = typeof options.getExpenseItem === 'function' ? options.getExpenseItem : () => null;
 		const getExpenseTypeOptions = typeof options.getExpenseTypeOptions === 'function' ? options.getExpenseTypeOptions : () => [];
 		const maxAttachmentBytes = Number(options.maxAttachmentBytes || defaultMaxBytes);
 		const ocrEndpoint = options.ocrEndpoint || 'transactions/liquidation/api/ocr';
+		const ocrTimeoutMs = Number(options.ocrTimeoutMs || 8000);
+		const baseUrl = options.baseUrl || window.base_url || '';
 		const normalizeDateFn = typeof options.normalizeDate === 'function' ? options.normalizeDate : normalizeDate;
 		const escapeHtmlFn = typeof options.escapeHtml === 'function' ? options.escapeHtml : escapeHtml;
 
-		const setLoading = (itemId, isLoading) => {
-			if (!itemId) {
-				return;
-			}
-			if (isLoading) {
-				state.loadingByItem[itemId] = true;
-			} else {
-				delete state.loadingByItem[itemId];
-			}
+		/* ─── OCR State Management ─── */
+		const getItemOcrState = (itemId) => state.ocrByItem[itemId] || { status: 'idle' };
+
+		const setOcrState = (itemId, patch) => {
+			const existing = state.ocrByItem[itemId] || {};
+			state.ocrByItem[itemId] = { ...existing, ...patch };
+			renderItems();
 		};
 
-		const isItemOcrLoading = (itemId) => Boolean(state.loadingByItem[itemId]);
+		const cancelOcr = (itemId) => {
+			const st = state.ocrByItem[itemId];
+			if (st && st.jqXHR) {
+				st.jqXHR.abort();
+			}
+			if (st && st.timeoutId) {
+				clearTimeout(st.timeoutId);
+			}
+			delete state.ocrByItem[itemId];
+			renderItems();
+		};
 
-		const attachmentsLabel = (attachments, isOcrLoading = false) => {
+		const markManual = (itemId) => {
+			cancelOcr(itemId);
+			state.ocrByItem[itemId] = { status: 'manual' };
+			renderItems();
+		};
+
+		const isItemOcrLoading = (itemId) => {
+			const s = state.ocrByItem[itemId];
+			return s && s.status === 'scanning';
+		};
+
+		/* ─── Attachments ─── */
+		const attachmentsLabel = (attachments, itemId) => {
+			const ocr = state.ocrByItem[itemId];
+			const isOcrLoading = ocr && ocr.status === 'scanning';
+
 			if (!attachments.length) {
 				return isOcrLoading
-					? '<span class="text-muted">No file</span> <i class="fas fa-spinner fa-spin" title="OCR in progress"></i>'
+					? '<span class="text-muted">Scanning receipt…</span>'
 					: '<span class="text-muted">No file</span>';
 			}
 			const compressedIcon = attachments.some((file) => Boolean(file && file._wasCompressed))
@@ -323,6 +347,7 @@
 			});
 		};
 
+		/* ─── Non-blocking OCR with timeout & manual override ─── */
 		const runOcrAutofillForItem = async (itemId, file) => {
 			if (!file || !file.type || !file.type.startsWith('image/')) {
 				return;
@@ -333,23 +358,50 @@
 				return;
 			}
 
-			if (state.loadingByItem[itemId]) {
-				return;
-			}
+			// Cancel any in-flight OCR for this item
+			cancelOcr(itemId);
 
-			state.loadingByItem[itemId] = true;
-			renderItems();
+			setOcrState(itemId, { status: 'scanning', result: null, error: null, startedAt: Date.now() });
+
 			const formData = new FormData();
 			formData.append('image', file);
 
+			// Hard timeout via setTimeout in case jQuery timeout is unreliable
+			const timeoutId = setTimeout(() => {
+				const st = state.ocrByItem[itemId];
+				if (st && st.jqXHR) {
+					st.jqXHR.abort();
+				}
+			}, ocrTimeoutMs);
+
+			const jqXHR = $.ajax({
+				url: baseUrl + ocrEndpoint,
+				type: 'POST',
+				data: formData,
+				processData: false,
+				contentType: false,
+				dataType: 'json',
+				timeout: ocrTimeoutMs + 2000,
+			});
+
+			setOcrState(itemId, { jqXHR, timeoutId });
+
 			try {
-				const response = await ajaxLoaderFormDataLoading(ocrEndpoint, formData);
-				const res = (typeof response === 'string') ? $.parseJSON(response) : response;
-				if (res.status !== 'success' || !res.data) {
+				const response = await jqXHR;
+				clearTimeout(timeoutId);
+
+				// If user cancelled or switched to manual while we were away, respect that
+				const current = state.ocrByItem[itemId];
+				if (!current || current.status !== 'scanning') {
 					return;
 				}
 
-				const ocr = res.data;
+				if (!response || response.status !== 'success' || !response.data) {
+					throw new Error(response?.response || 'OCR returned no usable data');
+				}
+
+				const ocr = response.data;
+
 				const tokenSource = [
 					normalizeDateFn(ocr.document_date),
 					normalizeDateFn(ocr.invoice_receipt_no),
@@ -382,31 +434,69 @@
 				const documentDate = normalizeOcrDateToYmd(ocr.document_date);
 				const categoryId = mapOcrCategoryToExpenseTypeId(ocr.expense_category_name, getExpenseTypeOptions());
 
+				const appliedFields = [];
+
 				if (documentDate) {
 					item.documentDate = documentDate;
+					appliedFields.push('date');
 				}
 				if (categoryId) {
 					item.expenseType = categoryId;
+					appliedFields.push('category');
 				}
 				if (ocr.invoice_receipt_no) {
 					item.reference = normalizeDateFn(ocr.invoice_receipt_no);
+					appliedFields.push('ref');
 				}
 				if (Number(ocr.actual_amount) > 0) {
 					item.amount = Number(ocr.actual_amount).toFixed(2);
+					appliedFields.push('amount');
 				}
 				if (typeof ocr.is_vatable === 'boolean') {
 					item.isVattable = ocr.is_vatable;
+					appliedFields.push('vat');
 				}
 				if (ocr.description) {
 					item.remarks = normalizeDateFn(ocr.description);
+					appliedFields.push('desc');
 				}
 
-				renderItems();
-			} catch (error) {
-				// Keep manual entry workflow even if OCR fails.
-			} finally {
-				delete state.loadingByItem[itemId];
-				renderItems();
+				if (ocr.vendor_name) {
+					item.vendorName = normalizeDateFn(ocr.vendor_name);
+					appliedFields.push('vendor');
+				}
+				if (ocr.vendor_address) {
+					item.vendorAddress = normalizeDateFn(ocr.vendor_address);
+				}
+				if (ocr.vendor_tin) {
+					item.vendorTin = normalizeDateFn(ocr.vendor_tin);
+				}
+
+				setOcrState(itemId, { status: 'success', result: ocr, appliedFields });
+			} catch (err) {
+				clearTimeout(timeoutId);
+
+				const current = state.ocrByItem[itemId];
+				if (!current) {
+					return; // already cleaned up by cancel
+				}
+
+				const isAbort = err.statusText === 'abort' || (err.readyState === 0 && err.status === 0);
+				const isTimeout = err.statusText === 'timeout';
+
+				if (isAbort) {
+					// If still scanning, it was a hard timeout
+					if (current.status === 'scanning') {
+						setOcrState(itemId, { status: 'timeout', error: 'OCR stopped — enter details manually' });
+					}
+				} else if (isTimeout) {
+					setOcrState(itemId, { status: 'timeout', error: 'OCR timed out — please enter details manually' });
+				} else {
+					setOcrState(itemId, {
+						status: 'error',
+						error: err.responseJSON?.response || err.statusText || 'OCR failed — please enter details manually',
+					});
+				}
 			}
 		};
 
@@ -417,6 +507,9 @@
 			isItemOcrLoading,
 			promptAttachmentSource,
 			runOcrAutofillForItem,
+			getItemOcrState,
+			cancelOcr,
+			markManual,
 		};
 	};
 

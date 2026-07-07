@@ -78,7 +78,6 @@ const renderDetailExpenseItems = (expenses) => {
 				? `<div class="kna-amount-main">${formatPHP(amount)}</div><div class="kna-amount-breakdown">Net ${formatPHP(netAmt)}</div><div class="kna-amount-breakdown">VAT ${formatPHP(vatAmt)}</div>`
 				: `<div class="kna-amount-main">${formatPHP(amount)}</div>`;
 
-			// Rejection / Approval badges
 			const hasApproved = Boolean(Number(expense.has_approved || 0));
 			const hasRejected = Boolean(Number(expense.has_rejected || 0));
 			const rejectionReason = normalizeDate(expense.rejection_reason || '');
@@ -92,6 +91,21 @@ const renderDetailExpenseItems = (expenses) => {
 					<div class="kna-rejected-reason" style="font-size:11px;color:#991b1b;font-style:italic;">"${escapeHtml(rejectionReason)}"</div>`;
 			}
 
+			const vendorName = normalizeDate(expense.vendor_name || '');
+			const vendorAddress = normalizeDate(expense.vendor_address || '');
+			const vendorTin = normalizeDate(expense.vendor_tin || '');
+
+			let vendorHtml = '<span class="text-muted" style="font-size:11px;">\u2014</span>';
+			if (vendorName || vendorAddress || vendorTin) {
+				vendorHtml = `
+					<div class="kna-vendor-display">
+						${vendorName ? `<div>${escapeHtml(vendorName)}</div>` : ''}
+						${vendorAddress ? `<div class="kna-vendor-sub">${escapeHtml(vendorAddress)}</div>` : ''}
+						${vendorTin ? `<div class="kna-vendor-sub">TIN: ${escapeHtml(vendorTin)}</div>` : ''}
+					</div>
+				`;
+			}
+
 			return `
 				<tr>
 					<td class="text-center kna-rownum kna-cell-index" data-label="#">${i + 1}</td>
@@ -99,6 +113,7 @@ const renderDetailExpenseItems = (expenses) => {
 					<td data-label="Category">${escapeHtml(category)}</td>
 					<td data-label="Reference">${escapeHtml(reference)}</td>
 					<td class="text-center kna-cell-vat" data-label="VAT">${vatBadge}</td>
+					<td data-label="Vendor">${vendorHtml}</td>
 					<td class="kna-cell-attachment" data-label="Attachment">${attachHtml}</td>
 					<td data-label="Remarks">${escapeHtml(description)}${statusBadge}</td>
 					<td class="text-right kna-cell-amount" data-label="Amount">${amountHtml}</td>
@@ -127,7 +142,6 @@ const renderDetailExpenseItems = (expenses) => {
 				? `<div class="kna-amount-main">${formatPHP(amount)}</div><div class="kna-amount-breakdown">Net ${formatPHP(netAmt)}</div><div class="kna-amount-breakdown">VAT ${formatPHP(vatAmt)}</div>`
 				: `<div class="kna-amount-main">${formatPHP(amount)}</div>`;
 
-			// Rejection / Approval badges for mobile
 			const hasApproved = Boolean(Number(expense.has_approved || 0));
 			const hasRejected = Boolean(Number(expense.has_rejected || 0));
 			const rejectionReason = normalizeDate(expense.rejection_reason || '');
@@ -135,41 +149,59 @@ const renderDetailExpenseItems = (expenses) => {
 
 			let statusBadge = '';
 			if (hasApproved) {
-				statusBadge = `<div class="kna-approved-badge" style="margin-top:6px;"><i class="fas fa-check"></i> Approved</div>`;
+				statusBadge = `<span class="kna-status-badge kna-status-approved"><i class="fas fa-check"></i> Approved</span>`;
 			} else if (hasRejected) {
-				statusBadge = `<div class="kna-rejected-badge" style="margin-top:6px;"><i class="fas fa-times"></i> Rejected by ${escapeHtml(rejectedByName)}</div>
-					<div class="kna-rejected-reason" style="font-size:11px;color:#991b1b;font-style:italic;">"${escapeHtml(rejectionReason)}"</div>`;
+				statusBadge = `<span class="kna-status-badge kna-status-rejected"><i class="fas fa-times"></i> Rejected by ${escapeHtml(rejectedByName)}</span>`;
 			}
+
+			const vendorName = normalizeDate(expense.vendor_name || '');
+			const vendorAddress = normalizeDate(expense.vendor_address || '');
+			const vendorTin = normalizeDate(expense.vendor_tin || '');
 
 			return `
 				<div class="kna-exp-card">
 					<div class="kna-exp-card-head">
-						<div>
-							<div class="kna-exp-card-title">${escapeHtml(category || 'Expense Item')} <span class="kna-exp-card-sub">#${i + 1}</span></div>
-							<div class="kna-exp-card-meta">${escapeHtml(docDate)} • ${escapeHtml(reference)}</div>
+						<div class="kna-exp-card-head-left">
+							<div class="kna-exp-card-badge">${i + 1}</div>
+							<div class="kna-exp-card-title">${escapeHtml(category || 'Expense Item')}</div>
+							<div class="kna-exp-card-meta">${escapeHtml(docDate)} \u2022 ${escapeHtml(reference)}</div>
 							${statusBadge}
 						</div>
 						<div class="kna-exp-card-amount">${amountHtml}</div>
 					</div>
 
-					<div class="kna-exp-card-grid">
-						<div class="kna-exp-card-field">
-							<span class="kna-exp-card-label">VAT</span>
-							<span class="kna-exp-card-value">
-								<input type="checkbox" class="kna-vat-check" ${isVattable ? 'checked' : ''} disabled>
+					<div class="kna-exp-card-body">
+						<div class="kna-exp-card-grid">
+							<div class="kna-exp-card-field kna-exp-card-field-full">
+								<span class="kna-exp-card-label">Vendor Name</span>
+								<span class="kna-exp-card-value">${escapeHtml(vendorName || '\u2014')}</span>
+							</div>
+							<div class="kna-exp-card-field kna-exp-card-field-full">
+								<span class="kna-exp-card-label">Vendor Address</span>
+								<span class="kna-exp-card-value">${escapeHtml(vendorAddress || '\u2014')}</span>
+							</div>
+							<div class="kna-exp-card-field">
+								<span class="kna-exp-card-label">Vendor TIN</span>
+								<span class="kna-exp-card-value">${escapeHtml(vendorTin || '\u2014')}</span>
+							</div>
+							<div class="kna-exp-card-field">
+								<span class="kna-exp-card-label">VAT</span>
+								<span class="kna-exp-card-value">
+									<input type="checkbox" class="kna-vat-check" ${isVattable ? 'checked' : ''} disabled>
+								</span>
+							</div>
+							<div class="kna-exp-card-field kna-exp-card-field-full">
+								<span class="kna-exp-card-label">Remarks</span>
+								<span class="kna-exp-card-value">${escapeHtml(description)}</span>
+							</div>
+						</div>
+
+						<div class="kna-exp-card-field kna-exp-card-field-full">
+							<span class="kna-exp-card-label">Attachment</span>
+							<span class="kna-exp-card-value kna-exp-card-attach">
+								${attachNames.length ? attachNames.map(renderAttachment).join('') : '<span class="text-muted">\u2014</span>'}
 							</span>
 						</div>
-						<div class="kna-exp-card-field kna-exp-card-field-full">
-							<span class="kna-exp-card-label">Remarks</span>
-							<span class="kna-exp-card-value">${escapeHtml(description)}</span>
-						</div>
-					</div>
-
-					<div class="kna-exp-card-field kna-exp-card-field-full">
-						<span class="kna-exp-card-label">Attachment</span>
-						<span class="kna-exp-card-value kna-exp-card-attach">
-							${attachNames.length ? attachNames.map(renderAttachment).join('') : '<span class="text-muted">\u2014</span>'}
-						</span>
 					</div>
 				</div>
 			`;
@@ -184,14 +216,15 @@ const renderDetailExpenseItems = (expenses) => {
 		<div class="kna-exp-wrap">
 			<div class="kna-exp-mobile">${mobileCardsHtml}</div>
 			<table class="kna-exp-table">
-				<<thead>
+				<thead>
 					<tr>
 						<th style="width:34px;">#</th>
 						<th style="width:96px;">Date</th>
 						<th style="width:120px;">Category</th>
 						<th style="width:110px;">Reference</th>
 						<th style="width:72px;" class="text-center">VAT</th>
-						<th style="min-width:110px;">Attachment</th>
+						<th style="width:340px;">Vendor</th>
+						<th style="width:70px;">Attachment</th>
 						<th>Remarks</th>
 						<th style="width:130px;" class="text-right">Amount</th>
 					</tr>
@@ -199,7 +232,7 @@ const renderDetailExpenseItems = (expenses) => {
 				<tbody>${rowsHtml}</tbody>
 				<tfoot>
 					<tr>
-						<td colspan="7" class="text-right" style="font-size:12px;">Total</td>
+						<td colspan="8" class="text-right" style="font-size:12px;">Total</td>
 						<td class="text-right">
 							<div class="kna-amount-main">${formatPHP(total)}</div>
 							<div class="kna-amount-breakdown">Net ${formatPHP(totalNet)}</div>
@@ -232,7 +265,6 @@ const formatTimelineDate = (dateStr) => {
 	return `${yyyy}-${mm}-${dd} ${String(hh).padStart(2, '0')}:${min}${ampm}`;
 };
 
-// ─── GROUP AUDIT TRAIL BY APPROVER + TIMESTAMP ───
 const groupAuditTrail = (auditTrail) => {
 	if (!auditTrail || !auditTrail.length) return [];
 
@@ -319,7 +351,6 @@ const groupAuditTrail = (auditTrail) => {
 	return groups;
 };
 
-// ─── BUILD TIMELINE ENTRY TEXT ───
 const buildTimelineText = (group) => {
 	const action = group.action;
 	const changedByName = group.changedByName;
@@ -366,7 +397,6 @@ const buildTimelineText = (group) => {
 		entityDesc = 'request';
 	}
 
-	// CASE 1: Has items → group them
 	if (hasItems && items.length > 0) {
 		let mainLine = `${changedByName} ${actionText} ${entityDesc}`;
 		if (remarks) mainLine += `: "${remarks}"`;
@@ -381,22 +411,19 @@ const buildTimelineText = (group) => {
 		return [mainLine, ...subLines].join('<br>');
 	}
 
-	// CASE 2: Header-only entry
 	if (group.hasHeader && !hasItems) {
 		let text = `${changedByName} ${actionText} ${entityDesc}`;
-		if (group.description) text += ` — ${group.description}`;
+		if (group.description) text += ` \u2014 ${group.description}`;
 		if (remarks) text += `: "${remarks}"`;
 		return text;
 	}
 
-	// CASE 3: Fallback
 	let text = `${changedByName} ${actionText} ${entityDesc}`;
-	if (group.description) text += ` — ${group.description}`;
+	if (group.description) text += ` \u2014 ${group.description}`;
 	if (remarks) text += `: "${remarks}"`;
 	return text;
 };
 
-// ─── RENDER HISTORY TIMELINE FROM AUDIT TRAIL DATA ───
 const renderHistoryTimeline = (auditTrail) => {
 	const container = domDetail.viewTimeline;
 	if (!container) return;
@@ -433,7 +460,6 @@ const renderHistoryTimeline = (auditTrail) => {
 	container.innerHTML = html;
 };
 
-// ─── FETCH AND DISPLAY AUDIT TRAIL ───
 const loadAuditTrail = () => {
 	const ref = domDetail.liquidationRef ? domDetail.liquidationRef.value : '';
 	if (!ref) return;
@@ -452,7 +478,6 @@ const loadAuditTrail = () => {
 		});
 };
 
-// ─── LEGACY: Keep for compatibility ───
 const renderDetailTimeline = (timeline) => {
 	loadAuditTrail();
 };
@@ -473,7 +498,6 @@ const cacheDetailDom = () => {
 	domDetail.viewTimeline = document.getElementById('viewTimeline');
 	domDetail.btnEditLiquidation = document.getElementById('btnEditLiquidation');
 
-	// Lightbox — thumbnail click delegation
 	if (domDetail.viewExpenseItems) {
 		domDetail.viewExpenseItems.addEventListener('click', (e) => {
 			const wrap = e.target.closest('[data-lightbox]');
@@ -509,7 +533,6 @@ const initDetailPage = () => {
 		domDetail.viewLiquidationNo.textContent = ref;
 	}
 
-	// Load header info (fetch all headers for user, find matching record)
 	ajax_loader('transactions/liquidation/api/get/header', { Take: 100 }).done((response) => {
 		const res = (typeof response === 'string') ? $.parseJSON(response) : response;
 		if (res.status !== 'success') {
@@ -557,10 +580,9 @@ const initDetailPage = () => {
 			domDetail.viewPurpose.textContent = normalizeDate(record.description || '') || '-';
 		}
 
-		// Show Edit button if submitted and user is the creator
 		const statusCode = normalizeDate(record.status_code || '');
 		const isSubmitted = statusCode === 'LQ_SUBMITTED';
-		const currentUserId = Number(window.currentUserId || 0); // Set this in your PHP view
+		const currentUserId = Number(window.currentUserId || 0);
 		const createdById = Number(record.created_by || 0);
 		
 		if (isSubmitted && createdById === currentUserId && domDetail.btnEditLiquidation) {
@@ -569,7 +591,6 @@ const initDetailPage = () => {
 		}
 	});
 
-	// Load expense details with approval status
 	ajax_loader('transactions/liquidation/api/get/details', { LiquidationId: ref }).done((response) => {
 		const res = (typeof response === 'string') ? $.parseJSON(response) : response;
 		if (res.status !== 'success') {
@@ -581,7 +602,6 @@ const initDetailPage = () => {
 
 		const expenses = res.data || [];
 		
-		// Fetch approval status for each item
 		fetchApprovalStatusForItems(ref, expenses).then((expensesWithStatus) => {
 			renderDetailExpenseItems(expensesWithStatus);
 
@@ -606,7 +626,6 @@ const initDetailPage = () => {
 
 const fetchApprovalStatusForItems = (liquidationId, expenses) => {
 	return new Promise((resolve) => {
-		// Fetch approval per items data
 		ajax_loader('transactions/liquidation/api/get/for_edit', { LiquidationId: liquidationId }).done((response) => {
 			const res = (typeof response === 'string') ? $.parseJSON(response) : response;
 			if (res.status !== 'success' || !res.data || !res.data.details) {

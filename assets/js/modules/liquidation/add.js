@@ -1,4 +1,3 @@
-
 let expenseItems = [];
 let expenseItemCounter = 0;
 
@@ -17,6 +16,8 @@ const domAdd = {
 	expenseItemsContainer: null,
 	btnSaveDraftLiquidation: null,
 	btnSaveNewLiquidation: null,
+	btnSaveDraftLiquidationMobile: null,
+	btnSaveNewLiquidationMobile: null,
 };
 
 const MAX_ATTACHMENT_BYTES = 2 * 1024 * 1024;
@@ -51,6 +52,9 @@ const createExpenseItem = () => ({
 	existingAttachments: [],
 	attachments: [],
 	remarks: '',
+	vendorName: '',
+	vendorAddress: '',
+	vendorTin: '',
 });
 
 const findExpenseItem = (itemId) => expenseItems.find((item) => item.id === itemId);
@@ -244,12 +248,13 @@ const syncCashAdvanceDetails = () => {
 	});
 };
 
-const attachmentsLabel = (attachments, isOcrLoading = false) => {
+const attachmentsLabel = (attachments, itemId) => {
 	if (!liquidationReceiptOcr) {
-		return isOcrLoading ? 'Loading…' : 'No file';
+		return '<span class="kna-attachment-cell"><span class="text-muted">No file</span></span>';
 	}
-	return liquidationReceiptOcr.attachmentsLabel(attachments, isOcrLoading);
+	return liquidationReceiptOcr.attachmentsLabel(attachments, itemId);
 };
+
 
 const addItemAttachments = async (itemId, incomingFiles) => {
 	if (!liquidationReceiptOcr) {
@@ -295,6 +300,31 @@ const promptAttachmentSource = (itemId) => {
 	});
 };
 
+const buildOcrStatusHtml = (itemId) => {
+	if (!liquidationReceiptOcr) return '';
+	const state = liquidationReceiptOcr.getItemOcrState(itemId);
+	if (!state || state.status === 'idle') return '';
+	if (state.status === 'scanning') {
+		return `<div class="kna-ocr-status kna-ocr-scanning">
+			<i class="fas fa-spinner fa-spin"></i> <span>Reading…</span>
+			<button type="button" class="kna-ocr-manual-btn" data-item-action="ocrManual" data-item-id="${itemId}">Enter manually</button>
+		</div>`;
+	}
+	if (state.status === 'success') {
+		return `<div class="kna-ocr-status kna-ocr-success"><i class="fas fa-check"></i></div>`;
+	}
+	if (state.status === 'timeout' || state.status === 'error') {
+		return `<div class="kna-ocr-status kna-ocr-error">
+			<i class="fas fa-exclamation-triangle"></i> <span>${escapeHtml(state.error)}</span>
+			<button type="button" class="kna-ocr-manual-btn" data-item-action="ocrManual" data-item-id="${itemId}">Enter manually</button>
+		</div>`;
+	}
+	if (state.status === 'manual') {
+		return '';
+	}
+	return '';
+};
+
 const renderExpenseItems = () => {
 	if (!domAdd.expenseItemsContainer) {
 		return;
@@ -307,7 +337,6 @@ const renderExpenseItems = () => {
 		.map((item, index) => {
 			const selectedExpenseType = getExpenseTypeById(item.expenseType);
 			const selectedExpenseDescription = normalizeDate((selectedExpenseType || {}).description);
-			const isOcrLoading = liquidationReceiptOcr ? liquidationReceiptOcr.isItemOcrLoading(item.id) : false;
 			const allAttachments = getAllAttachmentObjects(item);
 			return `
 				<div class="kna-item-table kna-item-table-row" data-item-id="${item.id}">
@@ -316,14 +345,20 @@ const renderExpenseItems = () => {
 					<div><input type="text" class="form-control form-control-sm" data-item-field="reference" data-item-id="${item.id}" value="${escapeHtml(item.reference)}" placeholder="Invoice / OR no."></div>
 					<div><input type="number" min="0" step="0.01" class="form-control form-control-sm text-right" data-item-field="amount" data-item-id="${item.id}" value="${escapeHtml(item.amount)}" placeholder="0.00"></div>
 					<div><label class="kna-vat-wrap"><input type="checkbox" class="kna-vat-input" data-item-field="isVattable" data-item-id="${item.id}" ${item.isVattable ? 'checked' : ''}></label></div>
-					<div>
-						<div class="kna-attachment-cell">${attachmentsLabel(allAttachments, isOcrLoading)}</div>
+					<div class="kna-vendor-cell">
+						<input type="text" class="form-control form-control-sm" data-item-field="vendorName" data-item-id="${item.id}" value="${escapeHtml(item.vendorName)}" placeholder="Vendor name">
+						<input type="text" class="form-control form-control-sm" data-item-field="vendorAddress" data-item-id="${item.id}" value="${escapeHtml(item.vendorAddress)}" placeholder="Address">
+						<input type="text" class="form-control form-control-sm" data-item-field="vendorTin" data-item-id="${item.id}" value="${escapeHtml(item.vendorTin)}" placeholder="TIN">
+					</div>
+					<div class="kna-attach-cell">
+						<div class="kna-attachment-cell">${attachmentsLabel(allAttachments, item.id)}</div>
+						${buildOcrStatusHtml(item.id)}
 						<button type="button" class="btn btn-outline-primary btn-sm kna-small" data-item-action="attach" data-item-id="${item.id}">Attach</button>
 						<input type="file" class="d-none" data-item-file="upload" data-item-id="${item.id}" accept="image/*" multiple>
 						<input type="file" class="d-none" data-item-file="camera" data-item-id="${item.id}" accept="image/*" capture="environment">
 					</div>
-					<div><input type="text" class="form-control form-control-sm" data-item-field="remarks" data-item-id="${item.id}" value="${escapeHtml(item.remarks)}" placeholder="Remarks"></div>
-					<div><button type="button" class="btn btn-outline-danger btn-sm kna-icon-btn" data-item-action="remove" data-item-id="${item.id}" title="Remove item"><i class="fas fa-trash"></i></button></div>
+					<div class="kna-remarks-cell"><input type="text" class="form-control form-control-sm" data-item-field="remarks" data-item-id="${item.id}" value="${escapeHtml(item.remarks)}" placeholder="Remarks"></div>
+					<div class="kna-action-cell"><button type="button" class="btn btn-outline-danger btn-sm kna-icon-btn" data-item-action="remove" data-item-id="${item.id}" title="Remove item"><i class="fas fa-trash"></i></button></div>
 				</div>
 			`;
 		})
@@ -333,55 +368,77 @@ const renderExpenseItems = () => {
 		.map((item, index) => {
 			const selectedExpenseType = getExpenseTypeById(item.expenseType);
 			const selectedExpenseDescription = normalizeDate((selectedExpenseType || {}).description);
-			const isOcrLoading = liquidationReceiptOcr ? liquidationReceiptOcr.isItemOcrLoading(item.id) : false;
 			const allAttachments = getAllAttachmentObjects(item);
-			const attachmentSummary = attachmentsLabel(allAttachments, isOcrLoading);
+			const attachmentSummary = attachmentsLabel(allAttachments, item.id);
 			const hasAnyAttachment = allAttachments.length > 0;
-			const attachmentButtonLabel = hasAnyAttachment ? 'Attachment' : 'Attach';
-			const attachmentButtonClass = hasAnyAttachment ? 'btn btn-outline-primary btn-sm kna-small' : 'btn btn-warning btn-sm kna-small';
+			const attachmentButtonLabel = hasAnyAttachment ? 'Replace Receipt' : 'Attach Receipt';
+			const attachmentButtonClass = hasAnyAttachment ? 'btn btn-outline-primary btn-sm kna-attach-btn' : 'btn btn-primary btn-sm kna-attach-btn';
 			return `
 				<div class="kna-exp-card" data-item-id="${item.id}">
 					<div class="kna-exp-card-head">
-						<div>
-							<div class="kna-exp-card-title">Item <span class="kna-exp-card-sub">#${index + 1}</span></div>
-							<div class="kna-exp-card-meta">${escapeHtml(selectedExpenseType ? selectedExpenseType.categoryName : 'Tap attach to add a receipt')}</div>
+						<div class="kna-exp-card-head-left">
+							<div class="kna-exp-card-badge">${index + 1}</div>
+							<div class="kna-exp-card-title">${escapeHtml(selectedExpenseType ? selectedExpenseType.categoryName : 'Expense Item')}</div>
+							<div class="kna-exp-card-meta">${escapeHtml(item.documentDate || 'No date')} • ${escapeHtml(item.reference || 'No reference')}</div>
 						</div>
-						<div class="kna-exp-card-actions">
-							<button type="button" class="${attachmentButtonClass}" data-item-action="attach" data-item-id="${item.id}">${attachmentButtonLabel}</button>
-							<button type="button" class="btn btn-outline-danger btn-sm kna-small" data-item-action="remove" data-item-id="${item.id}" title="Remove item"><i class="fas fa-trash"></i></button>
-						</div>
+						<button type="button" class="kna-exp-card-remove" data-item-action="remove" data-item-id="${item.id}" title="Remove item">
+							<i class="fas fa-trash"></i>
+						</button>
 					</div>
+					<div class="kna-exp-card-body">
+						<div class="kna-exp-card-grid">
+							<div class="kna-exp-card-field">
+								<span class="kna-exp-card-label">Document Date</span>
+								<input type="date" class="form-control form-control-sm" data-item-field="documentDate" data-item-id="${item.id}" value="${escapeHtml(item.documentDate)}">
+							</div>
+							<div class="kna-exp-card-field">
+								<span class="kna-exp-card-label">Expense Type</span>
+								<select class="form-control form-control-sm" data-item-field="expenseType" data-item-id="${item.id}" title="${escapeHtml(selectedExpenseDescription)}">${expenseTypeOptionsMarkup(item.expenseType)}</select>
+							</div>
+							<div class="kna-exp-card-field">
+								<span class="kna-exp-card-label">Reference</span>
+								<input type="text" class="form-control form-control-sm" data-item-field="reference" data-item-id="${item.id}" value="${escapeHtml(item.reference)}" placeholder="Invoice / OR no.">
+							</div>
+							<div class="kna-exp-card-field">
+								<span class="kna-exp-card-label">Amount</span>
+								<input type="number" min="0" step="0.01" class="form-control form-control-sm text-right" data-item-field="amount" data-item-id="${item.id}" value="${escapeHtml(item.amount)}" placeholder="0.00">
+							</div>
+							<div class="kna-exp-card-field kna-exp-card-field-full">
+								<span class="kna-exp-card-label">Vendor Name</span>
+								<input type="text" class="form-control form-control-sm" data-item-field="vendorName" data-item-id="${item.id}" value="${escapeHtml(item.vendorName)}" placeholder="Vendor name">
+							</div>
+							<div class="kna-exp-card-field kna-exp-card-field-full">
+								<span class="kna-exp-card-label">Vendor Address</span>
+								<input type="text" class="form-control form-control-sm" data-item-field="vendorAddress" data-item-id="${item.id}" value="${escapeHtml(item.vendorAddress)}" placeholder="Address">
+							</div>
+							<div class="kna-exp-card-field">
+								<span class="kna-exp-card-label">Vendor TIN</span>
+								<input type="text" class="form-control form-control-sm" data-item-field="vendorTin" data-item-id="${item.id}" value="${escapeHtml(item.vendorTin)}" placeholder="TIN">
+							</div>
 
-					<div class="kna-exp-card-grid">
-						<div class="kna-exp-card-field">
-							<span class="kna-exp-card-label">Document Date</span>
-							<input type="date" class="form-control form-control-sm" data-item-field="documentDate" data-item-id="${item.id}" value="${escapeHtml(item.documentDate)}">
+							<div class="kna-exp-card-field kna-exp-card-field-full kna-vat-toggle-row">
+								<label class="kna-vat-toggle">
+									<input type="checkbox" class="kna-vat-input" data-item-field="isVattable" data-item-id="${item.id}" ${item.isVattable ? 'checked' : ''}>
+									<span class="kna-vat-toggle-slider"></span>
+									<span class="kna-vat-toggle-label">VAT Inclusive</span>
+								</label>
+							</div>
 						</div>
-						<div class="kna-exp-card-field">
-							<span class="kna-exp-card-label">Expense Type</span>
-							<select class="form-control form-control-sm" data-item-field="expenseType" data-item-id="${item.id}" title="${escapeHtml(selectedExpenseDescription)}">${expenseTypeOptionsMarkup(item.expenseType)}</select>
-						</div>
-						<div class="kna-exp-card-field">
-							<span class="kna-exp-card-label">Reference</span>
-							<input type="text" class="form-control form-control-sm" data-item-field="reference" data-item-id="${item.id}" value="${escapeHtml(item.reference)}" placeholder="Invoice / OR no.">
-						</div>
-						<div class="kna-exp-card-field">
-							<span class="kna-exp-card-label">Amount</span>
-							<input type="number" min="0" step="0.01" class="form-control form-control-sm text-right" data-item-field="amount" data-item-id="${item.id}" value="${escapeHtml(item.amount)}" placeholder="0.00">
-						</div>
-						<div class="kna-exp-card-field">
-							<span class="kna-exp-card-label">VAT</span>
-							<label class="kna-vat-wrap"><input type="checkbox" class="kna-vat-input" data-item-field="isVattable" data-item-id="${item.id}" ${item.isVattable ? 'checked' : ''}></label>
-						</div>
-						<div class="kna-exp-card-field kna-exp-card-field-full">
-							<span class="kna-exp-card-label">Attachment</span>
-							<span class="kna-exp-card-value kna-exp-card-attach">${attachmentSummary}</span>
+						<div class="kna-attach-section">
+							<div class="kna-attach-header">
+								<span class="kna-exp-card-label">Receipt / Attachment</span>
+								<span class="kna-attach-status">${attachmentSummary}</span>
+							</div>
+							${buildOcrStatusHtml(item.id)}
+							<button type="button" class="${attachmentButtonClass}" data-item-action="attach" data-item-id="${item.id}">
+								<i class="fas ${hasAnyAttachment ? 'fa-sync-alt' : 'fa-camera'} mr-1"></i> ${attachmentButtonLabel}
+							</button>
 							<input type="file" class="d-none" data-item-file="upload" data-item-id="${item.id}" accept="image/*" multiple>
 							<input type="file" class="d-none" data-item-file="camera" data-item-id="${item.id}" accept="image/*" capture="environment">
 						</div>
-						<div class="kna-exp-card-field kna-exp-card-field-full">
+						<div class="kna-remarks-section">
 							<span class="kna-exp-card-label">Remarks</span>
-							<input type="text" class="form-control form-control-sm" data-item-field="remarks" data-item-id="${item.id}" value="${escapeHtml(item.remarks)}" placeholder="Remarks">
+							<input type="text" class="form-control form-control-sm" data-item-field="remarks" data-item-id="${item.id}" value="${escapeHtml(item.remarks)}" placeholder="Enter remarks...">
 						</div>
 					</div>
 				</div>
@@ -393,11 +450,12 @@ const renderExpenseItems = () => {
 		<div class="kna-exp-summary">
 			<div class="kna-item-table-wrap">
 				<div class="kna-item-table kna-item-table-head">
-					<div>Document date</div>
+					<div>Doc Date</div>
 					<div>Expense Type</div>
 					<div>Reference</div>
 					<div>Amount</div>
-					<div>Vattable</div>
+					<div>VAT</div>
+					<div>Vendor</div>
 					<div>Attachment</div>
 					<div>Remarks</div>
 					<div>Actions</div>
@@ -514,6 +572,9 @@ const sendLiquidation = (statusCode) => {
 			IsVatable: Boolean(item.isVattable),
 			Description: item.remarks,
 			Attachment: getAttachmentNamesCsv(item),
+			VendorName: item.vendorName || '',
+			VendorAddress: item.vendorAddress || '',
+			VendorTin: item.vendorTin || '',
 		}));
 
 		const formData = new FormData();
@@ -635,6 +696,8 @@ const cacheAddDom = () => {
 	domAdd.expenseItemsContainer = document.getElementById('expenseItemsContainer');
 	domAdd.btnSaveDraftLiquidation = document.getElementById('btnSaveDraftLiquidation');
 	domAdd.btnSaveNewLiquidation = document.getElementById('btnSaveNewLiquidation');
+	domAdd.btnSaveDraftLiquidationMobile = document.getElementById('btnSaveDraftLiquidationMobile');
+	domAdd.btnSaveNewLiquidationMobile = document.getElementById('btnSaveNewLiquidationMobile');
 };
 
 const setEditability = (editable) => {
@@ -709,6 +772,9 @@ const loadDraftForEdit = () => {
 				.filter(Boolean),
 			attachments: [],
 			remarks: normalizeDate(detail.description),
+			vendorName: normalizeDate(detail.vendor_name || ''),
+			vendorAddress: normalizeDate(detail.vendor_address || ''),
+			vendorTin: normalizeDate(detail.vendor_tin || ''),
 		}));
 
 		if (!expenseItems.length) {
@@ -747,8 +813,8 @@ const initAddPage = () => {
 		normalizeDate,
 		escapeHtml,
 		swal: Swal,
-		ajaxLoaderFormDataLoading: ajax_loader_formdata_loading,
 		ocrEndpoint: 'transactions/liquidation/api/ocr',
+		baseUrl: base_url,
 	});
 	if (domAdd.newDateRange) {
 		domAdd.newDateRange.setAttribute('readonly', 'readonly');
@@ -767,6 +833,12 @@ const initAddPage = () => {
 	domAdd.btnSaveNewLiquidation.addEventListener('click', () => sendLiquidation('LQ_SUBMITTED'));
 	if (domAdd.btnSaveDraftLiquidation) {
 		domAdd.btnSaveDraftLiquidation.addEventListener('click', () => sendLiquidation('LQ_DRAFT'));
+	}
+	if (domAdd.btnSaveNewLiquidationMobile) {
+		domAdd.btnSaveNewLiquidationMobile.addEventListener('click', () => sendLiquidation('LQ_SUBMITTED'));
+	}
+	if (domAdd.btnSaveDraftLiquidationMobile) {
+		domAdd.btnSaveDraftLiquidationMobile.addEventListener('click', () => sendLiquidation('LQ_DRAFT'));
 	}
 	domAdd.btnAddExpenseItem.addEventListener('click', () => {
 		expenseItems.push(createExpenseItem());
@@ -815,9 +887,23 @@ const initAddPage = () => {
 			return;
 		}
 
+		const item = findExpenseItem(itemId);
+		if (!item) {
+			return;
+		}
+
+		// Clear existing attachments first — only 1 attachment allowed per item
+		item.attachments = [];
+		item.existingAttachments = [];
+		if (liquidationReceiptOcr) {
+			liquidationReceiptOcr.cancelOcr(itemId);
+		}
+
 		const acceptedFiles = await addItemAttachments(itemId, Array.from(target.files || []));
 		if (acceptedFiles.length) {
-			await runOcrAutofillForItem(itemId, acceptedFiles[0]);
+			// Only keep the first file (single attachment policy)
+			item.attachments = [acceptedFiles[0]];
+			liquidationReceiptOcr.runOcrAutofillForItem(itemId, acceptedFiles[0]);
 		}
 		target.value = '';
 		renderExpenseItems();
@@ -836,6 +922,7 @@ const initAddPage = () => {
 		}
 
 		if (action === 'remove') {
+			if (liquidationReceiptOcr) liquidationReceiptOcr.cancelOcr(itemId);
 			expenseItems = expenseItems.filter((item) => item.id !== itemId);
 			renderExpenseItems();
 			return;
@@ -843,6 +930,12 @@ const initAddPage = () => {
 
 		if (action === 'attach') {
 			promptAttachmentSource(itemId);
+			return;
+		}
+
+		if (action === 'ocrManual') {
+			if (liquidationReceiptOcr) liquidationReceiptOcr.markManual(itemId);
+			return;
 		}
 	});
 };

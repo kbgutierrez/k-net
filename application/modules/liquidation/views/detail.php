@@ -369,6 +369,17 @@
 		font-weight: 700;
 	}
 
+	/* Vendor display */
+	.kna-vendor-display {
+		font-size: 12px;
+		line-height: 1.4;
+	}
+	.kna-vendor-sub {
+		font-size: 11px;
+		color: #6b7280;
+		margin-top: 2px;
+	}
+
 	/* Attachment thumbnails */
 	.kna-thumb-wrap {
 		display: inline-flex;
@@ -424,13 +435,15 @@
 		text-decoration: underline;
 	}
 
+	/* ===== MOBILE CARDS ===== */
 	.kna-exp-card {
 		border: 1px solid #e5e7eb;
-		border-radius: 10px;
+		border-radius: 12px;
 		background: #fff;
-		padding: 12px;
-		margin-bottom: 10px;
-		box-shadow: 0 1px 2px rgba(20, 30, 50, .04);
+		padding: 0;
+		box-shadow: 0 2px 8px rgba(20, 30, 50, .06);
+		margin-bottom: 12px;
+		overflow: hidden;
 	}
 
 	.kna-exp-card-head {
@@ -438,9 +451,31 @@
 		justify-content: space-between;
 		gap: 10px;
 		align-items: flex-start;
-		padding-bottom: 10px;
+		padding: 10px 12px;
 		border-bottom: 1px solid #eef2f7;
-		margin-bottom: 10px;
+		background: #fafbfc;
+	}
+
+	.kna-exp-card-head-left {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		min-width: 0;
+		flex: 1;
+	}
+
+	.kna-exp-card-badge {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 22px;
+		height: 22px;
+		border-radius: 50%;
+		background: #6366f1;
+		color: #fff;
+		font-size: 10px;
+		font-weight: 700;
+		margin-bottom: 2px;
 	}
 
 	.kna-exp-card-title {
@@ -468,10 +503,14 @@
 		flex: 0 0 auto;
 	}
 
+	.kna-exp-card-body {
+		padding: 10px 12px;
+	}
+
 	.kna-exp-card-grid {
 		display: grid;
-		grid-template-columns: 1fr 2fr;
-		gap: 8px;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 10px;
 		margin-bottom: 10px;
 	}
 
@@ -515,6 +554,28 @@
 
 	.kna-mobile-summary .kna-fin-label {
 		margin-bottom: 2px;
+	}
+
+	/* Status badges on mobile */
+	.kna-status-badge {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		padding: 3px 10px;
+		border-radius: 20px;
+		font-size: 10px;
+		font-weight: 700;
+		margin-top: 4px;
+	}
+
+	.kna-status-approved {
+		background: #d1fae5;
+		color: #065f46;
+	}
+
+	.kna-status-rejected {
+		background: #fee2e2;
+		color: #991b1b;
 	}
 
 	/* Lightbox */
@@ -682,6 +743,19 @@
 		font-size: 12px;
 		line-height: 1.5;
 		word-break: break-word;
+	}
+
+	@media (max-width: 480px) {
+		.kna-timeline-item {
+			padding: 10px 0 10px 20px;
+			font-size: 11px;
+		}
+		.kna-timeline-item-name {
+			font-size: 11px;
+		}
+		.kna-timeline-item-remarks {
+			font-size: 11px;
+		}
 	}
 </style>
 
