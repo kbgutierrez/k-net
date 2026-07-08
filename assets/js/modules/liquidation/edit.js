@@ -484,7 +484,7 @@ const renderEditExpenseItems = () => {
                     <div>Vendor</div>
                     <div>Attachment</div>
                     <div>Remarks</div>
-                    <div>Actions</div>
+                    <div></div>
                 </div>
                 ${desktopRowsHtml}
             </div>

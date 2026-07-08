@@ -26,24 +26,28 @@ class Approvals extends MY_Controller
 
     public function review($approval_id = 0)
     {
+        $costCenters = $this->sp->fetchData('sp_fetch_active_cost_centers');
+        if (!is_array($costCenters)) {
+            $costCenters = array();
+        }
+
         $data = array(
             'title' => 'Review Approval',
             'main_view' => '../modules/approvals/views/review',
             'module_group' => $this->module_group,
             'module' => $this->module,
             'approval_id' => $approval_id,
+            'cost_centers' => $costCenters,
             'scripts' => array('review.js'),
         );
         $this->load->view('main', $data);
     }
 
-   
-
     // ─── HELPER: Get transaction info from approval_per_item_id ───
     private function getTransactionInfoFromApprovalItem($approvalPerItemId)
     {
         $params = array(
-            'ApprovalPerItemId' => (int)$approvalPerItemId,
+            'ApprovalPerItemId' => (int) $approvalPerItemId,
         );
 
         $result = $this->sp->readData(
@@ -55,6 +59,53 @@ class Approvals extends MY_Controller
         return $result ?: null;
     }
 
+    // ─── HELPER: Fetch CA attachments by CA ID ───
+    private function fetchCaAttachments($caId)
+    {
+        if (empty($caId)) {
+            return array();
+        }
+
+        $params = array(
+            'CaId' => $caId,
+        );
+
+        $result = $this->sp->readData(
+            build_sp('sp_fetch_ca_attachments_by_caid', count($params)),
+            $params,
+            'result'
+        );
+
+        if (!is_array($result)) {
+            return array();
+        }
+
+        $attachments = array();
+        foreach ($result as $row) {
+            $fileName = isset($row['file_name']) ? trim((string) $row['file_name']) : '';
+            $originalName = isset($row['original_name']) ? trim((string) $row['original_name']) : $fileName;
+            $fileSize = isset($row['file_size']) ? (int) $row['file_size'] : 0;
+            $uploadedDate = isset($row['uploaded_date']) ? trim((string) $row['uploaded_date']) : '';
+
+            if (!$fileName)
+                continue;
+
+            $viewUrl = base_url('transactions/cash-advance/attachment/view?ca=' . urlencode($caId) . '&file=' . urlencode($fileName));
+            $downloadUrl = base_url('transactions/cash-advance/attachment/view?ca=' . urlencode($caId) . '&file=' . urlencode($fileName) . '&download=1');
+
+            $attachments[] = array(
+                'file_name' => $fileName,
+                'original_name' => $originalName,
+                'file_size' => $fileSize,
+                'uploaded_date' => $uploadedDate,
+                'view_url' => $viewUrl,
+                'download_url' => $downloadUrl,
+            );
+        }
+
+        return $attachments;
+    }
+
     public function api_get_header()
     {
         try {
@@ -64,19 +115,20 @@ class Approvals extends MY_Controller
             $takeRaw = $this->input->post('Take');
 
             $take = (int) $takeRaw;
-            if ($take <= 0) $take = 20;
-            
+            if ($take <= 0)
+                $take = 20;
+
             $cursorId = null;
             if ($cursorIdRaw !== null && $cursorIdRaw !== '') {
                 $cursorId = (int) $cursorIdRaw;
             }
-            
+
             $params = array(
                 "UserId" => $userId,
                 "CursorId" => $cursorId,
                 "Take" => $take,
             );
-            
+
             $result = $this->sp->readData(
                 build_sp('sp_fetch_pending_approvals_header', count($params)),
                 $params,
@@ -84,14 +136,15 @@ class Approvals extends MY_Controller
             );
 
             $hasMore = count($result) > $take;
-            if ($hasMore) array_pop($result);
-            
+            if ($hasMore)
+                array_pop($result);
+
             $nextCursorId = null;
             if (!empty($result)) {
                 $lastRow = end($result);
                 $nextCursorId = isset($lastRow['id']) ? (int) $lastRow['id'] : null;
             }
-            
+
             echo json_encode(array(
                 'status' => 'success',
                 'data' => $result,
@@ -115,11 +168,11 @@ class Approvals extends MY_Controller
             $this->output->set_content_type('application/json');
             $data = $this->getRequestPayload();
             $refereceNo = isset($data['ReferenceNo']) ? $data['ReferenceNo'] : null;
-    
+
             $params = array(
                 "ReferenceNo" => $refereceNo,
                 "ApproverId" => $this->session->userdata('user_id'),
-                );
+            );
             $result = $this->sp->readData(
                 build_sp('sp_fetch_transaction_details', count($params)),
                 $params,
@@ -140,14 +193,33 @@ class Approvals extends MY_Controller
                     $row['final_pdf_url'] = $this->buildPublicUrlFromRelativePath($finalPath);
                     $row['generated_pdf_url'] = $this->buildPublicUrlFromRelativePath($generatedPath);
 
-                    // Prefer final PDF for approvers when available.
                     $activePath = $finalPath !== '' ? $finalPath : $generatedPath;
                     $row['active_pdf_url'] = $this->buildPublicUrlFromRelativePath($activePath);
                 }
                 unset($row);
             }
-            
-            return $this->respondSuccess("Details fetched successfully.", $result);
+
+            $attachments = array();
+            $hasAttachments = false;
+
+            if (is_array($result) && count($result) > 0) {
+                $firstRow = $result[0];
+                $transactionType = isset($firstRow['transaction_type']) ? strtoupper(trim((string) $firstRow['transaction_type'])) : '';
+
+                 if ($transactionType === 'CASH_ADVANCE' || $transactionType === 'LIQUIDATION') {
+                    $caId = isset($firstRow['reference_no']) ? $firstRow['reference_no'] : 0;
+                    if ($caId) {
+                        $attachments = $this->fetchCaAttachments($caId);
+                        $hasAttachments = count($attachments) > 0;
+                    }
+                }
+            }
+
+            return $this->respondSuccess("Details fetched successfully.", array(
+                'items' => $result,
+                'attachments' => $attachments,
+                'has_attachments' => $hasAttachments,
+            ));
         } catch (Exception $e) {
             return $this->respondError("An error occurred: " . $e->getMessage());
         }
@@ -193,6 +265,49 @@ class Approvals extends MY_Controller
     }
 
     /**
+     * Update CA header fields (cost_center, payable_to, address) in one batch
+     */
+    public function api_update_ca_header()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $referenceNo  = isset($data['reference_no'])  ? trim((string) $data['reference_no'])  : '';
+            $costCenterId = isset($data['cost_center_id']) ? trim((string) $data['cost_center_id']) : '';
+            $payableTo    = isset($data['payable_to'])    ? trim((string) $data['payable_to'])    : '';
+            $address      = isset($data['address'])      ? trim((string) $data['address'])      : '';
+
+            if ($referenceNo === '') {
+                throw new Exception('Missing required field: reference_no');
+            }
+
+            $userId = (int) $this->session->userdata('user_id');
+            if ($userId <= 0) {
+                throw new Exception('User not authenticated.');
+            }
+
+            $params = array(
+                'ReferenceNo'  => $referenceNo,
+                'CostCenterId' => $costCenterId,
+                'PayableTo'    => $payableTo,
+                'Address'      => $address,
+                'UpdatedBy'    => $userId,
+            );
+
+            $result = $this->sp->createData(
+                build_sp('sp_update_ca_header_fields', count($params)),
+                $params,
+                'result'
+            );
+
+            return $this->respondSuccess('Cash advance details updated successfully.');
+        } catch (Throwable $e) {
+            return $this->respondError($e->getMessage());
+        }
+    }
+
+    /**
      * Per-item decision (before final submit)
      */
     public function api_per_item_decision()
@@ -201,10 +316,10 @@ class Approvals extends MY_Controller
             $this->output->set_content_type('application/json');
             $data = $this->getRequestPayload();
 
-            $approvalPerItemId = isset($data['approval_per_item_id']) ? (int)$data['approval_per_item_id'] : 0;
-            $status            = isset($data['status']) ? trim((string)$data['status']) : '';
-            $remarks           = isset($data['remarks']) ? trim((string)$data['remarks']) : '';
-            $isNotify          = isset($data['is_notify']) ? (int)(bool)$data['is_notify'] : 0;
+            $approvalPerItemId = isset($data['approval_per_item_id']) ? (int) $data['approval_per_item_id'] : 0;
+            $status = isset($data['status']) ? trim((string) $data['status']) : '';
+            $remarks = isset($data['remarks']) ? trim((string) $data['remarks']) : '';
+            $isNotify = isset($data['is_notify']) ? (int) (bool) $data['is_notify'] : 0;
 
             if ($approvalPerItemId <= 0) {
                 throw new Exception('Missing approval_per_item_id');
@@ -218,17 +333,16 @@ class Approvals extends MY_Controller
                 throw new Exception('User not authenticated.');
             }
 
-            // Get transaction info BEFORE calling SP (need old status for audit)
             $txInfo = $this->getTransactionInfoFromApprovalItem($approvalPerItemId);
             $referenceNo = $txInfo ? ($txInfo['reference_id'] ?? '') : '';
             $oldStatus = $txInfo ? ($txInfo['status'] ?? 'PENDING') : 'PENDING';
 
             $spParams = array(
                 'ApprovalPerItemId' => $approvalPerItemId,
-                'ApproverId'        => $userId,
-                'Status'            => $status,
-                'Remarks'           => $remarks,
-                'IsNotify'          => $isNotify,
+                'ApproverId' => $userId,
+                'Status' => $status,
+                'Remarks' => $remarks,
+                'IsNotify' => $isNotify,
             );
 
             $result = $this->sp->readData(
@@ -241,7 +355,6 @@ class Approvals extends MY_Controller
                 throw new Exception('Per-item decision returned no result.');
             }
 
-  
             $transactionType = '';
             if (strpos($referenceNo, 'CA') === 0) {
                 $transactionType = 'CASH_ADVANCE';
@@ -253,7 +366,7 @@ class Approvals extends MY_Controller
                 $this->logAuditTrail(
                     $transactionType,
                     $referenceNo,
-                    $status,              // 'APPROVED' or 'REJECTED'
+                    $status,
                     'ITEM',
                     $approvalPerItemId,
                     'status',
@@ -278,10 +391,10 @@ class Approvals extends MY_Controller
             $this->output->set_content_type('application/json');
             $data = $this->getRequestPayload();
 
-            $referenceNo     = isset($data['reference_no'])     ? trim((string)$data['reference_no']) : '';
-            $transactionType = isset($data['transaction_type']) ? strtoupper(trim((string)$data['transaction_type'])) : '';
-            $overallRemarks  = isset($data['overall_remarks'])  ? trim((string)$data['overall_remarks']) : '';
-            $decisions       = isset($data['decisions']) && is_array($data['decisions']) ? $data['decisions'] : array();
+            $referenceNo = isset($data['reference_no']) ? trim((string) $data['reference_no']) : '';
+            $transactionType = isset($data['transaction_type']) ? strtoupper(trim((string) $data['transaction_type'])) : '';
+            $overallRemarks = isset($data['overall_remarks']) ? trim((string) $data['overall_remarks']) : '';
+            $decisions = isset($data['decisions']) && is_array($data['decisions']) ? $data['decisions'] : array();
 
             if ($referenceNo === '') {
                 throw new Exception('Missing required field: reference_no');
@@ -298,15 +411,14 @@ class Approvals extends MY_Controller
                 throw new Exception('User not authenticated.');
             }
 
-            // LIQUIDATION: Update VAT per line item first
             if ($transactionType === 'LIQUIDATION') {
                 foreach ($decisions as $d) {
-                    $detailId  = isset($d['detail_id'])  ? (int)$d['detail_id'] : 0;
-                    $isVatable = isset($d['is_vatable']) ? (int)(bool)$d['is_vatable'] : 0;
+                    $detailId = isset($d['detail_id']) ? (int) $d['detail_id'] : 0;
+                    $isVatable = isset($d['is_vatable']) ? (int) (bool) $d['is_vatable'] : 0;
 
                     if ($detailId > 0) {
                         $vatParams = array(
-                            'DetailId'   => $detailId,
+                            'DetailId' => $detailId,
                             'IsVattable' => $isVatable,
                         );
                         $this->sp->createData(
@@ -317,37 +429,35 @@ class Approvals extends MY_Controller
                 }
             }
 
-            // Determine overall decision
             $overallDecision = 'APPROVED';
             $rejectionReason = null;
 
             if ($transactionType === 'LIQUIDATION') {
                 foreach ($decisions as $d) {
-                    $rawDecision = isset($d['decision']) ? strtolower(trim((string)$d['decision'])) : '';
+                    $rawDecision = isset($d['decision']) ? strtolower(trim((string) $d['decision'])) : '';
                     if ($rawDecision === 'reject' || $rawDecision === 'rejected') {
                         $overallDecision = 'REJECTED';
-                        $rejectionReason = isset($d['remark']) ? trim((string)$d['remark']) : '';
+                        $rejectionReason = isset($d['remark']) ? trim((string) $d['remark']) : '';
                         break;
                     }
                 }
             } else {
-                $rawDecision = isset($decisions[0]['decision']) ? strtolower(trim((string)$decisions[0]['decision'])) : '';
+                $rawDecision = isset($decisions[0]['decision']) ? strtolower(trim((string) $decisions[0]['decision'])) : '';
                 if ($rawDecision === 'approve' || $rawDecision === 'approved') {
                     $overallDecision = 'APPROVED';
                 } elseif ($rawDecision === 'reject' || $rawDecision === 'rejected') {
                     $overallDecision = 'REJECTED';
-                    $rejectionReason = isset($decisions[0]['remark']) ? trim((string)$decisions[0]['remark']) : '';
+                    $rejectionReason = isset($decisions[0]['remark']) ? trim((string) $decisions[0]['remark']) : '';
                 } else {
                     throw new Exception('Invalid decision value: ' . $rawDecision);
                 }
             }
 
-            // Call main approval decision SP
             $spParams = array(
-                'ReferenceId'     => $referenceNo,
-                'ApproverId'      => $userId,
-                'Status'          => $overallDecision,
-                'Remarks'         => $overallRemarks,
+                'ReferenceId' => $referenceNo,
+                'ApproverId' => $userId,
+                'Status' => $overallDecision,
+                'Remarks' => $overallRemarks,
                 'RejectionReason' => $rejectionReason,
             );
 
@@ -363,11 +473,10 @@ class Approvals extends MY_Controller
 
             $row = $result[0];
 
-            // ─── LOG AUDIT TRAIL FOR FINAL DECISION ───
             $this->logAuditTrail(
                 $transactionType,
                 $referenceNo,
-                $overallDecision,     // 'APPROVED' or 'REJECTED'
+                $overallDecision,
                 'HEADER',
                 $referenceNo,
                 null,
@@ -376,10 +485,10 @@ class Approvals extends MY_Controller
             );
 
             return $this->respondSuccess('Decision submitted successfully.', array(
-                'next_approver_id'    => isset($row['next_approver_id']) ? (int)$row['next_approver_id'] : null,
-                'header_status'       => isset($row['header_status']) ? $row['header_status'] : null,
-                'approval_header_id'  => isset($row['approval_header_id']) ? (int)$row['approval_header_id'] : null,
-                'reference_id'        => isset($row['reference_id']) ? $row['reference_id'] : $referenceNo,
+                'next_approver_id' => isset($row['next_approver_id']) ? (int) $row['next_approver_id'] : null,
+                'header_status' => isset($row['header_status']) ? $row['header_status'] : null,
+                'approval_header_id' => isset($row['approval_header_id']) ? (int) $row['approval_header_id'] : null,
+                'reference_id' => isset($row['reference_id']) ? $row['reference_id'] : $referenceNo,
             ));
 
         } catch (Throwable $e) {
@@ -395,13 +504,12 @@ class Approvals extends MY_Controller
         try {
             $this->output->set_content_type('application/json');
             $data = $this->getRequestPayload();
-            
-            $referenceNo = isset($data['ReferenceNo']) ? trim((string)$data['ReferenceNo']) : '';
+
+            $referenceNo = isset($data['ReferenceNo']) ? trim((string) $data['ReferenceNo']) : '';
             if ($referenceNo === '') {
                 return $this->respondError('Missing ReferenceNo');
             }
 
-            // Detect transaction type from prefix
             $transactionType = '';
             if (strpos($referenceNo, 'CA') === 0) {
                 $transactionType = 'CASH_ADVANCE';
@@ -409,7 +517,6 @@ class Approvals extends MY_Controller
                 $transactionType = 'LIQUIDATION';
             }
 
-            // Fetch audit trail
             $auditParams = array(
                 'TransactionId' => $referenceNo,
             );
@@ -419,7 +526,6 @@ class Approvals extends MY_Controller
                 'result'
             );
 
-            // Fetch approval matrix
             $matrixParams = array(
                 'ReferenceId' => $referenceNo,
             );
@@ -431,8 +537,8 @@ class Approvals extends MY_Controller
 
             return $this->respondSuccess('Timeline fetched', array(
                 'transaction_type' => $transactionType,
-                'audit_trail'      => is_array($auditTrail) ? $auditTrail : array(),
-                'approval_matrix'  => is_array($approvalMatrix) ? $approvalMatrix : array(),
+                'audit_trail' => is_array($auditTrail) ? $auditTrail : array(),
+                'approval_matrix' => is_array($approvalMatrix) ? $approvalMatrix : array(),
             ));
 
         } catch (Throwable $e) {
@@ -445,7 +551,8 @@ class Approvals extends MY_Controller
         $raw = $this->input->raw_input_stream;
         if (!empty($raw)) {
             $json = json_decode($raw, true);
-            if (is_array($json)) return $json;
+            if (is_array($json))
+                return $json;
         }
         $postData = $this->input->post();
         return is_array($postData) ? $postData : array();
@@ -460,7 +567,7 @@ class Approvals extends MY_Controller
         ));
         return;
     }
-    
+
     private function respondError($message)
     {
         echo json_encode(array(

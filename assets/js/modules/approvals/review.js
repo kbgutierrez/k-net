@@ -1,1773 +1,904 @@
 const domReview = {
-	approvalRef: null,
-	currentUserId: null,
-	reviewTitle: null,
-	reviewStatusBadge: null,
-	reviewHeaderFields: null,
-	viewApprovalItems: null,
-	reviewTimeline: null,
-	summaryReviewed: null,
-	summaryApprovedAmount: null,
-	summaryRejectedAmount: null,
-	reviewerRemarks: null,
-	btnSubmitDecision: null,
+  approvalRef: null, currentUserId: null, reviewTitle: null,
+  reviewStatusBadge: null, reviewHeaderFields: null, viewApprovalItems: null,
+  reviewTimeline: null, summaryReviewed: null, summaryApprovedAmount: null,
+  summaryRejectedAmount: null, reviewerRemarks: null, btnSubmitDecision: null
 };
 
 const IMG_EXTS = /\.(jpg|jpeg|png|gif|webp)$/i;
+const ATTACHMENTS_BASE = base_url + 'assets/uploads/attachments/';
 
-const formatPHP = (n) => {
-	const num = Number(n) || 0;
-	return '₱' + num.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+let reviewState = {
+  transactionType: null, referenceNo: null, items: [], header: null,
+  decisions: {}, totalItems: 0, reviewedCount: 0, approvedAmount: 0, rejectedAmount: 0
 };
 
-const resolveApprovalPdfUrl = (row) => {
-	if (!row || typeof row !== 'object') {
-		return '';
-	}
-
-	const candidates = [
-		normalizeDate(row.active_pdf_url),
-		normalizeDate(row.final_pdf_url),
-		normalizeDate(row.generated_pdf_url),
-		normalizeDate(row.final_pdf_path),
-		normalizeDate(row.generated_pdf_path)
-	].filter(Boolean);
-
-	if (!candidates.length) {
-		return '';
-	}
-
-	const first = candidates[0];
-	if (/^https?:\/\//i.test(first)) {
-		return first;
-	}
-
-	if (first.indexOf('assets/') === 0) {
-		return base_url + first;
-	}
-
-	return '';
+/* ─── UTILITIES ─── */
+const formatPHP = n => {
+  const num = Number(n) || 0;
+  return '₱' + num.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-const normalizeDate = (str) => {
-	if (str == null) return '';
-	const clean = String(str).trim();
-	if (!clean || clean === 'null' || clean === 'undefined') return '';
-	return clean;
+const normalizeDate = str => {
+  if (str == null) return '';
+  const clean = String(str).trim();
+  return (!clean || clean === 'null' || clean === 'undefined') ? '' : clean;
 };
 
-const getStatusBadge = (statusName) => {
-	const name = String(statusName || '').toLowerCase();
-	if (name.includes('pending')) return '<span class="kna-badge kna-badge-pending">Pending</span>';
-	if (name.includes('approved') || name.includes('approve')) return '<span class="kna-badge kna-badge-approved">Approved</span>';
-	if (name.includes('rejected') || name.includes('reject')) return '<span class="kna-badge kna-badge-rejected">Rejected</span>';
-	if (name.includes('partial')) return '<span class="kna-badge kna-badge-partial">Partially Approved</span>';
-	return '<span class="kna-badge kna-badge-pending">' + escapeHtml(statusName || 'Pending') + '</span>';
+const escapeHtml = str => str == null ? '' : String(str)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+const formatFileSize = bytes => {
+  if (!bytes || bytes <= 0) return '';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 };
 
-const escapeHtml = (str) => {
-	if (str == null) return '';
-	return String(str)
-		.replace(/&/g, '&amp;')
-		.replace(/</g, '&lt;')
-		.replace(/>/g, '&gt;')
-		.replace(/"/g, '&quot;');
+const isImageFile = fileName => fileName ? /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(fileName) : false;
+
+const getFileIconClass = fileName => {
+  if (!fileName) return 'fa-file';
+  const l = fileName.toLowerCase();
+  if (/\.pdf$/i.test(l)) return 'fa-file-pdf';
+  if (/\.(doc|docx|txt|rtf)$/i.test(l)) return 'fa-file-word';
+  if (/\.(xls|xlsx|csv)$/i.test(l)) return 'fa-file-excel';
+  if (/\.(zip|rar|7z|tar|gz)$/i.test(l)) return 'fa-file-archive';
+  if (/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(l)) return 'fa-file-image';
+  return 'fa-file';
 };
 
-const openLightbox = (url) => {
-	const lb = document.getElementById('knaLightbox');
-	const img = document.getElementById('knaLightboxImg');
-	if (lb && img) {
-		img.src = url;
-		lb.classList.remove('d-none');
-	}
-};
-
-const bindViewerToggleEvents = () => {
-	document.querySelectorAll('[data-toggle-doc-viewer]').forEach((btn) => {
-		if (btn.dataset.bound === '1') {
-			return;
-		}
-
-		btn.dataset.bound = '1';
-		btn.addEventListener('click', () => {
-			const targetId = btn.getAttribute('data-target');
-			if (!targetId) {
-				return;
-			}
-
-			const panel = document.getElementById(targetId);
-			if (!panel) {
-				return;
-			}
-
-			const iframe = panel.querySelector('iframe[data-src]');
-			const isHidden = panel.classList.contains('d-none');
-
-			if (isHidden) {
-				if (iframe && iframe.getAttribute('src') === 'about:blank') {
-					const source = iframe.getAttribute('data-src') || '';
-					if (source) {
-						iframe.setAttribute('src', source);
-					}
-				}
-				panel.classList.remove('d-none');
-				btn.setAttribute('aria-expanded', 'true');
-				btn.classList.add('is-active');
-				btn.setAttribute('title', 'Hide document');
-				btn.setAttribute('aria-label', 'Hide document');
-				btn.innerHTML = '<i class="fas fa-file-pdf"></i>';
-			} else {
-				panel.classList.add('d-none');
-				btn.setAttribute('aria-expanded', 'false');
-				btn.classList.remove('is-active');
-				btn.setAttribute('title', 'Show document');
-				btn.setAttribute('aria-label', 'Show document');
-				btn.innerHTML = '<i class="fas fa-file-pdf"></i>';
-			}
-		});
-	});
+const getFileIconColor = fileName => {
+  if (!fileName) return '#6b7280';
+  const l = fileName.toLowerCase();
+  if (/\.pdf$/i.test(l)) return '#dc2626';
+  if (/\.(doc|docx|txt|rtf)$/i.test(l)) return '#2563eb';
+  if (/\.(xls|xlsx|csv)$/i.test(l)) return '#16a34a';
+  if (/\.(zip|rar|7z|tar|gz)$/i.test(l)) return '#7c3aed';
+  if (/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(l)) return '#0891b2';
+  return '#6b7280';
 };
 
 const calculateVat = (grossAmount, isVatable) => {
-	if (!isVatable || !grossAmount) {
-		return { netAmount: grossAmount, vatAmount: 0, grossAmount: grossAmount };
-	}
-	const net = Number(grossAmount) / 1.12;
-	const vat = Number(grossAmount) - net;
-	return {
-		netAmount: Math.round(net * 100) / 100,
-		vatAmount: Math.round(vat * 100) / 100,
-		grossAmount: Number(grossAmount)
-	};
+  if (!isVatable || !grossAmount) return { netAmount: grossAmount, vatAmount: 0, grossAmount };
+  const net = Number(grossAmount) / 1.12, vat = Number(grossAmount) - net;
+  return { netAmount: Math.round(net * 100) / 100, vatAmount: Math.round(vat * 100) / 100, grossAmount: Number(grossAmount) };
 };
 
-let reviewState = {
-	transactionType: null,
-	referenceNo: null,
-	items: [],
-	header: null,
-	decisions: {},
-	totalItems: 0,
-	reviewedCount: 0,
-	approvedAmount: 0,
-	rejectedAmount: 0,
+const resolveApprovalPdfUrl = row => {
+  if (!row || typeof row !== 'object') return '';
+  const candidates = [
+    normalizeDate(row.active_pdf_url), normalizeDate(row.final_pdf_url), normalizeDate(row.generated_pdf_url),
+    normalizeDate(row.final_pdf_path), normalizeDate(row.generated_pdf_path)
+  ].filter(Boolean);
+  if (!candidates.length) return '';
+  const first = candidates[0];
+  if (/^https?:\/\//i.test(first)) return first;
+  return first.indexOf('assets/') === 0 ? base_url + first : '';
 };
 
-const ATTACHMENTS_BASE = base_url + 'assets/uploads/attachments/';
-
-const renderAttachment = (name) => {
-	const url = ATTACHMENTS_BASE + encodeURIComponent(name);
-	if (IMG_EXTS.test(name)) {
-		return `<span class="kna-thumb-wrap" data-lightbox="${escapeHtml(url)}">
-            <img class="kna-thumb" src="${url}" alt="${escapeHtml(name)}" loading="lazy">
-            <span class="kna-thumb-label">${escapeHtml(name)}</span>
-        </span>`;
-	}
-	return `<span class="kna-file-wrap">
-        <i class="fas fa-file-alt" style="color:#6366f1;font-size:11px;"></i>
-        <a href="${url}" target="_blank" rel="noopener">${escapeHtml(name)}</a>
-    </span>`;
+const getStatusBadge = statusName => {
+  const name = String(statusName || '').toLowerCase();
+  if (name.includes('pending')) return '<span class="kna-badge kna-badge-pending">Pending</span>';
+  if (name.includes('approved') || name.includes('approve')) return '<span class="kna-badge kna-badge-approved">Approved</span>';
+  if (name.includes('rejected') || name.includes('reject')) return '<span class="kna-badge kna-badge-rejected">Rejected</span>';
+  if (name.includes('partial')) return '<span class="kna-badge kna-badge-partial">Partially Approved</span>';
+  return '<span class="kna-badge kna-badge-pending">' + escapeHtml(statusName || 'Pending') + '</span>';
 };
 
-// ─── SYNC ROW HEIGHTS between main and action tables ───
+const formatTimelineDate = dateStr => {
+  if (!dateStr) return '';
+  const raw = normalizeDate(dateStr);
+  if (!raw) return '';
+  const date = new Date(raw.replace(' ', 'T'));
+  if (Number.isNaN(date.getTime())) return raw;
+  const yyyy = date.getFullYear(), mm = String(date.getMonth() + 1).padStart(2, '0'), dd = String(date.getDate()).padStart(2, '0');
+  let hh = date.getHours(); const ampm = hh >= 12 ? 'PM' : 'AM'; hh = hh % 12 || 12;
+  return `${yyyy}-${mm}-${dd} ${String(hh).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}${ampm}`;
+};
+
+/* ─── LIGHTBOX & VIEWER ─── */
+const openLightbox = url => {
+  const lb = document.getElementById('knaLightbox'), img = document.getElementById('knaLightboxImg');
+  if (lb && img) { img.src = url; lb.classList.remove('d-none'); }
+};
+
+const bindViewerToggleEvents = () => {
+  document.querySelectorAll('[data-toggle-doc-viewer]').forEach(btn => {
+    if (btn.dataset.bound === '1') return;
+    btn.dataset.bound = '1';
+    btn.addEventListener('click', () => {
+      const panel = document.getElementById(btn.getAttribute('data-target'));
+      if (!panel) return;
+      const iframe = panel.querySelector('iframe[data-src]'), isHidden = panel.classList.contains('d-none');
+      if (isHidden) {
+        if (iframe && iframe.getAttribute('src') === 'about:blank') {
+          const s = iframe.getAttribute('data-src') || '';
+          if (s) iframe.setAttribute('src', s);
+        }
+        panel.classList.remove('d-none');
+        btn.setAttribute('aria-expanded', 'true'); btn.classList.add('is-active');
+        btn.setAttribute('title', 'Hide document'); btn.setAttribute('aria-label', 'Hide document');
+      } else {
+        panel.classList.add('d-none');
+        btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('is-active');
+        btn.setAttribute('title', 'Show document'); btn.setAttribute('aria-label', 'Show document');
+      }
+    });
+  });
+};
+
+/* ─── ROW SYNC & BUTTON HELPERS ─── */
 const syncRowHeights = () => {
-	const mainTable = document.querySelector('.kna-review-table-main');
-	const actionTable = document.querySelector('.kna-review-table-action');
-	if (!mainTable || !actionTable) return;
-
-	const mainRows = mainTable.querySelectorAll('tbody tr[data-item-key]');
-	const actionRows = actionTable.querySelectorAll('tbody tr[data-item-key]');
-
-	mainRows.forEach(row => { row.style.height = ''; });
-	actionRows.forEach(row => { row.style.height = ''; });
-
-	const actionRowMap = new Map();
-	actionRows.forEach(row => {
-		const key = row.getAttribute('data-item-key');
-		if (key) actionRowMap.set(key, row);
-	});
-
-	mainRows.forEach(mainRow => {
-		const key = mainRow.getAttribute('data-item-key');
-		const actionRow = actionRowMap.get(key);
-		if (!actionRow) return;
-
-		const mainHeight = mainRow.getBoundingClientRect().height;
-		const actionHeight = actionRow.getBoundingClientRect().height;
-		const maxHeight = Math.max(mainHeight, actionHeight);
-
-		mainRow.style.height = maxHeight + 'px';
-		actionRow.style.height = maxHeight + 'px';
-	});
+  const mainTable = document.querySelector('.kna-review-table-main'), actionTable = document.querySelector('.kna-review-table-action');
+  if (!mainTable || !actionTable) return;
+  const mainRows = mainTable.querySelectorAll('tbody tr[data-item-key]'), actionRows = actionTable.querySelectorAll('tbody tr[data-item-key]');
+  mainRows.forEach(r => r.style.height = ''); actionRows.forEach(r => r.style.height = '');
+  const map = new Map(); actionRows.forEach(r => { const k = r.getAttribute('data-item-key'); if (k) map.set(k, r); });
+  mainRows.forEach(mainRow => {
+    const actionRow = map.get(mainRow.getAttribute('data-item-key'));
+    if (!actionRow) return;
+    const max = Math.max(mainRow.getBoundingClientRect().height, actionRow.getBoundingClientRect().height);
+    mainRow.style.height = max + 'px'; actionRow.style.height = max + 'px';
+  });
 };
 
-// ─── UPDATE REJECT BUTTON ICON ───
-const setRejectButtonIcon = (btn, isConfirmState) => {
-	if (!btn) return;
-	const icon = btn.querySelector('i');
-	if (!icon) return;
-	if (isConfirmState) {
-		icon.className = 'fas fa-paper-plane';
-		btn.title = 'Click again to confirm rejection';
-	} else {
-		icon.className = 'fas fa-times';
-		btn.title = 'Reject';
-	}
+const setRejectButtonIcon = (btn, isConfirm) => {
+  if (!btn) return;
+  const icon = btn.querySelector('i'); if (!icon) return;
+  icon.className = isConfirm ? 'fas fa-paper-plane' : 'fas fa-times';
+  btn.title = isConfirm ? 'Click again to confirm rejection' : 'Reject';
 };
 
-// ─── TOGGLE CANCEL BUTTON VISIBILITY ───
 const toggleCancelButton = (key, show) => {
-	document.querySelectorAll(`[data-cancel-reject][data-key="${key}"]`).forEach(btn => {
-		if (show) {
-			btn.classList.remove('d-none');
-		} else {
-			btn.classList.add('d-none');
-		}
-	});
-};
-
-// ─── CANCEL REJECT FLOW ───
-const cancelRejectFlow = (key) => {
-	const decisionState = reviewState.decisions[key];
-	if (decisionState) {
-		decisionState.decision = null;
-	}
-
-	document.querySelectorAll('.kna-item-decision').forEach(container => {
-		const remark = container.querySelector(`.kna-item-remark[data-key="${key}"]`);
-		const rejectBtn = container.querySelector(`.kna-toggle-btn.is-reject[data-key="${key}"]`);
-		const approveBtn = container.querySelector(`.kna-toggle-btn.is-approve[data-key="${key}"]`);
-
-		if (remark) {
-			remark.classList.add('d-none');
-			remark.value = '';
-		}
-		if (rejectBtn) {
-			rejectBtn.classList.remove('is-active');
-			setRejectButtonIcon(rejectBtn, false);
-		}
-		if (approveBtn) {
-			approveBtn.classList.remove('is-active');
-		}
-	});
-
-	toggleCancelButton(key, false);
-	updateRowStyling(key, null);
-	refreshItemStatusBadge(key, 'PENDING');
-	updateSummary();
-};
-
-// ─── RENDER READ-ONLY ACTION CELL (for items decided by others) ───
-const renderReadOnlyAction = (itemStatus, decidedByName, itemRemarks) => {
-	const statusClass = itemStatus === 'APPROVED' ? 'kna-badge-approved' : 'kna-badge-rejected';
-	const statusIcon = itemStatus === 'APPROVED' ? 'fa-check-circle' : 'fa-times-circle';
-	const statusColor = itemStatus === 'APPROVED' ? '#17663a' : '#e03131';
-	
-	return `
-		<div class="kna-item-decision">
-			<div class="kna-readonly-status">
-				<i class="fas ${statusIcon}" style="color: ${statusColor}; font-size: 14px;"></i>
-				<span class="kna-badge ${statusClass}">${itemStatus}</span>
-			</div>
-			<div class="kna-readonly-by">by ${escapeHtml(decidedByName || 'another approver')}</div>
-			${itemRemarks ? `<div class="kna-readonly-remark">${escapeHtml(itemRemarks)}</div>` : ''}
-		</div>
-	`;
-};
-
-// ─── SPLIT TABLE RENDERING: Main + Action ───
-
-const renderCashAdvance = (data) => {
-	const h = data[0];
-	const currentUserId = Number(domReview.currentUserId?.value || 0);
-
-	reviewState.header = h;
-	reviewState.items = [];
-	reviewState.totalItems = 1;
-	reviewState.decisions = {};
-
-	if (domReview.reviewTitle)
-		domReview.reviewTitle.textContent = 'Review Cash Advance';
-
-	if (domReview.reviewStatusBadge)
-		domReview.reviewStatusBadge.innerHTML = getStatusBadge(h.status_name);
-
-	const approvalPdfUrl = resolveApprovalPdfUrl(h);
-	const hasApprovalPdf = Boolean(approvalPdfUrl);
-
-	const overviewHtml = `
-        <div class="kna-review-overview-grid">
-            <div class="kna-review-stat">
-                <div class="kna-review-stat-label">Reference No.</div>
-                <div class="kna-review-stat-value">${escapeHtml(h.reference_no || '-')}</div>
-            </div>
-            <div class="kna-review-stat">
-                <div class="kna-review-stat-label">Requester</div>
-                <div class="kna-review-stat-value">${escapeHtml(h.user_name || '-')}</div>
-            </div>
-            <div class="kna-review-stat">
-                <div class="kna-review-stat-label">Needed Date</div>
-                <div class="kna-review-stat-value">${normalizeDate(h.needed_date).slice(0,10) || '-'}</div>
-            </div>
-            <div class="kna-review-stat">
-                <div class="kna-review-stat-label">Submission Date</div>
-                <div class="kna-review-stat-value">${normalizeDate(h.created_date).slice(0,10) || '-'}</div>
-            </div>
-            <div class="kna-review-stat">
-                <div class="kna-review-stat-label">Requested Amount</div>
-                <div class="kna-review-stat-value is-amount">${formatPHP(h.ca_amount || 0)}</div>
-            </div>
-            <div class="kna-review-stat kna-review-stat-wide">
-                <div class="kna-review-stat-label">Purpose / Description</div>
-                <div class="kna-review-stat-value is-purpose">${escapeHtml(h.description || '-')}</div>
-            </div>
-			<div class="kna-review-stat kna-review-stat-wide">
-				<div class="kna-review-stat-label">Document</div>
-				<div class="kna-review-stat-value is-purpose">
-					${hasApprovalPdf ? `
-						<div class="kna-doc-controls">
-							<button type="button" class="kna-doc-icon-btn" data-toggle-doc-viewer data-target="ca-doc-viewer" aria-expanded="false" title="Show document" aria-label="Show document">
-								<i class="fas fa-file-pdf"></i>
-							</button>
-						</div>
-						<div id="ca-doc-viewer" class="kna-doc-viewer-wrap d-none">
-							<iframe class="kna-doc-viewer-frame" src="about:blank" data-src="${escapeHtml(approvalPdfUrl)}" title="Cash Advance Document Viewer"></iframe>
-						</div>
-					` : 'No document available'}
-				</div>
-			</div>
-        </div>
-    `;
-
-	if (domReview.reviewHeaderFields)
-		domReview.reviewHeaderFields.innerHTML = overviewHtml;
-
-	const caKey = 'ca_' + h.id;
-	const caAmount = Number(h.ca_amount) || 0;
-
-	reviewState.decisions[caKey] = {
-		decision: null,
-		remark: '',
-		amount: caAmount,
-		actualAmount: caAmount,
-		detail_id: null,
-		approval_per_item_id: null,
-		item_status: 'PENDING',
-		isOwnDecision: true,
-		isReadOnly: false
-	};
-
-	const desktopHtml = `
-        <div class="kna-review-desktop">
-            <div class="kna-review-table-shell">
-                <div class="kna-review-table-wrap-main">
-                    <table class="table table-sm kna-review-table-main">
-                        <thead>
-                            <tr>
-                                <th>Description</th>
-                                <th class="text-right">Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr data-item-key="${caKey}">
-                                <td>${escapeHtml(h.description || '-')}</td>
-                                <td class="text-right kna-amount-main">${formatPHP(h.ca_amount || 0)}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="kna-review-table-wrap-action">
-                    <table class="table table-sm kna-review-table-action">
-                        <thead>
-                            <tr>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr data-item-key="${caKey}">
-                                <td class="kna-col-action">
-                                    <div class="kna-item-decision">
-                                        <div class="kna-toggle-group">
-                                            <button type="button" class="kna-toggle-btn is-approve" data-decision="approve" data-key="${caKey}" title="Approve">
-                                                <i class="fas fa-check"></i>
-                                            </button>
-                                            <button type="button" class="kna-toggle-btn is-reject" data-decision="reject" data-key="${caKey}" title="Reject">
-                                                <i class="fas fa-times"></i>
-                                            </button>
-                                        </div>
-                                        <textarea class="kna-item-remark d-none" data-key="${caKey}" placeholder="Remarks are required for rejection..."></textarea>
-                                        <button type="button" class="kna-cancel-reject d-none" data-cancel-reject data-key="${caKey}" title="Cancel rejection">
-                                            <i class="fas fa-undo"></i> Cancel
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="kna-review-footer">
-                <div class="kna-review-footer-main">
-                    <span class="kna-review-footer-label">Total Requested</span>
-                    <div class="kna-review-footer-amount kna-amount-main">${formatPHP(h.ca_amount || 0)}</div>
-                </div>
-            </div>
-        </div>
-    `;
-
-	const mobileHtml = `
-        <div class="kna-exp-mobile">
-            <div class="kna-exp-card" data-item-key="${caKey}">
-                <div class="kna-exp-card-head">
-                    <div>
-                        <div class="kna-exp-card-title">${escapeHtml(h.description || 'Cash Advance')}</div>
-                        <div class="kna-exp-card-meta">Ref: ${escapeHtml(h.reference_no || '-')}</div>
-                    </div>
-                    <div class="kna-exp-card-amount">
-                        <div class="kna-amount-main">${formatPHP(h.ca_amount || 0)}</div>
-                    </div>
-                </div>
-                <div class="kna-item-decision">
-                    <div class="kna-toggle-group">
-                        <button type="button" class="kna-toggle-btn is-approve" data-decision="approve" data-key="${caKey}">
-                            <i class="fas fa-check"></i> Approve
-                        </button>
-                        <button type="button" class="kna-toggle-btn is-reject" data-decision="reject" data-key="${caKey}">
-                            <i class="fas fa-times"></i> Reject
-                        </button>
-                    </div>
-                    <textarea class="kna-item-remark d-none" data-key="${caKey}" placeholder="Remarks are required for rejection..."></textarea>
-                    <button type="button" class="kna-cancel-reject d-none" data-cancel-reject data-key="${caKey}">
-                        <i class="fas fa-undo"></i> Cancel
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-
-	if (domReview.viewApprovalItems)
-		domReview.viewApprovalItems.innerHTML = desktopHtml + mobileHtml;
-
-	bindViewerToggleEvents();
-
-	requestAnimationFrame(() => {
-		requestAnimationFrame(syncRowHeights);
-	});
-};
-
-const renderLiquidation = (data) => {
-	const currentUserId = Number(domReview.currentUserId?.value || 0);
-
-	reviewState.header = data[0];
-	reviewState.items = data;
-	reviewState.totalItems = data.length;
-	reviewState.decisions = {};
-
-	if (domReview.reviewTitle)
-		domReview.reviewTitle.textContent = 'Review Liquidation';
-
-	if (domReview.reviewStatusBadge)
-		domReview.reviewStatusBadge.innerHTML = getStatusBadge('Pending Approval');
-
-	const first = data[0];
-	const requesterName = first.user_name || '-';
-	const cashAdvanceAmount = Number(first.ca_amount) || 0;
-	const totalLiquidated = data.reduce(
-		(sum, item) => sum + (Number(item.gross_amount ?? item.lq_amount) || 0),
-		0
-	);
-	const varianceAmount = Number(first.variance) || 0;
-
-	const approvalPdfUrl = resolveApprovalPdfUrl(first);
-	const hasApprovalPdf = Boolean(approvalPdfUrl);
-
-	const overviewHtml = `
-        <div class="kna-review-overview-grid">
-            <div class="kna-review-stat">
-                <div class="kna-review-stat-label">Requester</div>
-                <div class="kna-review-stat-value">${escapeHtml(requesterName)}</div>
-            </div>
-            <div class="kna-review-stat">
-                <div class="kna-review-stat-label">Liquidation ID</div>
-                <div class="kna-review-stat-value">${escapeHtml(first.liquidation_id || '-')}</div>
-            </div>
-            <div class="kna-review-stat">
-                <div class="kna-review-stat-label">Cash Advance Reference</div>
-                <div class="kna-review-stat-value">${escapeHtml(first.cash_advance_id || '-')}</div>
-            </div>
-            <div class="kna-review-stat">
-                <div class="kna-review-stat-label">Total Items</div>
-                <div class="kna-review-stat-value">${data.length}</div>
-            </div>
-            <div class="kna-review-stat">
-                <div class="kna-review-stat-label">Cash Advance Amount</div>
-                <div class="kna-review-stat-value is-amount">${formatPHP(cashAdvanceAmount)}</div>
-            </div>
-            <div class="kna-review-stat">
-                <div class="kna-review-stat-label">Total Liquidated</div>
-                <div class="kna-review-stat-value is-amount">${formatPHP(totalLiquidated)}</div>
-            </div>
-            <div class="kna-review-stat">
-                <div class="kna-review-stat-label">Variance</div>
-                <div class="kna-review-stat-value is-amount">${formatPHP(varianceAmount)}</div>
-            </div>
-            <div class="kna-review-stat kna-review-stat-wide">
-                <div class="kna-review-stat-label">Document</div>
-                <div class="kna-review-stat-value is-purpose">
-                    ${hasApprovalPdf ? `
-                        <div class="kna-doc-controls">
-                            <button type="button" class="kna-doc-icon-btn" data-toggle-doc-viewer data-target="ca-doc-viewer" aria-expanded="false" title="Show document" aria-label="Show document">
-                                <i class="fas fa-file-pdf"></i>
-                            </button>
-                        </div>
-                        <div id="ca-doc-viewer" class="kna-doc-viewer-wrap d-none">
-                            <iframe class="kna-doc-viewer-frame" src="about:blank" data-src="${escapeHtml(approvalPdfUrl)}" title="Cash Advance Document Viewer"></iframe>
-                        </div>
-                    ` : 'No document available'}
-                </div>
-            </div>
-        </div>
-    `;
-
-	if (domReview.reviewHeaderFields)
-		domReview.reviewHeaderFields.innerHTML = overviewHtml;
-
-	let mainRows = '';
-	let actionRows = '';
-	let mobileCards = '';
-
-	data.forEach((item, idx) => {
-		const key = item.liquidation_id + '_' + idx;
-		const amount = Number(item.gross_amount ?? item.lq_amount) || 0;
-		const originalIsVatable = Boolean(Number(item.is_vatable));
-		const vatCalc = calculateVat(amount, originalIsVatable);
-		const detailId = item.id || 0;
-		const approvalPerItemId = item.approval_per_item_id || 0;
-		const itemStatus = item.item_status || 'PENDING';
-		const decidedBy = item.item_decided_by || null;
-		const decidedByName = item.decided_by_name || 'another approver';
-		const isMyItem = Number(item.is_my_item || 0) === 1;
-		const isOwnDecision = decidedBy ? Number(decidedBy) === currentUserId : false;
-		const isAlreadyDecided = itemStatus === 'APPROVED' || itemStatus === 'REJECTED';
-		const isReadOnly = (isAlreadyDecided && !isOwnDecision) || (!isMyItem && isAlreadyDecided);
-
-		reviewState.decisions[key] = {
-			decision: null,
-			remark: '',
-			amount: amount,
-			isVatable: originalIsVatable,
-			originalIsVatable: originalIsVatable,
-			netAmount: vatCalc.netAmount,
-			vatAmount: vatCalc.vatAmount,
-			actualAmount: amount,
-			liquidatedAmount: amount,
-			detail_id: detailId,
-			approval_per_item_id: approvalPerItemId,
-			item_status: itemStatus,
-			isOwnDecision: isOwnDecision,
-			isReadOnly: isReadOnly,
-			isMyItem: isMyItem,
-			decidedBy: decidedBy,
-			decidedByName: decidedByName
-		};
-
-		const hasAttachment = Boolean(item.attachment);
-		const attachHtml = hasAttachment
-			? renderAttachment(item.attachment)
-			: '<span class="text-muted kna-small">—</span>';
-		const docDate = normalizeDate(item.document_date || '').slice(0,10) || '—';
-
-		const vendorName = normalizeDate(item.vendor_name || '');
-		const vendorAddress = normalizeDate(item.vendor_address || '');
-		const vendorTin = normalizeDate(item.vendor_tin || '');
-
-		let vendorHtml = '<span class="text-muted kna-small">—</span>';
-		if (vendorName || vendorAddress || vendorTin) {
-			vendorHtml = `
-				<div class="kna-vendor-display">
-					${vendorName ? `<div>${escapeHtml(vendorName)}</div>` : ''}
-					${vendorAddress ? `<div class="kna-vendor-sub">${escapeHtml(vendorAddress)}</div>` : ''}
-					${vendorTin ? `<div class="kna-vendor-sub">TIN: ${escapeHtml(vendorTin)}</div>` : ''}
-				</div>
-			`;
-		}
-
-		const rowClass = itemStatus === 'APPROVED' ? 'is-approved' : (itemStatus === 'REJECTED' ? 'is-rejected' : '');
-
-		// Pre-select based on actual status from SP
-		const preselectedApprove = itemStatus === 'APPROVED' ? 'is-active' : '';
-		const preselectedReject = itemStatus === 'REJECTED' ? 'is-active' : '';
-		const remarkVisible = itemStatus === 'REJECTED' ? '' : 'd-none';
-
-		const disabledAttr = isReadOnly ? 'disabled' : '';
-		const readonlyAttr = isReadOnly ? 'readonly' : '';
-
-		mainRows += `
-            <tr data-item-key="${key}" class="${rowClass}">
-                <td class="text-center kna-rownum">${idx + 1}</td>
-                <td>${escapeHtml(item.description || '-')}</td>
-                <td>${escapeHtml(item.category_name || '-')}</td>
-                <td>${escapeHtml(item.invoice_receipt_no || '-')}</td>
-                <td>${docDate}</td>
-                <td class="text-right kna-amount-main">${formatPHP(amount)}</td>
-                <td class="text-center kna-vat-cell">
-                    <label class="kna-vat-indicator">
-                        <input type="checkbox" class="kna-vat-check kna-vat-approver" data-key="${key}" ${originalIsVatable ? 'checked' : ''} ${disabledAttr}>
-                    </label>
-                </td>
-                <td class="text-right kna-net-cell">${formatPHP(vatCalc.netAmount)}</td>
-                <td class="text-right kna-vat-amt-cell">${formatPHP(vatCalc.vatAmount)}</td>
-                <td>${attachHtml}</td>
-                <td>${vendorHtml}</td>
-            </tr>
-        `;
-
-		// ─── CLEAN ACTION COLUMN ───
-		let actionCellHtml = '';
-		
-		if (isReadOnly) {
-			// Read-only: clean status display, no buttons
-			actionCellHtml = renderReadOnlyAction(itemStatus, decidedByName, item.item_remarks);
-		} else {
-			// Active: toggle buttons with optional remark
-			actionCellHtml = `
-				<div class="kna-item-decision">
-					<div class="kna-toggle-group">
-						<button type="button" class="kna-toggle-btn is-approve ${preselectedApprove}" data-decision="approve" data-key="${key}" ${disabledAttr}>
-							<i class="fas fa-check"></i>
-						</button>
-						<button type="button" class="kna-toggle-btn is-reject ${preselectedReject}" data-decision="reject" data-key="${key}" ${disabledAttr}>
-							<i class="fas fa-times"></i>
-						</button>
-					</div>
-					<textarea class="kna-item-remark ${remarkVisible}" data-key="${key}" ${readonlyAttr} placeholder="Remarks are required for rejection...">${escapeHtml(item.item_remarks || '')}</textarea>
-					<button type="button" class="kna-cancel-reject ${remarkVisible === '' ? '' : 'd-none'}" data-cancel-reject data-key="${key}" title="Cancel rejection">
-						<i class="fas fa-undo"></i> Cancel
-					</button>
-				</div>
-			`;
-		}
-
-		actionRows += `
-            <tr data-item-key="${key}" class="${rowClass}">
-                <td class="kna-col-action">
-                    ${actionCellHtml}
-                </td>
-            </tr>
-        `;
-
-		const attachNames = (item.attachment || '').split(',').map(s => s.trim()).filter(Boolean);
-
-		// ─── MOBILE: CLEAN READ-ONLY DISPLAY ───
-		let mobileDecisionHtml = '';
-		if (isReadOnly) {
-			mobileDecisionHtml = `
-				<div class="kna-item-decision mt-2">
-					<div class="kna-readonly-status">
-						<i class="fas ${itemStatus === 'APPROVED' ? 'fa-check-circle' : 'fa-times-circle'}" 
-						   style="color: ${itemStatus === 'APPROVED' ? '#17663a' : '#e03131'}; font-size: 14px;"></i>
-						<span class="kna-badge ${itemStatus === 'APPROVED' ? 'kna-badge-approved' : 'kna-badge-rejected'}">${itemStatus}</span>
-					</div>
-					<div class="kna-readonly-by">by ${escapeHtml(decidedByName)}</div>
-					${item.item_remarks ? `<div class="kna-readonly-remark">${escapeHtml(item.item_remarks)}</div>` : ''}
-				</div>
-			`;
-		} else {
-			mobileDecisionHtml = `
-				<div class="kna-item-decision mt-2">
-					<div class="kna-toggle-group">
-						<button type="button" class="kna-toggle-btn is-approve ${preselectedApprove}" data-decision="approve" data-key="${key}" ${disabledAttr}>
-							<i class="fas fa-check"></i> Approve
-						</button>
-						<button type="button" class="kna-toggle-btn is-reject ${preselectedReject}" data-decision="reject" data-key="${key}" ${disabledAttr}>
-							<i class="fas fa-times"></i> Reject
-						</button>
-					</div>
-					<textarea class="kna-item-remark ${remarkVisible}" data-key="${key}" ${readonlyAttr} placeholder="Remarks are required for rejection...">${escapeHtml(item.item_remarks || '')}</textarea>
-					<button type="button" class="kna-cancel-reject ${remarkVisible === '' ? '' : 'd-none'}" data-cancel-reject data-key="${key}">
-						<i class="fas fa-undo"></i> Cancel
-					</button>
-				</div>
-			`;
-		}
-
-		mobileCards += `
-            <div class="kna-exp-card ${rowClass}" data-item-key="${key}">
-                <div class="kna-exp-card-head">
-                    <div>
-                        <div class="kna-exp-card-title">${escapeHtml(item.description || '-')}</div>
-                        <div class="kna-exp-card-sub">${escapeHtml(item.category_name || '-')}</div>
-                        <div class="kna-exp-card-meta">Inv#: ${escapeHtml(item.invoice_receipt_no || '-')} • ${docDate}</div>
-                    </div>
-                    <div class="kna-exp-card-amount">
-                        <div class="kna-amount-main">${formatPHP(amount)}</div>
-                    </div>
-                </div>
-                <div class="kna-exp-card-grid">
-                    <div class="kna-exp-card-field">
-                        <span class="kna-exp-card-label">VAT</span>
-                        <span class="kna-exp-card-value">
-                            <input type="checkbox" class="kna-vat-check kna-vat-approver" data-key="${key}" ${originalIsVatable ? 'checked' : ''} ${disabledAttr}>
-                        </span>
-                    </div>
-                    <div class="kna-exp-card-field">
-                        <span class="kna-exp-card-label">Net / VAT</span>
-                        <span class="kna-exp-card-value">
-                            ${formatPHP(vatCalc.netAmount)} / ${formatPHP(vatCalc.vatAmount)}
-                        </span>
-                    </div>
-                    <div class="kna-exp-card-field kna-exp-card-field-full">
-                        <span class="kna-exp-card-label">Attachment</span>
-                        <span class="kna-exp-card-value">
-                            ${attachNames.length ? attachNames.map(renderAttachment).join('') : '<span class="text-muted">—</span>'}
-                        </span>
-                    </div>
-                    <div class="kna-exp-card-field kna-exp-card-field-full">
-                        <span class="kna-exp-card-label">Vendor Name</span>
-                        <span class="kna-exp-card-value">${escapeHtml(vendorName || '—')}</span>
-                    </div>
-                    <div class="kna-exp-card-field kna-exp-card-field-full">
-                        <span class="kna-exp-card-label">Vendor Address</span>
-                        <span class="kna-exp-card-value">${escapeHtml(vendorAddress || '—')}</span>
-                    </div>
-                    <div class="kna-exp-card-field">
-                        <span class="kna-exp-card-label">Vendor TIN</span>
-                        <span class="kna-exp-card-value">${escapeHtml(vendorTin || '—')}</span>
-                    </div>
-                </div>
-                ${mobileDecisionHtml}
-            </div>
-        `;
-
-		// Initialize reviewState.decisions with actual status from SP
-		if (itemStatus === 'APPROVED') {
-			reviewState.decisions[key].decision = 'approve';
-		} else if (itemStatus === 'REJECTED') {
-			reviewState.decisions[key].decision = 'reject';
-			reviewState.decisions[key].remark = item.item_remarks || '';
-		}
-	});
-
-	const desktopHtml = `
-        <div class="kna-review-desktop">
-            <div class="kna-review-table-shell">
-                <div class="kna-review-table-wrap-main">
-                    <table class="table table-sm kna-review-table-main">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Description</th>
-                                <th>Category</th>
-                                <th>Invoice/Receipt</th>
-                                <th>Doc. Date</th>
-                                <th class="text-right">Gross</th>
-                                <th>VAT</th>
-                                <th class="text-right">Net</th>
-                                <th class="text-right">VAT Amt</th>
-                                <th>Attachment</th>
-                                <th>Vendor</th>
-                            </tr>
-                        </thead>
-                        <tbody>${mainRows}</tbody>
-                    </table>
-                </div>
-                <div class="kna-review-table-wrap-action">
-                    <table class="table table-sm kna-review-table-action">
-                        <thead>
-                            <tr>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>${actionRows}</tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="kna-review-footer">
-                <div class="kna-review-footer-main">
-                    <span class="kna-review-footer-label">Total Liquidated Amount</span>
-                    <div class="kna-review-footer-amount kna-amount-main">${formatPHP(totalLiquidated)}</div>
-                </div>
-            </div>
-        </div>
-    `;
-
-	const mobileHtml = `<div class="kna-exp-mobile">${mobileCards}</div>`;
-
-	if (domReview.viewApprovalItems)
-		domReview.viewApprovalItems.innerHTML = desktopHtml + mobileHtml;
-
-	bindViewerToggleEvents();
-
-	requestAnimationFrame(() => {
-		requestAnimationFrame(syncRowHeights);
-	});
-};
-
-const updateVatDisplay = (key, isVatable) => {
-	const decision = reviewState.decisions[key];
-	if (!decision || decision.isReadOnly) return;
-
-	const vatCalc = calculateVat(decision.actualAmount, isVatable);
-	decision.isVatable = isVatable;
-	decision.netAmount = vatCalc.netAmount;
-	decision.vatAmount = vatCalc.vatAmount;
-
-	const rows = document.querySelectorAll(`[data-item-key="${key}"]`);
-	rows.forEach(row => {
-		const netCell = row.querySelector('.kna-net-cell');
-		const vatCell = row.querySelector('.kna-vat-amt-cell');
-		if (netCell) {
-			netCell.textContent = formatPHP(vatCalc.netAmount);
-			netCell.setAttribute('data-net', vatCalc.netAmount);
-		}
-		if (vatCell) {
-			vatCell.textContent = formatPHP(vatCalc.vatAmount);
-			vatCell.setAttribute('data-vat', vatCalc.vatAmount);
-		}
-
-		const netSpan = row.querySelector('.kna-net-value');
-		const vatSpan = row.querySelector('.kna-vat-value');
-		if (netSpan) netSpan.textContent = formatPHP(vatCalc.netAmount);
-		if (vatSpan) vatSpan.textContent = formatPHP(vatCalc.vatAmount);
-	});
-
-	requestAnimationFrame(syncRowHeights);
-};
-
-// ─── FORMAT DATE FOR TIMELINE ───
-const formatTimelineDate = (dateStr) => {
-	if (!dateStr) return '';
-	const raw = normalizeDate(dateStr);
-	if (!raw) return '';
-
-	const date = new Date(raw.replace(' ', 'T'));
-	if (Number.isNaN(date.getTime())) return raw;
-
-	const yyyy = date.getFullYear();
-	const mm = String(date.getMonth() + 1).padStart(2, '0');
-	const dd = String(date.getDate()).padStart(2, '0');
-	let hh = date.getHours();
-	const ampm = hh >= 12 ? 'PM' : 'AM';
-	hh = hh % 12;
-	hh = hh ? hh : 12;
-	const min = String(date.getMinutes()).padStart(2, '0');
-
-	return `${yyyy}-${mm}-${dd} ${String(hh).padStart(2, '0')}:${min}${ampm}`;
-};
-
-// ─── GROUP AUDIT TRAIL BY APPROVER + TIMESTAMP ───
-const groupAuditTrail = (auditTrail) => {
-	if (!auditTrail || !auditTrail.length) return [];
-
-	// Sort by created_date ascending
-	const sorted = [...auditTrail].sort((a, b) => {
-		const da = new Date((a.created_date || '').replace(' ', 'T'));
-		const db = new Date((b.created_date || '').replace(' ', 'T'));
-		return da - db;
-	});
-
-	// ─── PASS 1: Build a grouping key for each entry ───
-	// Group by: approver + action + transaction_id + time-bucket (same minute)
-	// This merges HEADER and ITEM entries from the same approver action
-	const entriesWithKey = sorted.map((entry) => {
-		const action = normalizeDate(entry.action || '').toUpperCase();
-		const changedByName = normalizeDate(entry.changed_by_name || 'Unknown User');
-		const transactionId = normalizeDate(entry.transaction_id || '');
-		const entityType = normalizeDate(entry.entity_type || '').toUpperCase();
-		const description = normalizeDate(entry.description || '');
-		const remarks = normalizeDate(entry.remarks || '');
-		const dateStr = formatTimelineDate(entry.created_date);
-
-		// Time bucket: truncate to minute level for grouping
-		// e.g. "2026-06-23 09:05" from "2026-06-23 09:05:14.720"
-		const rawDate = normalizeDate(entry.created_date || '');
-		const timeBucket = rawDate.length >= 16 ? rawDate.substring(0, 16) : rawDate;
-
-		// Group key: approver + action + transaction + time-bucket
-		// This ensures HEADER and ITEM entries from same approver action are merged
-		const groupKey = `${changedByName}|${action}|${transactionId}|${timeBucket}`;
-
-		return {
-			...entry,
-			_action: action,
-			_entityType: entityType,
-			_changedByName: changedByName,
-			_dateStr: dateStr,
-			_timeBucket: timeBucket,
-			_groupKey: groupKey,
-			_description: description,
-			_remarks: remarks,
-		};
-	});
-
-	// ─── PASS 2: Group entries by key ───
-	const groupMap = new Map();
-
-	entriesWithKey.forEach((entry) => {
-		const key = entry._groupKey;
-
-		if (!groupMap.has(key)) {
-			groupMap.set(key, {
-				dateStr: entry._dateStr,
-				changedByName: entry._changedByName,
-				action: entry._action,
-				transactionType: normalizeDate(entry.transaction_type || ''),
-				// HEADER entries carry the remarks; ITEM entries carry descriptions
-				remarks: '',
-				description: '',
-				items: [],
-				hasHeader: false,
-				hasItems: false,
-			});
-		}
-
-		const group = groupMap.get(key);
-
-		if (entry._entityType === 'HEADER') {
-			group.hasHeader = true;
-			// HEADER remarks are the overall comment
-			if (entry._remarks) {
-				group.remarks = entry._remarks;
-			}
-			// HEADER description (if any)
-			if (entry._description) {
-				group.description = entry._description;
-			}
-		} else if (entry._entityType === 'ITEM') {
-			group.hasItems = true;
-			if (entry._description) {
-				group.items.push({
-					description: entry._description,
-					remarks: entry._remarks,
-					actualAmount: entry.actual_amount,
-					oldValue: entry.old_value,
-					newValue: entry.new_value,
-				});
-			}
-		} else {
-			// Other entity types (DETAIL, etc.)
-			if (entry._description) {
-				group.description = entry._description;
-			}
-			if (entry._remarks) {
-				group.remarks = entry._remarks;
-			}
-		}
-	});
-
-	// ─── PASS 3: Convert map to array and sort ───
-	const groups = Array.from(groupMap.values());
-
-	// Sort by date ascending (using the first entry's date)
-	groups.sort((a, b) => {
-		const da = new Date((a.dateStr || '').replace(' ', 'T'));
-		const db = new Date((b.dateStr || '').replace(' ', 'T'));
-		return da - db;
-	});
-
-	return groups;
-};
-
-
-// ─── BUILD TIMELINE ENTRY TEXT ───
-const buildTimelineText = (group) => {
-	const action = group.action;
-	const changedByName = group.changedByName;
-	const transactionType = group.transactionType.toLowerCase();
-	const remarks = group.remarks;
-	const hasItems = group.hasItems;
-	const hasHeader = group.hasHeader;
-	const items = group.items;
-
-	// Build action verb
-	let actionText = '';
-	switch (action) {
-		case 'SUBMITTED':
-		case 'SAVED_DRAFT':
-			actionText = 'files';
-			break;
-		case 'CREATED':
-			actionText = 'creates';
-			break;
-		case 'APPROVED':
-			actionText = 'approves';
-			break;
-		case 'REJECTED':
-			actionText = 'rejects';
-			break;
-		case 'UPDATED_DRAFT':
-		case 'RESUBMITTED':
-			actionText = 'updates';
-			break;
-		case 'ADDED_ITEM':
-			actionText = 'adds';
-			break;
-		case 'UPDATED_ITEM':
-			actionText = 'updates';
-			break;
-		default:
-			actionText = action.toLowerCase();
-	}
-
-	// Build entity description
-	let entityDesc = '';
-	if (transactionType === 'cash_advance') {
-		entityDesc = 'cash advance';
-	} else if (transactionType === 'liquidation') {
-		entityDesc = 'liquidation';
-	} else {
-		entityDesc = 'request';
-	}
-
-	// ─── CASE 1: Group has both HEADER and ITEMS (approval/rejection with line items) ───
-	if (hasItems && items.length > 0) {
-		// Main line: "Approver 1, Expense approves liquidation: "ok to approve""
-		let mainLine = `${changedByName} ${actionText} ${entityDesc}`;
-		if (remarks) {
-			mainLine += `: "${remarks}"`;
-		}
-
-		// Sub-lines for each item
-		const subLines = items.map((item) => {
-			if (item.description) {
-				return `${actionText} ${item.description}`;
-			}
-			return '';
-		}).filter(Boolean);
-
-		return [mainLine, ...subLines].join('<br>');
-	}
-
-	// ─── CASE 2: HEADER-only entry (no items) ───
-	if (hasHeader && !hasItems) {
-		let text = `${changedByName} ${actionText} ${entityDesc}`;
-		if (group.description) {
-			text += ` — ${group.description}`;
-		}
-		if (remarks) {
-			text += `: "${remarks}"`;
-		}
-		return text;
-	}
-
-	// ─── CASE 3: Fallback for any other grouping ───
-	let text = `${changedByName} ${actionText} ${entityDesc}`;
-	if (group.description) {
-		text += ` — ${group.description}`;
-	}
-	if (remarks) {
-		text += `: "${remarks}"`;
-	}
-	return text;
-};
-
-
-// ─── RENDER HISTORY TIMELINE FROM AUDIT TRAIL DATA ───
-const renderHistoryTimeline = (auditTrail) => {
-	const container = domReview.reviewTimeline;
-	if (!container) return;
-
-	if (!auditTrail || !auditTrail.length) {
-		container.innerHTML = `
-			<li class="kna-timeline-item is-pending">
-				<div class="kna-timeline-item-top">
-					<span class="kna-timeline-item-name">No history available</span>
-				</div>
-				<div class="kna-timeline-item-remarks">This request has no recorded history yet.</div>
-			</li>
-		`;
-		return;
-	}
-
-	const groups = groupAuditTrail(auditTrail);
-
-	const html = groups.map((group, index) => {
-		const isLast = index === groups.length - 1;
-		const statusClass = isLast ? 'is-current' : 'is-done';
-		const text = buildTimelineText(group);
-
-		return `
-			<li class="kna-timeline-item ${statusClass}">
-				<div class="kna-timeline-item-top">
-					<span class="kna-timeline-item-name">${escapeHtml(group.dateStr)}</span>
-				</div>
-				<div class="kna-timeline-item-remarks">${text}</div>
-			</li>
-		`;
-	}).join('');
-
-	container.innerHTML = html;
-};
-
-// ─── FETCH AND DISPLAY AUDIT TRAIL ───
-const loadAuditTrail = () => {
-	const ref = domReview.approvalRef ? domReview.approvalRef.value : '';
-	if (!ref) return;
-
-	ajax_loader('transactions/approvals/api/get/timeline', { ReferenceNo: ref })
-		.done((response) => {
-			const res = (typeof response === 'string') ? $.parseJSON(response) : response;
-			if (res.status !== 'success') {
-				renderHistoryTimeline([]);
-				return;
-			}
-			renderHistoryTimeline(res.data && res.data.audit_trail ? res.data.audit_trail : []);
-		})
-		.fail(() => {
-			renderHistoryTimeline([]);
-		});
-};
-
-// ─── LEGACY: Keep for compatibility (called by loadReviewData) ───
-const renderReviewTimeline = () => {
-	// Now loads real audit trail instead of static placeholder
-	loadAuditTrail();
-};
-
-
-const updateSubmitButtonState = () => {
-	const decisions = reviewState.decisions;
-	const keys = Object.keys(decisions);
-	
-	// Only count items that are NOT read-only (items I can actually decide)
-	const actionableItems = keys.filter(k => !decisions[k].isReadOnly);
-	const totalActionable = actionableItems.length;
-	const reviewedCount = actionableItems.filter(k => decisions[k].decision).length;
-	const allDecided = totalActionable > 0 && reviewedCount === totalActionable;
-
-	if (domReview.btnSubmitDecision) {
-		domReview.btnSubmitDecision.disabled = !allDecided;
-		if (allDecided) {
-			domReview.btnSubmitDecision.classList.remove('btn-light');
-			domReview.btnSubmitDecision.classList.add('btn-success');
-			domReview.btnSubmitDecision.title = 'All items reviewed — ready to submit';
-		} else {
-			domReview.btnSubmitDecision.classList.remove('btn-success');
-			domReview.btnSubmitDecision.classList.add('btn-light');
-			domReview.btnSubmitDecision.title = `Review all items first (${reviewedCount}/${totalActionable})`;
-		}
-	}
-};
-
-const updateSummary = () => {
-	const decisions = reviewState.decisions;
-	const keys = Object.keys(decisions);
-	
-	// Only count actionable items (not read-only)
-	const actionableItems = keys.filter(k => !decisions[k].isReadOnly);
-	const totalItems = actionableItems.length;
-	let reviewedCount = 0;
-	let approvedAmount = 0;
-	let rejectedAmount = 0;
-
-	keys.forEach(k => {
-		const d = decisions[k];
-		if (d.decision) reviewedCount++;
-		if (d.decision === 'approve') approvedAmount += d.amount;
-		if (d.decision === 'reject') rejectedAmount += d.amount;
-	});
-
-	reviewState.reviewedCount = reviewedCount;
-	reviewState.approvedAmount = approvedAmount;
-	reviewState.rejectedAmount = rejectedAmount;
-
-	if (domReview.summaryReviewed) domReview.summaryReviewed.textContent = `${reviewedCount} / ${totalItems}`;
-	if (domReview.summaryApprovedAmount) domReview.summaryApprovedAmount.textContent = formatPHP(approvedAmount);
-	if (domReview.summaryRejectedAmount) domReview.summaryRejectedAmount.textContent = formatPHP(rejectedAmount);
-
-	updateSubmitButtonState();
-};
-
-const callPerItemDecision = (key, status, remarks, isNotify) => {
-	const decision = reviewState.decisions[key];
-	if (!decision || !decision.approval_per_item_id) {
-		return Promise.reject(new Error('Approval item ID not found for key: ' + key));
-	}
-
-	const payload = {
-		approval_per_item_id: decision.approval_per_item_id,
-		status: status.toUpperCase(),
-		remarks: remarks || '',
-		is_notify: isNotify
-	};
-
-	return $.ajax({
-		url: base_url + 'transactions/approvals/api/per/item/decision',
-		type: 'POST',
-		contentType: 'application/json; charset=utf-8',
-		dataType: 'json',
-		data: JSON.stringify(payload)
-	});
+  document.querySelectorAll(`[data-cancel-reject][data-key="${key}"]`).forEach(btn => btn.classList.toggle('d-none', !show));
 };
 
 const updateRowStyling = (key, decision) => {
-	const rows = document.querySelectorAll(`[data-item-key="${key}"]`);
-	rows.forEach(row => {
-		row.classList.remove('is-approved', 'is-rejected');
-		if (decision === 'approve') row.classList.add('is-approved');
-		if (decision === 'reject') row.classList.add('is-rejected');
-	});
-
-	requestAnimationFrame(syncRowHeights);
+  document.querySelectorAll(`[data-item-key="${key}"]`).forEach(row => {
+    row.classList.remove('is-approved', 'is-rejected');
+    if (decision === 'approve') row.classList.add('is-approved');
+    if (decision === 'reject') row.classList.add('is-rejected');
+  });
+  requestAnimationFrame(syncRowHeights);
 };
 
 const refreshItemStatusBadge = (key, newStatus) => {
-	// For read-only items, the badge is already rendered statically
-	const decision = reviewState.decisions[key];
-	if (decision && decision.isReadOnly) return;
-
-	const actionRows = document.querySelectorAll(`.kna-review-table-action [data-item-key="${key}"]`);
-	actionRows.forEach(row => {
-		const decisionContainer = row.querySelector('.kna-item-decision');
-		if (!decisionContainer) return;
-
-		// Remove old status badge if exists
-		const oldBadge = decisionContainer.querySelector('.kna-badge');
-		if (oldBadge) oldBadge.parentElement.remove();
-
-		if (newStatus && newStatus !== 'PENDING') {
-			const badgeClass = newStatus === 'APPROVED' ? 'kna-badge-approved' : 'kna-badge-rejected';
-			const badgeHtml = `<div class="mb-1"><span class="kna-badge ${badgeClass}">${newStatus}</span></div>`;
-			decisionContainer.insertAdjacentHTML('afterbegin', badgeHtml);
-		}
-	});
-
-	const mobileCards = document.querySelectorAll(`.kna-exp-mobile [data-item-key="${key}"]`);
-	mobileCards.forEach(card => {
-		const decisionContainer = card.querySelector('.kna-item-decision');
-		if (!decisionContainer) return;
-
-		const oldBadge = decisionContainer.querySelector('.kna-badge');
-		if (oldBadge) oldBadge.parentElement.remove();
-
-		if (newStatus && newStatus !== 'PENDING') {
-			const badgeClass = newStatus === 'APPROVED' ? 'kna-badge-approved' : 'kna-badge-rejected';
-			const badgeHtml = `<div class="mb-1"><span class="kna-badge ${badgeClass}">${newStatus}</span></div>`;
-			decisionContainer.insertAdjacentHTML('afterbegin', badgeHtml);
-		}
-	});
-
-	requestAnimationFrame(syncRowHeights);
+  const decision = reviewState.decisions[key];
+  if (decision && decision.isReadOnly) return;
+  const badgeClass = newStatus === 'APPROVED' ? 'kna-badge-approved' : 'kna-badge-rejected';
+  const badgeHtml = newStatus && newStatus !== 'PENDING' ? `<div class="mb-1"><span class="kna-badge ${badgeClass}">${newStatus}</span></div>` : '';
+  document.querySelectorAll(`.kna-review-table-action [data-item-key="${key}"], .kna-exp-mobile [data-item-key="${key}"]`).forEach(el => {
+    const container = el.querySelector('.kna-item-decision'); if (!container) return;
+    const old = container.querySelector('.kna-badge'); if (old) old.parentElement.remove();
+    if (badgeHtml) container.insertAdjacentHTML('afterbegin', badgeHtml);
+  });
+  requestAnimationFrame(syncRowHeights);
 };
 
-// ============================================================
-// FIXED: Reject workflow with cancel option — properly hide cancel button
-// ============================================================
+/* ─── CANCEL & READ-ONLY HELPERS ─── */
+const cancelRejectFlow = key => {
+  const ds = reviewState.decisions[key];
+  if (ds) ds.decision = null;
+  document.querySelectorAll('.kna-item-decision').forEach(c => {
+    const remark = c.querySelector(`.kna-item-remark[data-key="${key}"]`), rejectBtn = c.querySelector(`.kna-toggle-btn.is-reject[data-key="${key}"]`), approveBtn = c.querySelector(`.kna-toggle-btn.is-approve[data-key="${key}"]`);
+    if (remark) { remark.classList.add('d-none'); remark.value = ''; }
+    if (rejectBtn) { rejectBtn.classList.remove('is-active'); setRejectButtonIcon(rejectBtn, false); }
+    if (approveBtn) approveBtn.classList.remove('is-active');
+  });
+  toggleCancelButton(key, false); updateRowStyling(key, null); refreshItemStatusBadge(key, 'PENDING'); updateSummary();
+};
+
+const renderReadOnlyAction = (itemStatus, decidedByName, itemRemarks) => {
+  const isApp = itemStatus === 'APPROVED', statusClass = isApp ? 'kna-badge-approved' : 'kna-badge-rejected';
+  const statusIcon = isApp ? 'fa-check-circle' : 'fa-times-circle', statusColor = isApp ? '#17663a' : '#e03131';
+  return `<div class="kna-item-decision"><div class="kna-readonly-status"><i class="fas ${statusIcon}" style="color:${statusColor};font-size:14px;"></i><span class="kna-badge ${statusClass}">${itemStatus}</span></div><div class="kna-readonly-by">by ${escapeHtml(decidedByName || 'another approver')}</div>${itemRemarks ? `<div class="kna-readonly-remark">${escapeHtml(itemRemarks)}</div>` : ''}</div>`;
+};
+
+/* ─── ATTACHMENTS ─── */
+const renderCaAttachment = att => {
+  const fileName = att.file_name || '', originalName = att.original_name || fileName, viewUrl = att.view_url || '', downloadUrl = att.download_url || viewUrl;
+  const fileSize = formatFileSize(att.file_size), uploadedDate = normalizeDate(att.uploaded_date).slice(0, 10);
+  const isImage = isImageFile(fileName), iconClass = getFileIconClass(fileName), iconColor = getFileIconColor(fileName);
+  if (isImage && viewUrl) {
+    return `<div class="kna-attachment-item"><div class="kna-attachment-thumb-wrap" data-lightbox="${escapeHtml(viewUrl)}" title="Click to preview"><img class="kna-attachment-thumb-img" src="${escapeHtml(viewUrl)}" alt="${escapeHtml(originalName)}" loading="lazy" onerror="this.parentElement.innerHTML='<i class=\'fas fa-image\' style=\'color:${iconColor};font-size:18px;\'></i>'"></div><div class="kna-attachment-info"><div class="kna-attachment-name" title="${escapeHtml(originalName)}">${escapeHtml(originalName)}</div><div class="kna-attachment-meta">${fileSize}${uploadedDate ? ' \u2022 ' + uploadedDate : ''}</div></div><div class="kna-attachment-actions"><a href="${escapeHtml(downloadUrl)}" class="btn btn-outline-secondary btn-sm" target="_blank" rel="noopener" title="Download"><i class="fas fa-download"></i></a></div></div>`;
+  }
+  return `<div class="kna-attachment-item"><div class="kna-attachment-icon" style="background:${iconColor}15;color:${iconColor};"><i class="fas ${iconClass}"></i></div><div class="kna-attachment-info"><div class="kna-attachment-name" title="${escapeHtml(originalName)}">${escapeHtml(originalName)}</div><div class="kna-attachment-meta">${fileSize}${uploadedDate ? ' \u2022 ' + uploadedDate : ''}</div></div><div class="kna-attachment-actions"><a href="${escapeHtml(viewUrl)}" class="btn btn-outline-secondary btn-sm" target="_blank" rel="noopener" title="View"><i class="fas fa-eye"></i></a><a href="${escapeHtml(downloadUrl)}" class="btn btn-outline-secondary btn-sm" target="_blank" rel="noopener" title="Download"><i class="fas fa-download"></i></a></div></div>`;
+};
+
+const renderCaAttachments = attachments => !attachments || !attachments.length ? '<span class="text-muted kna-small">No attachments</span>' : `<div class="kna-attachment-list">${attachments.map(renderCaAttachment).join('')}</div>`;
+
+const renderAttachment = name => {
+  const url = ATTACHMENTS_BASE + encodeURIComponent(name);
+  return IMG_EXTS.test(name)
+    ? `<span class="kna-thumb-wrap" data-lightbox="${escapeHtml(url)}"><img class="kna-thumb" src="${url}" alt="${escapeHtml(name)}" loading="lazy"><span class="kna-thumb-label">${escapeHtml(name)}</span></span>`
+    : `<span class="kna-file-wrap"><i class="fas fa-file-alt" style="color:#6366f1;font-size:11px;"></i><a href="${url}" target="_blank" rel="noopener">${escapeHtml(name)}</a></span>`;
+};
+
+/* ─── COST CENTER HELPERS ─── */
+const getCostCenterOptions = (selectedId) => {
+  const dataEl = document.getElementById('costCentersData');
+  if (!dataEl) return `<option value="">No options available</option>`;
+  try {
+    const centers = JSON.parse(dataEl.value);
+    if (!Array.isArray(centers) || centers.length === 0) {
+      return `<option value="">No options available</option>`;
+    }
+    return centers.map(cc => {
+      const value = escapeHtml(cc.cost_center_code || '');
+      const text = escapeHtml((cc.cost_center_code ? cc.cost_center_code + ' - ' : '') + (cc.cost_center_name || ''));
+      const selected = value === selectedId ? ' selected' : '';
+      return `<option value="${value}"${selected}>${text}</option>`;
+    }).join('');
+  } catch (e) {
+    return `<option value="">Error loading options</option>`;
+  }
+};
+
+/* ─── CA HEADER EDITOR (Cost Center + Payable To + Address) ─── */
+const initCaHeaderEditor = (referenceNo) => {
+  const btn = document.getElementById('btnUpdateCaHeader');
+  const badge = document.getElementById('caHeaderChangeBadge');
+  const ccSelect = document.getElementById('reviewCostCenter');
+  const payableInput = document.getElementById('reviewPayableTo');
+  const addressInput = document.getElementById('reviewAddress');
+
+  if (!btn) return;
+
+  const checkDirty = () => {
+    let isDirty = false;
+    [ccSelect, payableInput, addressInput].forEach(el => {
+      if (!el) return;
+      const original = el.getAttribute('data-original') || '';
+      if (el.value !== original) isDirty = true;
+    });
+
+    // Hide when clean, show when dirty
+    btn.classList.toggle('d-none', !isDirty);
+
+    if (badge) {
+      badge.classList.toggle('is-visible', isDirty);
+      badge.style.opacity = isDirty ? '1' : '0';
+    }
+    return isDirty;
+  };
+
+  if (ccSelect) {
+    // Select2 is a jQuery plugin — use jQuery change for reliability
+    if (window.jQuery && $.fn.select2) {
+      $(ccSelect).on('change', checkDirty);
+    } else {
+      ccSelect.addEventListener('change', checkDirty);
+    }
+  }
+  if (payableInput) payableInput.addEventListener('input', checkDirty);
+  if (addressInput) addressInput.addEventListener('input', checkDirty);
+
+  // Start hidden since nothing is modified yet
+  btn.classList.add('d-none');
+
+  btn.addEventListener('click', () => {
+    if (!checkDirty()) return;
+
+    Swal.fire({
+      icon: 'question',
+      title: 'Update Cash Advance Details?',
+      text: 'This will overwrite the issuer\'s original entries for Cost Center, Payable To, and Address. Continue?',
+      showCancelButton: true,
+      confirmButtonText: 'Yes',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#2f6eb4',
+      cancelButtonColor: '#6b7280'
+    }).then(result => {
+      if (!result.isConfirmed) return;
+
+      const originalHtml = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Saving...';
+
+      const payload = {
+        reference_no: referenceNo,
+        cost_center_id: ccSelect ? ccSelect.value : '',
+        payable_to: payableInput ? payableInput.value.trim() : '',
+        address: addressInput ? addressInput.value.trim() : ''
+      };
+
+      $.ajax({
+        url: base_url + 'transactions/approvals/api/update/ca-header',
+        type: 'POST',
+        contentType: 'application/json; charset=utf-8',
+        dataType: 'json',
+        data: JSON.stringify(payload),
+        success: function (res) {
+          if (res.status === 'success') {
+            if (ccSelect) ccSelect.setAttribute('data-original', ccSelect.value);
+            if (payableInput) payableInput.setAttribute('data-original', payableInput.value);
+            if (addressInput) addressInput.setAttribute('data-original', addressInput.value);
+
+            btn.innerHTML = '<i class="fas fa-check mr-1"></i> Saved';
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-success');
+            if (badge) {
+              badge.textContent = 'Saved';
+              badge.classList.add('is-visible');
+              badge.style.opacity = '1';
+            }
+
+            setTimeout(() => {
+              btn.innerHTML = originalHtml;
+              btn.classList.remove('btn-success');
+              btn.classList.add('btn-primary');
+              checkDirty(); // hides button since values now match originals
+              if (badge) {
+                badge.textContent = 'Modified';
+                badge.classList.remove('is-visible');
+                badge.style.opacity = '0';
+              }
+            }, 2000);
+
+            Swal.fire({
+              icon: 'success',
+              title: 'Updated',
+              text: 'Cash advance details have been updated successfully.',
+              timer: 2000,
+              showConfirmButton: false,
+              toast: true,
+              position: 'top-end'
+            });
+          } else {
+            throw new Error(res.response || 'Update failed.');
+          }
+        },
+        error: function (xhr) {
+          let msg = 'Failed to update details. Please try again.';
+          try { const resp = JSON.parse(xhr.responseText); if (resp.response) msg = resp.response; } catch (e) { }
+          btn.innerHTML = originalHtml;
+          checkDirty(); // restores visibility based on current dirty state
+          if (badge) {
+            badge.textContent = 'Error';
+            badge.classList.add('is-error');
+            badge.classList.add('is-visible');
+            badge.style.opacity = '1';
+          }
+          Swal.fire({ icon: 'error', title: 'Error', text: msg, confirmButtonColor: '#e03131' });
+        }
+      });
+    });
+  });
+};
+
+/* ─── RENDER: CASH ADVANCE ─── */
+const renderCashAdvance = (data, attachments = []) => {
+  const h = data[0], currentUserId = Number(domReview.currentUserId?.value || 0);
+  reviewState.header = h; reviewState.items = []; reviewState.totalItems = 1; reviewState.decisions = {};
+  if (domReview.reviewTitle) domReview.reviewTitle.textContent = 'Review Cash Advance';
+  if (domReview.reviewStatusBadge) domReview.reviewStatusBadge.innerHTML = getStatusBadge(h.status_name);
+
+  const approvalPdfUrl = resolveApprovalPdfUrl(h), hasApprovalPdf = Boolean(approvalPdfUrl), hasCaAttachments = attachments && attachments.length > 0;
+  const currentCostCenterId = normalizeDate(h.cost_center_id || '');
+  const costCenterOptions = getCostCenterOptions(currentCostCenterId);
+
+  const overviewHtml = `<div class="kna-overview-wrapper">
+    <div class="kna-overview-compact">
+      <div class="kna-overview-cell">
+        <div class="kna-overview-label">Reference No.</div>
+        <div class="kna-overview-value">${escapeHtml(h.reference_no || '-')}</div>
+      </div>
+      <div class="kna-overview-cell">
+        <div class="kna-overview-label">Requester</div>
+        <div class="kna-overview-value">${escapeHtml(h.user_name || '-')}</div>
+      </div>
+      <div class="kna-overview-cell">
+        <div class="kna-overview-label">Needed Date</div>
+        <div class="kna-overview-value">${normalizeDate(h.needed_date).slice(0, 10) || '-'}</div>
+      </div>
+      <div class="kna-overview-cell">
+        <div class="kna-overview-label">Submission Date</div>
+        <div class="kna-overview-value">${normalizeDate(h.created_date).slice(0, 10) || '-'}</div>
+      </div>
+      <div class="kna-overview-cell">
+        <div class="kna-overview-label">Amount</div>
+        <div class="kna-overview-value kna-amount">${formatPHP(h.ca_amount || 0)}</div>
+      </div>
+      <div class="kna-overview-cell">
+        <div class="kna-overview-label">Payable To</div>
+        <div class="kna-overview-value">
+          <input type="text" class="form-control form-control-sm kna-ca-field-input" id="reviewPayableTo" data-field="payable_to" data-original="${escapeHtml(h.payable_to || '')}" value="${escapeHtml(h.payable_to || '')}" placeholder="Enter payable to..." style="min-width:140px;">
+        </div>
+      </div>
+      <div class="kna-overview-cell">
+        <div class="kna-overview-label">Cost Center</div>
+        <div class="kna-overview-value">
+          <select class="kna-cost-center-select" id="reviewCostCenter" data-field="cost_center_id" data-original="${escapeHtml(currentCostCenterId)}" style="min-width:140px;">
+            ${costCenterOptions}
+          </select>
+        </div>
+      </div>
+      <div class="kna-overview-cell">
+        <div class="kna-overview-label">Address</div>
+        <div class="kna-overview-value">
+          <input type="text" class="form-control form-control-sm kna-ca-field-input" id="reviewAddress" data-field="address" data-original="${escapeHtml(h.address || '')}" value="${escapeHtml(h.address || '')}" placeholder="Enter address..." style="min-width:140px;">
+        </div>
+      </div>
+      <div class="kna-overview-cell wide">
+        <div class="kna-overview-label">Purpose / Description</div>
+        <div class="kna-overview-value kna-purpose">${escapeHtml(h.description || '-')}</div>
+      </div>
+    </div>
+    <div class="kna-ca-update-bar">
+      <button type="button" class="btn btn-primary btn-sm kna-small font-weight-bold" id="btnUpdateCaHeader"  style="min-width:110px;">
+        <i class="fas fa-save mr-1"></i> Update
+      </button>
+    </div>
+  </div>
+  ${hasApprovalPdf ? `<div class="kna-doc-bar" data-toggle-doc-viewer data-target="ca-doc-viewer" aria-expanded="false">
+    <div class="kna-doc-bar-left"><i class="fas fa-file-pdf"></i> Cash Advance Document</div>
+    <div class="kna-doc-bar-right"><i class="fas fa-eye"></i> <span>View</span></div>
+  </div>
+  <div id="ca-doc-viewer" class="kna-doc-viewer-wrap d-none">
+    <iframe class="kna-doc-viewer-frame" src="about:blank" data-src="${escapeHtml(approvalPdfUrl)}" title="Cash Advance Document Viewer"></iframe>
+  </div>` : ''}
+  ${hasCaAttachments ? `<div class="kna-attach-strip">
+    <div class="kna-attach-strip-label"><i class="fas fa-paperclip"></i> Attachments</div>
+    <div class="kna-attach-strip-list">
+      ${attachments.map(att => {
+        const isImg = isImageFile(att.file_name);
+        const iconClass = isImg ? 'img' : (att.file_name.toLowerCase().endsWith('.pdf') ? 'pdf' : 'doc');
+        const icon = isImg ? 'fa-image' : (att.file_name.toLowerCase().endsWith('.pdf') ? 'fa-file-pdf' : 'fa-file');
+        return `<a href="${escapeHtml(att.view_url || '#')}" class="kna-attach-strip-item ${iconClass}" target="_blank" rel="noopener" title="${escapeHtml(att.original_name || att.file_name)}">
+          <i class="fas ${icon}"></i> ${escapeHtml(att.original_name || att.file_name)}
+        </a>`;
+      }).join('')}
+    </div>
+  </div>` : ''}`;
+
+  if (domReview.reviewHeaderFields) domReview.reviewHeaderFields.innerHTML = overviewHtml;
+
+  // Initialize Select2 for cost center
+  const ccSelect = document.getElementById('reviewCostCenter');
+  if (ccSelect && window.jQuery && $.fn.select2) {
+    $(ccSelect).select2({
+      placeholder: 'Select Cost Center',
+      allowClear: false,
+      width: 'style'
+    });
+  }
+
+  // Bind header field editor
+  initCaHeaderEditor(h.reference_no);
+
+  // Bind document bar toggle
+  const docBar = document.querySelector('.kna-doc-bar[data-toggle-doc-viewer]');
+  if (docBar) {
+    docBar.addEventListener('click', () => {
+      const panel = document.getElementById(docBar.getAttribute('data-target'));
+      if (!panel) return;
+      const iframe = panel.querySelector('iframe[data-src]');
+      const isHidden = panel.classList.contains('d-none');
+      const label = docBar.querySelector('.kna-doc-bar-right span');
+      const icon = docBar.querySelector('.kna-doc-bar-right i');
+      if (isHidden) {
+        if (iframe && iframe.getAttribute('src') === 'about:blank') {
+          const s = iframe.getAttribute('data-src') || '';
+          if (s) iframe.setAttribute('src', s);
+        }
+        panel.classList.remove('d-none');
+        docBar.setAttribute('aria-expanded', 'true');
+        docBar.classList.add('is-active');
+        if (label) label.textContent = 'Hide';
+        if (icon) icon.className = 'fas fa-eye-slash';
+      } else {
+        panel.classList.add('d-none');
+        docBar.setAttribute('aria-expanded', 'false');
+        docBar.classList.remove('is-active');
+        if (label) label.textContent = 'View';
+        if (icon) icon.className = 'fas fa-eye';
+      }
+    });
+  }
+
+  const caKey = 'ca_' + h.id, caAmount = Number(h.ca_amount) || 0;
+  reviewState.decisions[caKey] = { decision: null, remark: '', amount: caAmount, actualAmount: caAmount, detail_id: null, approval_per_item_id: null, item_status: 'PENDING', isOwnDecision: true, isReadOnly: false };
+
+  const desktopHtml = `<div class="kna-review-desktop"><div class="kna-review-table-shell">
+    <div class="kna-review-table-wrap-main"><table class="table table-sm kna-review-table-main"><thead><tr><th>Description</th><th class="text-right">Amount</th></tr></thead><tbody><tr data-item-key="${caKey}"><td>${escapeHtml(h.description || '-')}</td><td class="text-right kna-amount-main">${formatPHP(h.ca_amount || 0)}</td></tr></tbody></table></div>
+    <div class="kna-review-table-wrap-action"><table class="table table-sm kna-review-table-action"><thead><tr><th>Action</th></tr></thead><tbody><tr data-item-key="${caKey}"><td class="kna-col-action"><div class="kna-item-decision"><div class="kna-toggle-group"><button type="button" class="kna-toggle-btn is-approve" data-decision="approve" data-key="${caKey}" title="Approve"><i class="fas fa-check"></i></button><button type="button" class="kna-toggle-btn is-reject" data-decision="reject" data-key="${caKey}" title="Reject"><i class="fas fa-times"></i></button></div><textarea class="kna-item-remark d-none" data-key="${caKey}" placeholder="Remarks are required for rejection..."></textarea><button type="button" class="kna-cancel-reject d-none" data-cancel-reject data-key="${caKey}" title="Cancel rejection"><i class="fas fa-undo"></i> Cancel</button></div></td></tr></tbody></table></div>
+  </div><div class="kna-review-footer"><div class="kna-review-footer-main"><span class="kna-review-footer-label">Total Requested</span><div class="kna-review-footer-amount kna-amount-main">${formatPHP(h.ca_amount || 0)}</div></div></div></div>`;
+
+  const mobileHtml = `<div class="kna-exp-mobile"><div class="kna-exp-card" data-item-key="${caKey}"><div class="kna-exp-card-head"><div><div class="kna-exp-card-title">${escapeHtml(h.description || 'Cash Advance')}</div><div class="kna-exp-card-meta">Ref: ${escapeHtml(h.reference_no || '-')}</div></div><div class="kna-exp-card-amount"><div class="kna-amount-main">${formatPHP(h.ca_amount || 0)}</div></div></div><div class="kna-item-decision"><div class="kna-toggle-group"><button type="button" class="kna-toggle-btn is-approve" data-decision="approve" data-key="${caKey}"><i class="fas fa-check"></i> Approve</button><button type="button" class="kna-toggle-btn is-reject" data-decision="reject" data-key="${caKey}"><i class="fas fa-times"></i> Reject</button></div><textarea class="kna-item-remark d-none" data-key="${caKey}" placeholder="Remarks are required for rejection..."></textarea><button type="button" class="kna-cancel-reject d-none" data-cancel-reject data-key="${caKey}"><i class="fas fa-undo"></i> Cancel</button></div></div></div>`;
+
+  if (domReview.viewApprovalItems) domReview.viewApprovalItems.innerHTML = desktopHtml + mobileHtml;
+  requestAnimationFrame(() => requestAnimationFrame(syncRowHeights));
+};
+
+/* ─── RENDER: LIQUIDATION ─── */
+const renderLiquidation = (data, attachments = []) => {
+  const currentUserId = Number(domReview.currentUserId?.value || 0);
+  reviewState.header = data[0]; reviewState.items = data; reviewState.totalItems = data.length; reviewState.decisions = {};
+  if (domReview.reviewTitle) domReview.reviewTitle.textContent = 'Review Liquidation';
+  if (domReview.reviewStatusBadge) domReview.reviewStatusBadge.innerHTML = getStatusBadge('Pending Approval');
+
+  const first = data[0], requesterName = first.user_name || '-', cashAdvanceAmount = Number(first.ca_amount) || 0;
+  const totalLiquidated = data.reduce((s, item) => s + (Number(item.gross_amount ?? item.lq_amount) || 0), 0), varianceAmount = Number(first.variance) || 0;
+   const hasCaAttachments = attachments && attachments.length > 0;
+  const approvalPdfUrl = resolveApprovalPdfUrl(first), hasApprovalPdf = Boolean(approvalPdfUrl);
+
+  const overviewHtml = `<div class="kna-overview-compact">
+    <div class="kna-overview-cell">
+      <div class="kna-overview-label">Requester</div>
+      <div class="kna-overview-value">${escapeHtml(requesterName)}</div>
+    </div>
+    <div class="kna-overview-cell">
+      <div class="kna-overview-label">Liquidation ID</div>
+      <div class="kna-overview-value">${escapeHtml(first.liquidation_id || '-')}</div>
+    </div>
+    <div class="kna-overview-cell">
+      <div class="kna-overview-label">CA Reference</div>
+      <div class="kna-overview-value">${escapeHtml(first.cash_advance_id || '-')}</div>
+    </div>
+    <div class="kna-overview-cell">
+      <div class="kna-overview-label">Total Items</div>
+      <div class="kna-overview-value">${data.length}</div>
+    </div>
+    <div class="kna-overview-cell">
+      <div class="kna-overview-label">CA Amount</div>
+      <div class="kna-overview-value kna-amount">${formatPHP(cashAdvanceAmount)}</div>
+    </div>
+    <div class="kna-overview-cell">
+      <div class="kna-overview-label">Total Liquidated</div>
+      <div class="kna-overview-value kna-amount">${formatPHP(totalLiquidated)}</div>
+    </div>
+    <div class="kna-overview-cell">
+      <div class="kna-overview-label">Variance</div>
+      <div class="kna-overview-value kna-amount">${formatPHP(varianceAmount)}</div>
+    </div>
+   <div class="kna-overview-cell">
+      <div class="kna-overview-label">Payable To</div>
+      <div class="kna-overview-value">${escapeHtml(first.payable_to || first.vendor_name || '-')}</div>
+    </div>
+    <div class="kna-overview-cell">
+      <div class="kna-overview-label">Cost Center</div>
+      <div class="kna-overview-value">${escapeHtml(first.cost_center_name || first.cost_center_id || first.cost_center || '-')}</div>
+    </div>
+    <div class="kna-overview-cell wide">
+      <div class="kna-overview-label">Address</div>
+      <div class="kna-overview-value kna-address">${escapeHtml(first.address || '-')}</div>
+    </div>
+  </div>
+  ${hasApprovalPdf ? `<div class="kna-doc-bar" data-toggle-doc-viewer data-target="ca-doc-viewer" aria-expanded="false">
+    <div class="kna-doc-bar-left"><i class="fas fa-file-pdf"></i> Cash Advance Document</div>
+    <div class="kna-doc-bar-right"><i class="fas fa-eye"></i> <span>View</span></div>
+  </div>
+  <div id="ca-doc-viewer" class="kna-doc-viewer-wrap d-none">
+    <iframe class="kna-doc-viewer-frame" src="about:blank" data-src="${escapeHtml(approvalPdfUrl)}" title="Cash Advance Document Viewer"></iframe>
+  </div>` : ''}
+    ${hasCaAttachments ? `<div class="kna-attach-strip">
+    <div class="kna-attach-strip-label"><i class="fas fa-paperclip"></i> Attachments</div>
+    <div class="kna-attach-strip-list">
+      ${attachments.map(att => {
+        const isImg = isImageFile(att.file_name);
+        const iconClass = isImg ? 'img' : (att.file_name.toLowerCase().endsWith('.pdf') ? 'pdf' : 'doc');
+        const icon = isImg ? 'fa-image' : (att.file_name.toLowerCase().endsWith('.pdf') ? 'fa-file-pdf' : 'fa-file');
+        return `<a href="${escapeHtml(att.view_url || '#')}" class="kna-attach-strip-item ${iconClass}" target="_blank" rel="noopener" title="${escapeHtml(att.original_name || att.file_name)}">
+          <i class="fas ${icon}"></i> ${escapeHtml(att.original_name || att.file_name)}
+        </a>`;
+      }).join('')}
+    </div>
+  </div>` : ''}`;
+  
+
+  if (domReview.reviewHeaderFields) domReview.reviewHeaderFields.innerHTML = overviewHtml;
+
+  // Bind document bar toggle for liquidation
+  const docBar = document.querySelector('.kna-doc-bar[data-toggle-doc-viewer]');
+  if (docBar) {
+    docBar.addEventListener('click', () => {
+      const panel = document.getElementById(docBar.getAttribute('data-target'));
+      if (!panel) return;
+      const iframe = panel.querySelector('iframe[data-src]');
+      const isHidden = panel.classList.contains('d-none');
+      const label = docBar.querySelector('.kna-doc-bar-right span');
+      const icon = docBar.querySelector('.kna-doc-bar-right i');
+      if (isHidden) {
+        if (iframe && iframe.getAttribute('src') === 'about:blank') {
+          const s = iframe.getAttribute('data-src') || '';
+          if (s) iframe.setAttribute('src', s);
+        }
+        panel.classList.remove('d-none');
+        docBar.setAttribute('aria-expanded', 'true');
+        docBar.classList.add('is-active');
+        if (label) label.textContent = 'Hide';
+        if (icon) icon.className = 'fas fa-eye-slash';
+      } else {
+        panel.classList.add('d-none');
+        docBar.setAttribute('aria-expanded', 'false');
+        docBar.classList.remove('is-active');
+        if (label) label.textContent = 'View';
+        if (icon) icon.className = 'fas fa-eye';
+      }
+    });
+  }
+
+  let mainRows = '', actionRows = '', mobileCards = '';
+
+  data.forEach((item, idx) => {
+    const key = item.liquidation_id + '_' + idx, amount = Number(item.gross_amount ?? item.lq_amount) || 0, originalIsVatable = Boolean(Number(item.is_vatable));
+    const vatCalc = calculateVat(amount, originalIsVatable), detailId = item.id || 0, approvalPerItemId = item.approval_per_item_id || 0;
+    const itemStatus = item.item_status || 'PENDING', decidedBy = item.item_decided_by || null, decidedByName = item.decided_by_name || 'another approver';
+    const isMyItem = Number(item.is_my_item || 0) === 1, isOwnDecision = decidedBy ? Number(decidedBy) === currentUserId : false;
+    const isAlreadyDecided = itemStatus === 'APPROVED' || itemStatus === 'REJECTED', isReadOnly = (isAlreadyDecided && !isOwnDecision) || (!isMyItem && isAlreadyDecided);
+
+    reviewState.decisions[key] = { decision: null, remark: '', amount, isVatable: originalIsVatable, originalIsVatable, netAmount: vatCalc.netAmount, vatAmount: vatCalc.vatAmount, actualAmount: amount, liquidatedAmount: amount, detail_id: detailId, approval_per_item_id: approvalPerItemId, item_status: itemStatus, isOwnDecision, isReadOnly, isMyItem, decidedBy, decidedByName };
+
+    const hasAttachment = Boolean(item.attachment), attachHtml = hasAttachment ? renderAttachment(item.attachment) : '<span class="text-muted kna-small">—</span>', docDate = normalizeDate(item.document_date || '').slice(0, 10) || '—';
+    const vendorName = normalizeDate(item.vendor_name || ''), vendorAddress = normalizeDate(item.vendor_address || ''), vendorTin = normalizeDate(item.vendor_tin || '');
+    let vendorHtml = '<span class="text-muted kna-small">—</span>';
+    if (vendorName || vendorAddress || vendorTin) vendorHtml = `<div class="kna-vendor-display">${vendorName ? `<div>${escapeHtml(vendorName)}</div>` : ''}${vendorAddress ? `<div class="kna-vendor-sub">${escapeHtml(vendorAddress)}</div>` : ''}${vendorTin ? `<div class="kna-vendor-sub">TIN: ${escapeHtml(vendorTin)}</div>` : ''}</div>`;
+
+    const rowClass = itemStatus === 'APPROVED' ? 'is-approved' : (itemStatus === 'REJECTED' ? 'is-rejected' : '');
+    const preselectedApprove = itemStatus === 'APPROVED' ? 'is-active' : '', preselectedReject = itemStatus === 'REJECTED' ? 'is-active' : '', remarkVisible = itemStatus === 'REJECTED' ? '' : 'd-none';
+    const disabledAttr = isReadOnly ? 'disabled' : '', readonlyAttr = isReadOnly ? 'readonly' : '';
+
+    mainRows += `<tr data-item-key="${key}" class="${rowClass}"><td class="text-center kna-rownum">${idx + 1}</td><td>${escapeHtml(item.description || '-')}</td><td>${escapeHtml(item.category_name || '-')}</td><td>${escapeHtml(item.invoice_receipt_no || '-')}</td><td>${docDate}</td><td class="text-right kna-amount-main">${formatPHP(amount)}</td><td class="text-center kna-vat-cell"><label class="kna-vat-indicator"><input type="checkbox" class="kna-vat-check kna-vat-approver" data-key="${key}" ${originalIsVatable ? 'checked' : ''} ${disabledAttr}></label></td><td class="text-right kna-net-cell">${formatPHP(vatCalc.netAmount)}</td><td class="text-right kna-vat-amt-cell">${formatPHP(vatCalc.vatAmount)}</td><td>${attachHtml}</td><td>${vendorHtml}</td></tr>`;
+
+    const actionCellHtml = isReadOnly ? renderReadOnlyAction(itemStatus, decidedByName, item.item_remarks) : `<div class="kna-item-decision"><div class="kna-toggle-group"><button type="button" class="kna-toggle-btn is-approve ${preselectedApprove}" data-decision="approve" data-key="${key}" ${disabledAttr}><i class="fas fa-check"></i></button><button type="button" class="kna-toggle-btn is-reject ${preselectedReject}" data-decision="reject" data-key="${key}" ${disabledAttr}><i class="fas fa-times"></i></button></div><textarea class="kna-item-remark ${remarkVisible}" data-key="${key}" ${readonlyAttr} placeholder="Remarks are required for rejection...">${escapeHtml(item.item_remarks || '')}</textarea><button type="button" class="kna-cancel-reject ${remarkVisible === '' ? '' : 'd-none'}" data-cancel-reject data-key="${key}" title="Cancel rejection"><i class="fas fa-undo"></i> Cancel</button></div>`;
+    actionRows += `<tr data-item-key="${key}" class="${rowClass}"><td class="kna-col-action">${actionCellHtml}</td></tr>`;
+
+    const attachNames = (item.attachment || '').split(',').map(s => s.trim()).filter(Boolean);
+    const mobileDecisionHtml = isReadOnly ? `<div class="kna-item-decision mt-2"><div class="kna-readonly-status"><i class="fas ${itemStatus === 'APPROVED' ? 'fa-check-circle' : 'fa-times-circle'}" style="color:${itemStatus === 'APPROVED' ? '#17663a' : '#e03131'};font-size:14px;"></i><span class="kna-badge ${itemStatus === 'APPROVED' ? 'kna-badge-approved' : 'kna-badge-rejected'}">${itemStatus}</span></div><div class="kna-readonly-by">by ${escapeHtml(decidedByName)}</div>${item.item_remarks ? `<div class="kna-readonly-remark">${escapeHtml(item.item_remarks)}</div>` : ''}</div>` : `<div class="kna-item-decision mt-2"><div class="kna-toggle-group"><button type="button" class="kna-toggle-btn is-approve ${preselectedApprove}" data-decision="approve" data-key="${key}" ${disabledAttr}><i class="fas fa-check"></i> Approve</button><button type="button" class="kna-toggle-btn is-reject ${preselectedReject}" data-decision="reject" data-key="${key}" ${disabledAttr}><i class="fas fa-times"></i> Reject</button></div><textarea class="kna-item-remark ${remarkVisible}" data-key="${key}" ${readonlyAttr} placeholder="Remarks are required for rejection...">${escapeHtml(item.item_remarks || '')}</textarea><button type="button" class="kna-cancel-reject ${remarkVisible === '' ? '' : 'd-none'}" data-cancel-reject data-key="${key}"><i class="fas fa-undo"></i> Cancel</button></div>`;
+
+    mobileCards += `<div class="kna-exp-card ${rowClass}" data-item-key="${key}"><div class="kna-exp-card-head"><div><div class="kna-exp-card-title">${escapeHtml(item.description || '-')}</div><div class="kna-exp-card-sub">${escapeHtml(item.category_name || '-')}</div><div class="kna-exp-card-meta">Inv#: ${escapeHtml(item.invoice_receipt_no || '-')} \u2022 ${docDate}</div></div><div class="kna-exp-card-amount"><div class="kna-amount-main">${formatPHP(amount)}</div></div></div><div class="kna-exp-card-grid"><div class="kna-exp-card-field"><span class="kna-exp-card-label">VAT</span><span class="kna-exp-card-value"><input type="checkbox" class="kna-vat-check kna-vat-approver" data-key="${key}" ${originalIsVatable ? 'checked' : ''} ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Net / VAT</span><span class="kna-exp-card-value">${formatPHP(vatCalc.netAmount)} / ${formatPHP(vatCalc.vatAmount)}</span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Attachment</span><span class="kna-exp-card-value">${attachNames.length ? attachNames.map(renderAttachment).join('') : '<span class="text-muted">—</span>'}</span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Vendor Name</span><span class="kna-exp-card-value">${escapeHtml(vendorName || '—')}</span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Vendor Address</span><span class="kna-exp-card-value">${escapeHtml(vendorAddress || '—')}</span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Vendor TIN</span><span class="kna-exp-card-value">${escapeHtml(vendorTin || '—')}</span></div></div>${mobileDecisionHtml}</div>`;
+
+    if (itemStatus === 'APPROVED') { reviewState.decisions[key].decision = 'approve'; }
+    else if (itemStatus === 'REJECTED') { reviewState.decisions[key].decision = 'reject'; reviewState.decisions[key].remark = item.item_remarks || ''; }
+  });
+
+  const desktopHtml = `<div class="kna-review-desktop"><div class="kna-review-table-shell">
+    <div class="kna-review-table-wrap-main"><table class="table table-sm kna-review-table-main"><thead><tr><th>#</th><th>Description</th><th>Category</th><th>Invoice/Receipt</th><th>Doc. Date</th><th class="text-right">Gross</th><th>VAT</th><th class="text-right">Net</th><th class="text-right">VAT Amt</th><th>Attachment</th><th>Vendor</th></tr></thead><tbody>${mainRows}</tbody></table></div>
+    <div class="kna-review-table-wrap-action"><table class="table table-sm kna-review-table-action"><thead><tr><th>Action</th></tr></thead><tbody>${actionRows}</tbody></table></div>
+  </div><div class="kna-review-footer"><div class="kna-review-footer-main"><span class="kna-review-footer-label">Total Liquidated Amount</span><div class="kna-review-footer-amount kna-amount-main">${formatPHP(totalLiquidated)}</div></div></div></div>`;
+
+  const mobileHtml = `<div class="kna-exp-mobile">${mobileCards}</div>`;
+
+  if (domReview.viewApprovalItems) domReview.viewApprovalItems.innerHTML = desktopHtml + mobileHtml;
+  requestAnimationFrame(() => requestAnimationFrame(syncRowHeights));
+};
+
+/* ─── VAT UPDATE ─── */
+const updateVatDisplay = (key, isVatable) => {
+  const decision = reviewState.decisions[key];
+  if (!decision || decision.isReadOnly) return;
+  const vatCalc = calculateVat(decision.actualAmount, isVatable);
+  decision.isVatable = isVatable; decision.netAmount = vatCalc.netAmount; decision.vatAmount = vatCalc.vatAmount;
+  document.querySelectorAll(`[data-item-key="${key}"]`).forEach(row => {
+    const netCell = row.querySelector('.kna-net-cell'), vatCell = row.querySelector('.kna-vat-amt-cell');
+    if (netCell) { netCell.textContent = formatPHP(vatCalc.netAmount); netCell.setAttribute('data-net', vatCalc.netAmount); }
+    if (vatCell) { vatCell.textContent = formatPHP(vatCalc.vatAmount); vatCell.setAttribute('data-vat', vatCalc.vatAmount); }
+    const netSpan = row.querySelector('.kna-net-value'), vatSpan = row.querySelector('.kna-vat-value');
+    if (netSpan) netSpan.textContent = formatPHP(vatCalc.netAmount); if (vatSpan) vatSpan.textContent = formatPHP(vatCalc.vatAmount);
+  });
+  requestAnimationFrame(syncRowHeights);
+};
+
+/* ─── TIMELINE ─── */
+const groupAuditTrail = auditTrail => {
+  if (!auditTrail || !auditTrail.length) return [];
+  const sorted = [...auditTrail].sort((a, b) => new Date((a.created_date || '').replace(' ', 'T')) - new Date((b.created_date || '').replace(' ', 'T')));
+  const entriesWithKey = sorted.map(entry => {
+    const action = normalizeDate(entry.action || '').toUpperCase(), changedByName = normalizeDate(entry.changed_by_name || 'Unknown User');
+    const transactionId = normalizeDate(entry.transaction_id || ''), entityType = normalizeDate(entry.entity_type || '').toUpperCase();
+    const description = normalizeDate(entry.description || ''), remarks = normalizeDate(entry.remarks || '');
+    const dateStr = formatTimelineDate(entry.created_date), rawDate = normalizeDate(entry.created_date || ''), timeBucket = rawDate.length >= 16 ? rawDate.substring(0, 16) : rawDate;
+    return { ...entry, _action: action, _entityType: entityType, _changedByName: changedByName, _dateStr: dateStr, _timeBucket: timeBucket, _groupKey: `${changedByName}|${action}|${transactionId}|${timeBucket}`, _description: description, _remarks: remarks };
+  });
+  const groupMap = new Map();
+  entriesWithKey.forEach(entry => {
+    const key = entry._groupKey;
+    if (!groupMap.has(key)) groupMap.set(key, { dateStr: entry._dateStr, changedByName: entry._changedByName, action: entry._action, transactionType: normalizeDate(entry.transaction_type || ''), remarks: '', description: '', items: [], hasHeader: false, hasItems: false });
+    const group = groupMap.get(key);
+    if (entry._entityType === 'HEADER') { group.hasHeader = true; if (entry._remarks) group.remarks = entry._remarks; if (entry._description) group.description = entry._description; }
+    else if (entry._entityType === 'ITEM') { group.hasItems = true; if (entry._description) group.items.push({ description: entry._description, remarks: entry._remarks, actualAmount: entry.actual_amount, oldValue: entry.old_value, newValue: entry.new_value }); }
+    else { if (entry._description) group.description = entry._description; if (entry._remarks) group.remarks = entry._remarks; }
+  });
+  const groups = Array.from(groupMap.values());
+  groups.sort((a, b) => new Date((a.dateStr || '').replace(' ', 'T')) - new Date((b.dateStr || '').replace(' ', 'T')));
+  return groups;
+};
+
+const buildTimelineText = group => {
+  const action = group.action, changedByName = group.changedByName, transactionType = group.transactionType.toLowerCase(), remarks = group.remarks, items = group.items;
+  let actionText = '';
+  switch (action) { case 'SUBMITTED': case 'SAVED_DRAFT': actionText = 'files'; break; case 'CREATED': actionText = 'creates'; break; case 'APPROVED': actionText = 'approves'; break; case 'REJECTED': actionText = 'rejects'; break; case 'UPDATED_DRAFT': case 'RESUBMITTED': actionText = 'updates'; break; case 'ADDED_ITEM': actionText = 'adds'; break; case 'UPDATED_ITEM': actionText = 'updates'; break; default: actionText = action.toLowerCase(); }
+  const entityDesc = transactionType === 'cash_advance' ? 'cash advance' : (transactionType === 'liquidation' ? 'liquidation' : 'request');
+  if (group.hasItems && items.length > 0) {
+    let mainLine = `${changedByName} ${actionText} ${entityDesc}`; if (remarks) mainLine += `: "${remarks}"`;
+    const subLines = items.map(item => item.description ? `${actionText} ${item.description}` : '').filter(Boolean);
+    return [mainLine, ...subLines].join('<br>');
+  }
+  if (group.hasHeader && !group.hasItems) {
+    let text = `${changedByName} ${actionText} ${entityDesc}`; if (group.description) text += ` — ${group.description}`; if (remarks) text += `: "${remarks}"`; return text;
+  }
+  let text = `${changedByName} ${actionText} ${entityDesc}`; if (group.description) text += ` — ${group.description}`; if (remarks) text += `: "${remarks}"`; return text;
+};
+
+const renderHistoryTimeline = auditTrail => {
+  const container = domReview.reviewTimeline; if (!container) return;
+  if (!auditTrail || !auditTrail.length) { container.innerHTML = `<li class="kna-timeline-item is-pending"><div class="kna-timeline-item-top"><span class="kna-timeline-item-name">No history available</span></div><div class="kna-timeline-item-remarks">This request has no recorded history yet.</div></li>`; return; }
+  const groups = groupAuditTrail(auditTrail);
+  container.innerHTML = groups.map((group, index) => {
+    const isLast = index === groups.length - 1, statusClass = isLast ? 'is-current' : 'is-done', text = buildTimelineText(group);
+    return `<li class="kna-timeline-item ${statusClass}"><div class="kna-timeline-item-top"><span class="kna-timeline-item-name">${escapeHtml(group.dateStr)}</span></div><div class="kna-timeline-item-remarks">${text}</div></li>`;
+  }).join('');
+};
+
+const loadAuditTrail = () => {
+  const ref = domReview.approvalRef ? domReview.approvalRef.value : '';
+  if (!ref) return;
+  ajax_loader('transactions/approvals/api/get/timeline', { ReferenceNo: ref }).done(response => {
+    const res = typeof response === 'string' ? $.parseJSON(response) : response;
+    if (res.status !== 'success') { renderHistoryTimeline([]); return; }
+    renderHistoryTimeline(res.data && res.data.audit_trail ? res.data.audit_trail : []);
+  }).fail(() => renderHistoryTimeline([]));
+};
+const renderReviewTimeline = () => loadAuditTrail();
+
+/* ─── SUMMARY & SUBMIT STATE ─── */
+const updateSubmitButtonState = () => {
+  const decisions = reviewState.decisions, keys = Object.keys(decisions), actionableItems = keys.filter(k => !decisions[k].isReadOnly);
+  const totalActionable = actionableItems.length, reviewedCount = actionableItems.filter(k => decisions[k].decision).length, allDecided = totalActionable > 0 && reviewedCount === totalActionable;
+  if (domReview.btnSubmitDecision) {
+    domReview.btnSubmitDecision.disabled = !allDecided;
+    domReview.btnSubmitDecision.classList.toggle('btn-light', !allDecided); domReview.btnSubmitDecision.classList.toggle('btn-success', allDecided);
+    domReview.btnSubmitDecision.title = allDecided ? 'All items reviewed — ready to submit' : `Review all items first (${reviewedCount}/${totalActionable})`;
+  }
+};
+
+const updateSummary = () => {
+  const decisions = reviewState.decisions, keys = Object.keys(decisions), actionableItems = keys.filter(k => !decisions[k].isReadOnly), totalItems = actionableItems.length;
+  let reviewedCount = 0, approvedAmount = 0, rejectedAmount = 0;
+  keys.forEach(k => { const d = decisions[k]; if (d.decision) reviewedCount++; if (d.decision === 'approve') approvedAmount += d.amount; if (d.decision === 'reject') rejectedAmount += d.amount; });
+  reviewState.reviewedCount = reviewedCount; reviewState.approvedAmount = approvedAmount; reviewState.rejectedAmount = rejectedAmount;
+  if (domReview.summaryReviewed) domReview.summaryReviewed.textContent = `${reviewedCount} / ${totalItems}`;
+  if (domReview.summaryApprovedAmount) domReview.summaryApprovedAmount.textContent = formatPHP(approvedAmount);
+  if (domReview.summaryRejectedAmount) domReview.summaryRejectedAmount.textContent = formatPHP(rejectedAmount);
+  updateSubmitButtonState();
+};
+
+const callPerItemDecision = (key, status, remarks, isNotify) => {
+  const decision = reviewState.decisions[key];
+  if (!decision || !decision.approval_per_item_id) return Promise.reject(new Error('Approval item ID not found for key: ' + key));
+  return $.ajax({ url: base_url + 'transactions/approvals/api/per/item/decision', type: 'POST', contentType: 'application/json; charset=utf-8', dataType: 'json', data: JSON.stringify({ approval_per_item_id: decision.approval_per_item_id, status: status.toUpperCase(), remarks: remarks || '', is_notify: isNotify }) });
+};
+
+/* ─── EVENT BINDING ─── */
 const bindDecisionEvents = () => {
-	if (!domReview.viewApprovalItems) return;
+  if (!domReview.viewApprovalItems) return;
+  domReview.viewApprovalItems.addEventListener('click', e => {
+    const cancelBtn = e.target.closest('[data-cancel-reject]');
+    if (cancelBtn) { cancelRejectFlow(cancelBtn.getAttribute('data-key')); return; }
+    const btn = e.target.closest('.kna-toggle-btn'); if (!btn) return;
+    const key = btn.getAttribute('data-key'), decision = btn.getAttribute('data-decision'), parent = btn.closest('.kna-toggle-group'), container = btn.closest('.kna-item-decision'), decisionState = reviewState.decisions[key];
+    if (!decisionState) return;
+    if (decisionState.isReadOnly) { Swal.fire({ icon: 'info', title: 'Already Decided', text: `This item has already been ${decisionState.item_status.toLowerCase()} by ${decisionState.decidedByName || 'another approver'} and cannot be modified.`, confirmButtonText: 'OK', confirmButtonColor: '#2f6eb4' }); return; }
+    const isAlreadyActive = btn.classList.contains('is-active'), remark = container.querySelector(`.kna-item-remark[data-key="${key}"]`);
+    if (isAlreadyActive && decision === 'reject' && remark && !remark.classList.contains('d-none')) {
+      const remarkText = remark.value.trim();
+      if (!remarkText) { remark.classList.add('kna-remark-required'); remark.focus(); setTimeout(() => remark.classList.remove('kna-remark-required'), 600); Swal.fire({ icon: 'warning', title: 'Remarks Required', text: 'Please provide remarks for this rejection before confirming.', confirmButtonText: 'OK', confirmButtonColor: '#f59f00' }); return; }
+      Swal.fire({ icon: 'warning', title: 'Reject Item', text: 'Notify the requester to correct this item?', showDenyButton: true, showCancelButton: true, confirmButtonText: 'Yes', denyButtonText: 'No', cancelButtonText: 'Cancel', confirmButtonColor: '#e03131', denyButtonColor: '#f59f00', cancelButtonColor: '#9ca3af' }).then(result => {
+        if (result.isDismissed) return;
+        const isNotify = result.isConfirmed ? 1 : 0;
+        callPerItemDecision(key, 'REJECTED', remarkText, isNotify).then(response => {
+          if (response.status !== 'success') throw new Error(response.response || 'Failed');
+          decisionState.item_status = 'REJECTED'; decisionState.remark = remarkText; toggleCancelButton(key, false); setRejectButtonIcon(btn, false); updateRowStyling(key, 'reject'); refreshItemStatusBadge(key, 'REJECTED'); updateSummary();
+          Swal.fire({ icon: 'success', title: 'Item Rejected', text: isNotify ? 'Requester has been notified to correct this item.' : 'Item has been rejected successfully.', timer: 2500, showConfirmButton: false, toast: true, position: 'top-end' });
+        }).catch(err => {
+          Swal.fire({ icon: 'error', title: 'Error', text: err.message || 'Failed to reject item.' }); toggleCancelButton(key, false); setRejectButtonIcon(btn, false); btn.classList.remove('is-active'); decisionState.decision = null;
+          if (remark) { remark.classList.add('d-none'); remark.value = ''; } updateRowStyling(key, null); refreshItemStatusBadge(key, 'PENDING'); updateSummary();
+        });
+      }); return;
+    }
+    if (isAlreadyActive) {
+      if (decisionState) decisionState.decision = null; if (remark) { remark.classList.add('d-none'); remark.value = ''; }
+      toggleCancelButton(key, false); if (decision === 'reject') setRejectButtonIcon(btn, false); parent.querySelectorAll('.kna-toggle-btn').forEach(b => b.classList.remove('is-active'));
+      updateRowStyling(key, null); refreshItemStatusBadge(key, 'PENDING'); updateSummary(); return;
+    }
+    parent.querySelectorAll('.kna-toggle-btn').forEach(b => { if (b.classList.contains('is-active') && b.getAttribute('data-decision') === 'reject') setRejectButtonIcon(b, false); b.classList.remove('is-active'); });
+    btn.classList.add('is-active'); if (decisionState) decisionState.decision = decision;
+    if (reviewState.transactionType === 'CASH_ADVANCE') {
+      if (remark) { if (decision === 'reject') { remark.classList.remove('d-none'); remark.focus(); toggleCancelButton(key, true); } else { remark.classList.add('d-none'); remark.value = ''; toggleCancelButton(key, false); } }
+      updateRowStyling(key, decision); updateSummary(); return;
+    }
+    if (reviewState.transactionType === 'LIQUIDATION') {
+      if (decision === 'approve') {
+        if (remark) { remark.classList.add('d-none'); remark.value = ''; } toggleCancelButton(key, false);
+        const rejectBtn = container.querySelector(`.kna-toggle-btn.is-reject[data-key="${key}"]`); if (rejectBtn) setRejectButtonIcon(rejectBtn, false);
+        updateRowStyling(key, 'approve'); refreshItemStatusBadge(key, 'APPROVED'); updateSummary(); return;
+      }
+      if (decision === 'reject') { if (remark) { remark.classList.remove('d-none'); remark.focus(); } toggleCancelButton(key, true); setRejectButtonIcon(btn, true); return; }
+    }
+  });
+  domReview.viewApprovalItems.addEventListener('input', e => { if (e.target.classList.contains('kna-item-remark')) { const key = e.target.getAttribute('data-key'); if (reviewState.decisions[key]) reviewState.decisions[key].remark = e.target.value; e.target.classList.remove('kna-remark-required'); } });
+  domReview.viewApprovalItems.addEventListener('change', e => { if (e.target.classList.contains('kna-vat-approver')) updateVatDisplay(e.target.getAttribute('data-key'), e.target.checked); });
+  domReview.viewApprovalItems.addEventListener('click', e => { const wrap = e.target.closest('[data-lightbox]'); if (wrap) openLightbox(wrap.getAttribute('data-lightbox')); });
 
-	domReview.viewApprovalItems.addEventListener('click', (e) => {
-		// ─── HANDLE CANCEL REJECT BUTTON ───
-		const cancelBtn = e.target.closest('[data-cancel-reject]');
-		if (cancelBtn) {
-			const key = cancelBtn.getAttribute('data-key');
-			cancelRejectFlow(key);
-			return;
-		}
-
-		const btn = e.target.closest('.kna-toggle-btn');
-		if (!btn) return;
-
-		const key = btn.getAttribute('data-key');
-		const decision = btn.getAttribute('data-decision');
-		const parent = btn.closest('.kna-toggle-group');
-		const container = btn.closest('.kna-item-decision');
-
-		const decisionState = reviewState.decisions[key];
-		if (!decisionState) return;
-
-		// ─── BLOCK: Read-only items cannot be modified ───
-		if (decisionState.isReadOnly) {
-			Swal.fire({
-				icon: 'info',
-				title: 'Already Decided',
-				text: `This item has already been ${decisionState.item_status.toLowerCase()} by ${decisionState.decidedByName || 'another approver'} and cannot be modified.`,
-				confirmButtonText: 'OK',
-				confirmButtonColor: '#2f6eb4'
-			});
-			return;
-		}
-
-		const isAlreadyActive = btn.classList.contains('is-active');
-		const remark = container.querySelector(`.kna-item-remark[data-key="${key}"]`);
-
-		// ─── SPECIAL CASE: Reject button clicked again while active and textarea is visible → confirm ───
-		if (isAlreadyActive && decision === 'reject' && remark && !remark.classList.contains('d-none')) {
-			const remarkText = remark.value.trim();
-
-			if (!remarkText) {
-				remark.classList.add('kna-remark-required');
-				remark.focus();
-				setTimeout(() => remark.classList.remove('kna-remark-required'), 600);
-				Swal.fire({
-					icon: 'warning',
-					title: 'Remarks Required',
-					text: 'Please provide remarks for this rejection before confirming.',
-					confirmButtonText: 'OK',
-					confirmButtonColor: '#f59f00'
-				});
-				return;
-			}
-
-			Swal.fire({
-				icon: 'warning',
-				title: 'Reject Item',
-				text: 'Notify the requester to correct this item?',
-				showDenyButton: true,
-				showCancelButton: true,
-				confirmButtonText: 'Yes',
-				denyButtonText: 'No',
-				cancelButtonText: 'Cancel',
-				confirmButtonColor: '#e03131',
-				denyButtonColor: '#f59f00',
-				cancelButtonColor: '#9ca3af'
-			}).then((result) => {
-				if (result.isDismissed) {
-					return;
-				}
-
-				const isNotify = result.isConfirmed ? 1 : 0;
-
-				callPerItemDecision(key, 'REJECTED', remarkText, isNotify)
-					.then((response) => {
-						if (response.status !== 'success') {
-							throw new Error(response.response || 'Failed');
-						}
-						decisionState.item_status = 'REJECTED';
-						decisionState.remark = remarkText;
-						toggleCancelButton(key, false);
-						setRejectButtonIcon(btn, false);
-						updateRowStyling(key, 'reject');
-						refreshItemStatusBadge(key, 'REJECTED');
-						updateSummary();
-
-						Swal.fire({
-							icon: 'success',
-							title: 'Item Rejected',
-							text: isNotify
-								? 'Requester has been notified to correct this item.'
-								: 'Item has been rejected successfully.',
-							timer: 2500,
-							showConfirmButton: false,
-							toast: true,
-							position: 'top-end'
-						});
-					})
-					.catch((err) => {
-						Swal.fire({
-							icon: 'error',
-							title: 'Error',
-							text: err.message || 'Failed to reject item.'
-						});
-						toggleCancelButton(key, false);
-						setRejectButtonIcon(btn, false);
-						btn.classList.remove('is-active');
-						decisionState.decision = null;
-						if (remark) {
-							remark.classList.add('d-none');
-							remark.value = '';
-						}
-						updateRowStyling(key, null);
-						refreshItemStatusBadge(key, 'PENDING');
-						updateSummary();
-					});
-			});
-			return;
-		}
-
-		// ─── DESELECT (clicked same active button, not in confirm-ready state) ───
-		if (isAlreadyActive) {
-			if (decisionState) {
-				decisionState.decision = null;
-			}
-			if (remark) {
-				remark.classList.add('d-none');
-				remark.value = '';
-			}
-			toggleCancelButton(key, false);
-			if (decision === 'reject') {
-				setRejectButtonIcon(btn, false);
-			}
-			parent.querySelectorAll('.kna-toggle-btn').forEach(b => b.classList.remove('is-active'));
-			updateRowStyling(key, null);
-			refreshItemStatusBadge(key, 'PENDING');
-			updateSummary();
-			return;
-		}
-
-		// ─── SELECT NEW DECISION ───
-		parent.querySelectorAll('.kna-toggle-btn').forEach(b => {
-			if (b.classList.contains('is-active') && b.getAttribute('data-decision') === 'reject') {
-				setRejectButtonIcon(b, false);
-			}
-			b.classList.remove('is-active');
-		});
-		btn.classList.add('is-active');
-		if (decisionState) {
-			decisionState.decision = decision;
-		}
-
-		// CASH_ADVANCE: UI toggle only, no per-item API
-		if (reviewState.transactionType === 'CASH_ADVANCE') {
-			if (remark) {
-				if (decision === 'reject') {
-					remark.classList.remove('d-none');
-					remark.focus();
-					toggleCancelButton(key, true);
-				} else {
-					remark.classList.add('d-none');
-					remark.value = '';
-					toggleCancelButton(key, false);
-				}
-			}
-			updateRowStyling(key, decision);
-			updateSummary();
-			return;
-		}
-
-		// LIQUIDATION:
-		if (reviewState.transactionType === 'LIQUIDATION') {
-			
-			// ─── APPROVE: UI only ───
-			if (decision === 'approve') {
-				if (remark) {
-					remark.classList.add('d-none');
-					remark.value = '';
-				}
-				toggleCancelButton(key, false);
-				const rejectBtn = container.querySelector(`.kna-toggle-btn.is-reject[data-key="${key}"]`);
-				if (rejectBtn) setRejectButtonIcon(rejectBtn, false);
-				updateRowStyling(key, 'approve');
-				refreshItemStatusBadge(key, 'APPROVED');
-				updateSummary();
-				return;
-			}
-
-			// ─── REJECT: Step 1 — show textarea, change icon to confirm, show cancel button ───
-			if (decision === 'reject') {
-				if (remark) {
-					remark.classList.remove('d-none');
-					remark.focus();
-				}
-				toggleCancelButton(key, true);
-				setRejectButtonIcon(btn, true);
-				return;
-			}
-		}
-	});
-
-	domReview.viewApprovalItems.addEventListener('input', (e) => {
-		if (e.target.classList.contains('kna-item-remark')) {
-			const key = e.target.getAttribute('data-key');
-			if (reviewState.decisions[key]) {
-				reviewState.decisions[key].remark = e.target.value;
-			}
-			e.target.classList.remove('kna-remark-required');
-		}
-	});
-
-	domReview.viewApprovalItems.addEventListener('change', (e) => {
-		if (e.target.classList.contains('kna-vat-approver')) {
-			const key = e.target.getAttribute('data-key');
-			const isVatable = e.target.checked;
-			updateVatDisplay(key, isVatable);
-		}
-	});
-
-	domReview.viewApprovalItems.addEventListener('click', (e) => {
-		const wrap = e.target.closest('[data-lightbox]');
-		if (wrap) {
-			openLightbox(wrap.getAttribute('data-lightbox'));
-		}
-	});
+  /* ─── FIX: Lightbox for CA attachments in header/overview ─── */
+  if (domReview.reviewHeaderFields) {
+    domReview.reviewHeaderFields.addEventListener('click', e => {
+      const wrap = e.target.closest('[data-lightbox]');
+      if (wrap) { e.preventDefault(); openLightbox(wrap.getAttribute('data-lightbox')); }
+    });
+  }
 };
 
-// ============================================================
-// FIXED: submitDecisions — blocks if not all items decided
-// ============================================================
+/* ─── SUBMISSION ─── */
 const submitDecisions = () => {
-	const decisions = reviewState.decisions;
-	const keys = Object.keys(decisions);
-	
-	// Only require decisions on actionable items (not read-only)
-	const actionableKeys = keys.filter(k => !decisions[k].isReadOnly);
-	const totalItems = actionableKeys.length;
-	const reviewedCount = actionableKeys.filter(k => decisions[k].decision).length;
-
-	// BLOCK: All actionable items must have a decision
-	if (reviewedCount < totalItems) {
-		Swal.fire({
-			icon: 'warning',
-			title: 'Incomplete Review',
-			text: `Please review all items before submitting. (${reviewedCount} of ${totalItems} decided)`,
-			confirmButtonText: 'OK',
-			confirmButtonColor: '#f59f00'
-		});
-		return;
-	}
-
-	// LIQUIDATION
-	if (reviewState.transactionType === 'LIQUIDATION') {
-		const hasRejections = actionableKeys.some(k => decisions[k].decision === 'reject');
-		const title = 'Confirm Final Submission';
-		const text = hasRejections
-			? 'Rejected items will remain visible to the next approver as read-only. Continue?'
-			: 'Submit your final decision?';
-		const icon = hasRejections ? 'warning' : 'info';
-		const confirmColor = hasRejections ? '#e03131' : '#17663a';
-
-		Swal.fire({
-			icon: icon,
-			title: title,
-			text: text,
-			showCancelButton: true,
-			confirmButtonText: 'Submit Final Decision',
-			cancelButtonText: 'Cancel',
-			confirmButtonColor: confirmColor,
-			cancelButtonColor: '#6b7280'
-		}).then((result) => {
-			if (!result.isConfirmed) return;
-
-			const btn = domReview.btnSubmitDecision;
-			if (btn) {
-				btn.disabled = true;
-				btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Processing...';
-			}
-
-			const approvalPromises = [];
-			actionableKeys.forEach(k => {
-				const d = decisions[k];
-				if (d.decision === 'approve' && d.approval_per_item_id) {
-					const p = callPerItemDecision(k, 'APPROVED', '', 0)
-						.catch(err => {
-							if (err.message && err.message.includes('already been decided')) {
-								return { status: 'success', skipped: true };
-							}
-							throw err;
-						});
-					approvalPromises.push(p);
-				}
-			});
-
-			Promise.all(approvalPromises)
-				.then(() => {
-					handleSubmit();
-				})
-				.catch((err) => {
-					Swal.fire({
-						icon: 'error',
-						title: 'Error',
-						text: err.message || 'Failed to process approvals.',
-						confirmButtonColor: '#e03131'
-					});
-					if (btn) {
-						btn.disabled = false;
-						updateSubmitButtonState();
-					}
-				});
-		});
-		return;
-	}
-
-	// CASH_ADVANCE
-	const hasRejections = actionableKeys.some(k => decisions[k].decision === 'reject');
-	const title = 'Confirm Submission';
-	const text = hasRejections
-		? 'This will reject the cash advance. Are you sure?'
-		: 'This will approve the cash advance. Submit?';
-	const icon = hasRejections ? 'warning' : 'info';
-	const confirmColor = hasRejections ? '#e03131' : '#17663a';
-
-	Swal.fire({
-		icon: icon,
-		title: title,
-		text: text,
-		showCancelButton: true,
-		confirmButtonText: 'Submit',
-		cancelButtonText: 'Cancel',
-		confirmButtonColor: confirmColor,
-		cancelButtonColor: '#6b7280'
-	}).then((result) => {
-		if (result.isConfirmed) handleSubmit();
-	});
+  const decisions = reviewState.decisions, keys = Object.keys(decisions), actionableKeys = keys.filter(k => !decisions[k].isReadOnly);
+  const totalItems = actionableKeys.length, reviewedCount = actionableKeys.filter(k => decisions[k].decision).length;
+  if (reviewedCount < totalItems) { Swal.fire({ icon: 'warning', title: 'Incomplete Review', text: `Please review all items before submitting. (${reviewedCount} of ${totalItems} decided)`, confirmButtonText: 'OK', confirmButtonColor: '#f59f00' }); return; }
+  if (reviewState.transactionType === 'LIQUIDATION') {
+    const hasRejections = actionableKeys.some(k => decisions[k].decision === 'reject');
+    Swal.fire({ icon: hasRejections ? 'warning' : 'info', title: 'Confirm Final Submission', text: hasRejections ? 'Rejected items will remain visible to the next approver as read-only. Continue?' : 'Submit your final decision?', showCancelButton: true, confirmButtonText: 'Submit Final Decision', cancelButtonText: 'Cancel', confirmButtonColor: hasRejections ? '#e03131' : '#17663a', cancelButtonColor: '#6b7280' }).then(result => {
+      if (!result.isConfirmed) return;
+      const btn = domReview.btnSubmitDecision; if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Processing...'; }
+      const approvalPromises = [];
+      actionableKeys.forEach(k => { const d = decisions[k]; if (d.decision === 'approve' && d.approval_per_item_id) approvalPromises.push(callPerItemDecision(k, 'APPROVED', '', 0).catch(err => { if (err.message && err.message.includes('already been decided')) return { status: 'success', skipped: true }; throw err; })); });
+      Promise.all(approvalPromises).then(() => handleSubmit()).catch(err => { Swal.fire({ icon: 'error', title: 'Error', text: err.message || 'Failed to process approvals.', confirmButtonColor: '#e03131' }); if (btn) { btn.disabled = false; updateSubmitButtonState(); } });
+    }); return;
+  }
+  const hasRejections = actionableKeys.some(k => decisions[k].decision === 'reject');
+  Swal.fire({ icon: hasRejections ? 'warning' : 'info', title: 'Confirm Submission', text: hasRejections ? 'This will reject the cash advance. Are you sure?' : 'This will approve the cash advance. Submit?', showCancelButton: true, confirmButtonText: 'Submit', cancelButtonText: 'Cancel', confirmButtonColor: hasRejections ? '#e03131' : '#17663a', cancelButtonColor: '#6b7280' }).then(result => { if (result.isConfirmed) handleSubmit(); });
 };
 
 const handleSubmit = () => {
-	const decisions = reviewState.decisions;
-	const keys = Object.keys(decisions);
-
-	const payload = {
-		reference_no: reviewState.referenceNo,
-		transaction_type: reviewState.transactionType,
-		overall_remarks: domReview.reviewerRemarks ? domReview.reviewerRemarks.value : '',
-		decisions: keys.map(k => {
-			const d = decisions[k];
-			return {
-				item_key: k,
-				decision: d.decision,
-				remark: d.remark,
-				amount: d.amount,
-				is_vatable: d.isVatable,
-				net_amount: d.netAmount,
-				vat_amount: d.vatAmount,
-				actual_amount: d.actualAmount,
-				detail_id: d.detail_id || null
-			};
-		}).filter(d => d.decision !== null)
-	};
-
-	const btn = domReview.btnSubmitDecision;
-	const originalText = btn ? btn.textContent : 'Submit Decisions';
-	if (btn) {
-		btn.disabled = true;
-		btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Submitting...';
-	}
-
-	$.ajax({
-		url: base_url + 'transactions/approvals/api/submit_decisions',
-		type: 'POST',
-		contentType: 'application/json; charset=utf-8',
-		dataType: 'json',
-		data: JSON.stringify(payload),
-		success: function (response) {
-			if (response.status === 'success') {
-				Swal.fire({
-					icon: 'success',
-					title: 'Submitted!',
-					text: 'Your decisions have been submitted successfully.',
-					confirmButtonText: 'OK',
-					confirmButtonColor: '#17663a'
-				}).then(() => {
-					window.location.href = base_url + 'transactions/approvals';
-				});
-			} else {
-				Swal.fire({
-					icon: 'error',
-					title: 'Error',
-					text: response.response || 'Unknown error occurred.',
-					confirmButtonText: 'OK',
-					confirmButtonColor: '#e03131'
-				});
-				if (btn) {
-					btn.disabled = false;
-					updateSubmitButtonState();
-				}
-			}
-		},
-		error: function (xhr, status, error) {
-			let msg = 'Server error during submission.';
-			try {
-				const resp = JSON.parse(xhr.responseText);
-				if (resp.response) msg = resp.response;
-			} catch (e) { }
-
-			Swal.fire({
-				icon: 'error',
-				title: 'Server Error',
-				text: msg,
-				confirmButtonText: 'OK',
-				confirmButtonColor: '#e03131'
-			});
-
-			if (btn) {
-				btn.disabled = false;
-				updateSubmitButtonState();
-			}
-		}
-	});
+  const decisions = reviewState.decisions, keys = Object.keys(decisions);
+  const payload = {
+    reference_no: reviewState.referenceNo, transaction_type: reviewState.transactionType,
+    overall_remarks: domReview.reviewerRemarks ? domReview.reviewerRemarks.value : '',
+    decisions: keys.map(k => { const d = decisions[k]; return { item_key: k, decision: d.decision, remark: d.remark, amount: d.amount, is_vatable: d.isVatable, net_amount: d.netAmount, vat_amount: d.vatAmount, actual_amount: d.actualAmount, detail_id: d.detail_id || null }; }).filter(d => d.decision !== null)
+  };
+  const btn = domReview.btnSubmitDecision;
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Submitting...'; }
+  $.ajax({
+    url: base_url + 'transactions/approvals/api/submit_decisions', type: 'POST', contentType: 'application/json; charset=utf-8', dataType: 'json', data: JSON.stringify(payload),
+    success(response) {
+      if (response.status === 'success') { Swal.fire({ icon: 'success', title: 'Submitted!', text: 'Your decisions have been submitted successfully.', confirmButtonText: 'OK', confirmButtonColor: '#17663a' }).then(() => { window.location.href = base_url + 'transactions/approvals'; }); }
+      else { Swal.fire({ icon: 'error', title: 'Error', text: response.response || 'Unknown error occurred.', confirmButtonText: 'OK', confirmButtonColor: '#e03131' }); if (btn) { btn.disabled = false; updateSubmitButtonState(); } }
+    },
+    error(xhr) {
+      let msg = 'Server error during submission.';
+      try { const resp = JSON.parse(xhr.responseText); if (resp.response) msg = resp.response; } catch (e) {}
+      Swal.fire({ icon: 'error', title: 'Server Error', text: msg, confirmButtonText: 'OK', confirmButtonColor: '#e03131' });
+      if (btn) { btn.disabled = false; updateSubmitButtonState(); }
+    }
+  });
 };
 
+/* ─── DATA LOADING ─── */
 const loadReviewData = () => {
-	const ref = domReview.approvalRef ? domReview.approvalRef.value : '';
-	if (!ref) {
-		if (domReview.viewApprovalItems) {
-			domReview.viewApprovalItems.innerHTML = '<div class="alert alert-danger kna-small">No approval reference found.</div>';
-		}
-		return;
-	}
-
-	reviewState.referenceNo = ref;
-
-	ajax_loader('transactions/approvals/api/get/details', { ReferenceNo: ref }).done((response) => {
-		const res = (typeof response === 'string') ? $.parseJSON(response) : response;
-		if (res.status !== 'success' || !Array.isArray(res.data)) {
-			if (domReview.viewApprovalItems) {
-				domReview.viewApprovalItems.innerHTML = '<div class="alert alert-danger kna-small">' + escapeHtml(res.response || 'Failed to load details.') + '</div>';
-			}
-			return;
-		}
-
-		const data = res.data;
-		if (!data.length) {
-			if (domReview.viewApprovalItems) {
-				domReview.viewApprovalItems.innerHTML = '<div class="alert alert-danger kna-small">No data returned for this reference.</div>';
-			}
-			return;
-		}
-
-		reviewState.transactionType = data[0].transaction_type;
-
-		if (reviewState.transactionType === 'CASH_ADVANCE') {
-			renderCashAdvance(data);
-		} else if (reviewState.transactionType === 'LIQUIDATION') {
-			renderLiquidation(data);
-		} else {
-			if (domReview.viewApprovalItems) {
-				domReview.viewApprovalItems.innerHTML = '<div class="alert alert-danger kna-small">Unknown transaction type: ' + escapeHtml(reviewState.transactionType) + '</div>';
-			}
-			return;
-		}
-
-		renderReviewTimeline();
-		updateSummary();
-	}).fail(() => {
-		if (domReview.viewApprovalItems) {
-			domReview.viewApprovalItems.innerHTML = '<div class="alert alert-danger kna-small">Server error while fetching details.</div>';
-		}
-	});
+  const ref = domReview.approvalRef ? domReview.approvalRef.value : '';
+  if (!ref) { if (domReview.viewApprovalItems) domReview.viewApprovalItems.innerHTML = '<div class="alert alert-danger kna-small">No approval reference found.</div>'; return; }
+  reviewState.referenceNo = ref;
+  ajax_loader('transactions/approvals/api/get/details', { ReferenceNo: ref }).done(response => {
+    const res = typeof response === 'string' ? $.parseJSON(response) : response;
+    if (res.status !== 'success' || !res.data || !res.data.items || !Array.isArray(res.data.items)) { if (domReview.viewApprovalItems) domReview.viewApprovalItems.innerHTML = '<div class="alert alert-danger kna-small">' + escapeHtml(res.response || 'Failed to load details.') + '</div>'; return; }
+    const responseData = res.data, items = responseData.items || [], attachments = responseData.attachments || [];
+    if (!items.length) { if (domReview.viewApprovalItems) domReview.viewApprovalItems.innerHTML = '<div class="alert alert-danger kna-small">No data returned for this reference.</div>'; return; }
+    reviewState.transactionType = items[0].transaction_type;
+    if (reviewState.transactionType === 'CASH_ADVANCE') renderCashAdvance(items, attachments);
+    else if (reviewState.transactionType === 'LIQUIDATION') renderLiquidation(items, attachments);
+    else { if (domReview.viewApprovalItems) domReview.viewApprovalItems.innerHTML = '<div class="alert alert-danger kna-small">Unknown transaction type: ' + escapeHtml(reviewState.transactionType) + '</div>'; return; }
+    renderReviewTimeline(); updateSummary();
+  }).fail(() => { if (domReview.viewApprovalItems) domReview.viewApprovalItems.innerHTML = '<div class="alert alert-danger kna-small">Server error while fetching details.</div>'; });
 };
 
 const cacheReviewDom = () => {
-	domReview.approvalRef = document.getElementById('approvalRef');
-	domReview.currentUserId = document.getElementById('currentUserId');
-	domReview.reviewTitle = document.getElementById('reviewTitle');
-	domReview.reviewStatusBadge = document.getElementById('reviewStatusBadge');
-	domReview.reviewHeaderFields = document.getElementById('reviewHeaderFields');
-	domReview.viewApprovalItems = document.getElementById('viewApprovalItems');
-	domReview.reviewTimeline = document.getElementById('reviewTimeline');
-	domReview.summaryReviewed = document.getElementById('summaryReviewed');
-	domReview.summaryApprovedAmount = document.getElementById('summaryApprovedAmount');
-	domReview.summaryRejectedAmount = document.getElementById('summaryRejectedAmount');
-	domReview.reviewerRemarks = document.getElementById('reviewerRemarks');
-	domReview.btnSubmitDecision = document.getElementById('btnSubmitDecision');
-
-	const lb = document.getElementById('knaLightbox');
-	if (lb) {
-		lb.addEventListener('click', (e) => {
-			if (e.target === lb || e.target.id === 'knaLightboxClose') {
-				lb.classList.add('d-none');
-				const img = document.getElementById('knaLightboxImg');
-				if (img) img.src = '';
-			}
-		});
-	}
-
-	if (domReview.btnSubmitDecision) {
-		domReview.btnSubmitDecision.addEventListener('click', submitDecisions);
-	}
+  domReview.approvalRef = document.getElementById('approvalRef'); domReview.currentUserId = document.getElementById('currentUserId'); domReview.reviewTitle = document.getElementById('reviewTitle');
+  domReview.reviewStatusBadge = document.getElementById('reviewStatusBadge'); domReview.reviewHeaderFields = document.getElementById('reviewHeaderFields'); domReview.viewApprovalItems = document.getElementById('viewApprovalItems');
+  domReview.reviewTimeline = document.getElementById('reviewTimeline'); domReview.summaryReviewed = document.getElementById('summaryReviewed'); domReview.summaryApprovedAmount = document.getElementById('summaryApprovedAmount');
+  domReview.summaryRejectedAmount = document.getElementById('summaryRejectedAmount'); domReview.reviewerRemarks = document.getElementById('reviewerRemarks'); domReview.btnSubmitDecision = document.getElementById('btnSubmitDecision');
+  const lb = document.getElementById('knaLightbox');
+  if (lb) { lb.addEventListener('click', e => { if (e.target === lb || e.target.id === 'knaLightboxClose') { lb.classList.add('d-none'); const img = document.getElementById('knaLightboxImg'); if (img) img.src = ''; } }); }
+  if (domReview.btnSubmitDecision) domReview.btnSubmitDecision.addEventListener('click', submitDecisions);
 };
 
-const initReviewPage = () => {
-	cacheReviewDom();
-	loadReviewData();
-	bindDecisionEvents();
-
-	window.addEventListener('resize', syncRowHeights);
-};
-
-if (document.readyState === 'loading') {
-	document.addEventListener('DOMContentLoaded', initReviewPage);
-} else {
-	initReviewPage();
-}
+const initReviewPage = () => { cacheReviewDom(); loadReviewData(); bindDecisionEvents(); window.addEventListener('resize', syncRowHeights); };
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initReviewPage); else initReviewPage();
