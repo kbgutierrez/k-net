@@ -860,6 +860,39 @@ class Liquidation extends MY_Controller
             return $this->respondError("An error occurred: " . $e->getMessage());
         }
     }
+
+        public function api_get_header_by_id()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $liquidationId = isset($data['LiquidationId']) ? trim((string) $data['LiquidationId']) : '';
+            if ($liquidationId === '') {
+                return $this->respondError('Missing required field: LiquidationId');
+            }
+
+            $header = $this->getDraftHeaderByLiquidationId($liquidationId);
+            if (!$header) {
+                return $this->respondError('Liquidation not found.');
+            }
+
+            $userId = (int) $this->session->userdata('user_id');
+            $createdById = isset($header['created_by_id']) ? (int) $header['created_by_id'] : 0;
+
+            // Optional: enforce ownership check for security
+            // Remove or comment out if admins/managers should also view
+            // if ($createdById !== $userId) {
+            //     return $this->respondError('You are not allowed to view this liquidation.');
+            // }
+
+            return $this->respondSuccess('success', $header);
+
+        } catch (Exception $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+    
     public function api_get_header()
     {
         try {

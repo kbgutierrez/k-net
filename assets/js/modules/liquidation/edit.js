@@ -16,6 +16,9 @@ const domEdit = {
     editLiquidatedAmount: null,
     editVariance: null,
     editPurpose: null,
+    editPayableTo: null,
+    editAddress: null,
+    editCostCenter: null,
     editStatus: null,
     editSubmittedDate: null,
     editExpenseItems: null,
@@ -27,6 +30,19 @@ const domEdit = {
     btnSaveAsDraft: null,
     btnSaveEditMobile: null,
     btnSaveAsDraftMobile: null,
+    mobileLiquidationNo: null,
+    mobileStatus: null,
+    mobileCaAmount: null,
+    mobileTotal: null,
+    mobileVariance: null,
+    mobileCaRef: null,
+    mobileCaDate: null,
+    mobileSubmittedDate: null,
+    mobileExpenseDate: null,
+    mobilePayableTo: null,
+    mobileCostCenter: null,
+    mobileAddress: null,
+    mobilePurpose: null,
 };
 
 const EDIT_IMG_EXTS = /\.(jpg|jpeg|png|gif|webp)$/i;
@@ -92,6 +108,25 @@ const getStatusBadge = (status) => {
 		return '<span class="kna-badge kna-badge-rejected">Rejected</span>';
 	}
 	return '<span class="kna-badge kna-badge-pending">Submitted</span>';
+};
+
+const getVariancePresentation = (refund, reimburse) => {
+    if (refund > 0) {
+        return {
+            desktopHtml: `<span class="kna-var-badge kna-var-return">${formatPHP(refund)} to return</span>`,
+            mobileText: `${formatPHP(refund)} return`,
+        };
+    }
+    if (reimburse > 0) {
+        return {
+            desktopHtml: `<span class="kna-var-badge kna-var-reimburse">${formatPHP(reimburse)} to reimburse</span>`,
+            mobileText: `${formatPHP(reimburse)} reimburse`,
+        };
+    }
+    return {
+        desktopHtml: '<span class="kna-var-badge kna-var-balanced">0.00</span>',
+        mobileText: '0.00',
+    };
 };
 
 const openEditLightbox = (url) => {
@@ -216,6 +251,16 @@ const renderEditExpenseItems = () => {
 
     if (!editExpenseItems || !editExpenseItems.length) {
         container.innerHTML = '<div class="text-muted kna-small py-2">No expense items found.</div>';
+        if (domEdit.mobileTotal) {
+            domEdit.mobileTotal.textContent = formatPHP(0);
+        }
+        if (domEdit.mobileExpenseDate) {
+            domEdit.mobileExpenseDate.textContent = '-';
+        }
+        if (domEdit.editLiquidatedAmount) {
+            domEdit.editLiquidatedAmount.textContent = formatPHP(0);
+        }
+        updateEditVariance();
         return;
     }
 
@@ -251,7 +296,7 @@ const renderEditExpenseItems = () => {
 
         let attachHtml = '';
         let hasAttachment = false;
-        
+
         if (newAttachments.length > 0) {
             const file = newAttachments[0];
             const name = file.name || file.fileName || 'New file';
@@ -273,7 +318,7 @@ const renderEditExpenseItems = () => {
             attachHtml = renderEditAttachment(name, item, isRemoved);
             hasAttachment = !isRemoved;
         }
-        
+
         if (!attachHtml) {
             attachHtml = '<span class="text-muted" style="font-size:11px;">—</span>';
         }
@@ -350,7 +395,7 @@ const renderEditExpenseItems = () => {
 
             let attachHtml = '';
             let hasAttachment = false;
-            
+
             if (newAttachments.length > 0) {
                 const file = newAttachments[0];
                 const name = file.name || file.fileName || 'New file';
@@ -372,7 +417,7 @@ const renderEditExpenseItems = () => {
                 attachHtml = renderEditAttachment(name, item, isRemoved);
                 hasAttachment = !isRemoved;
             }
-            
+
             if (!attachHtml) {
                 attachHtml = '<span class="text-muted">—</span>';
             }
@@ -515,6 +560,24 @@ const renderEditExpenseItems = () => {
     if (domEdit.editLiquidatedAmount) {
         domEdit.editLiquidatedAmount.textContent = formatPHP(total);
     }
+    if (domEdit.mobileTotal) {
+        domEdit.mobileTotal.textContent = formatPHP(total);
+    }
+
+    const dates = editExpenseItems
+        .map((e) => normalizeDate(e.document_date || '').slice(0, 10))
+        .filter(Boolean)
+        .sort();
+    const first = dates[0] || '-';
+    const last = dates[dates.length - 1] || '-';
+    const rangeText = first === '-' ? '-' : (first === last ? first : `${first} – ${last}`);
+    if (domEdit.editExpenseDate) {
+        domEdit.editExpenseDate.textContent = rangeText;
+    }
+    if (domEdit.mobileExpenseDate) {
+        domEdit.mobileExpenseDate.textContent = rangeText;
+    }
+
     updateEditVariance();
 };
 
@@ -528,14 +591,11 @@ const updateEditVariance = () => {
     const refund = caAmount > total ? caAmount - total : 0;
     const reimburse = total > caAmount ? total - caAmount : 0;
 
-    let badgeHtml = '<span class="kna-var-badge kna-var-balanced">0.00</span>';
-    if (refund > 0) {
-        badgeHtml = `<span class="kna-var-badge kna-var-return">${formatPHP(refund)} to return</span>`;
-    } else if (reimburse > 0) {
-        badgeHtml = `<span class="kna-var-badge kna-var-reimburse">${formatPHP(reimburse)} to reimburse</span>`;
+    const variance = getVariancePresentation(refund, reimburse);
+    domEdit.editVariance.innerHTML = variance.desktopHtml;
+    if (domEdit.mobileVariance) {
+        domEdit.mobileVariance.textContent = variance.mobileText;
     }
-
-    domEdit.editVariance.innerHTML = badgeHtml;
 };
 
 const createNewEditItem = () => ({
@@ -606,14 +666,10 @@ const loadEditData = () => {
         return;
     }
 
-    ajax_loader('transactions/liquidation/api/get/header', { Take: 100 }).done((response) => {
+    // Use dedicated endpoint instead of loading all headers
+    ajax_loader('transactions/liquidation/api/get/header_by_id', { LiquidationId: ref }).done((response) => {
         const res = (typeof response === 'string') ? $.parseJSON(response) : response;
-        if (res.status !== 'success') {
-            return;
-        }
-
-        const record = (res.data || []).find((r) => normalizeDate(r.liquidation_id) === ref);
-        if (!record) {
+        if (res.status !== 'success' || !res.data) {
             Swal.fire({
                 icon: 'error',
                 title: 'Not Found',
@@ -623,6 +679,8 @@ const loadEditData = () => {
             });
             return;
         }
+
+        const record = res.data;
 
         editLiquidationData = record;
 
@@ -653,22 +711,55 @@ const loadEditData = () => {
         }
 
         if (domEdit.editLiquidationNo) domEdit.editLiquidationNo.textContent = normalizeDate(record.liquidation_id);
+        if (domEdit.mobileLiquidationNo) domEdit.mobileLiquidationNo.textContent = normalizeDate(record.liquidation_id) || '-';
         if (domEdit.editCaRef) domEdit.editCaRef.textContent = normalizeDate(record.cash_advance_id);
+        if (domEdit.mobileCaRef) domEdit.mobileCaRef.textContent = normalizeDate(record.cash_advance_id) || '-';
         if (domEdit.editCaAmount) domEdit.editCaAmount.textContent = formatPHP(Number(record.ca_amount || 0));
-        if (domEdit.editCaDate) domEdit.editCaDate.textContent = normalizeDate(record.submitted_date || '').slice(0, 10);
+        if (domEdit.mobileCaAmount) domEdit.mobileCaAmount.textContent = formatPHP(Number(record.ca_amount || 0));
+        const submittedDate = normalizeDate(record.submitted_date || '').slice(0, 10) || '-';
+        if (domEdit.editCaDate) domEdit.editCaDate.textContent = submittedDate;
+        if (domEdit.mobileCaDate) domEdit.mobileCaDate.textContent = submittedDate;
         if (domEdit.editStatus) domEdit.editStatus.innerHTML = getStatusBadge(normalizeDate(record.status_name));
-        if (domEdit.editSubmittedDate) domEdit.editSubmittedDate.textContent = normalizeDate(record.submitted_date || '').slice(0, 10);
-        if (domEdit.editPurpose) domEdit.editPurpose.textContent = normalizeDate(record.description || '') || '-';
+        if (domEdit.mobileStatus) domEdit.mobileStatus.textContent = normalizeDate(record.status_name) || '-';
+        if (domEdit.editSubmittedDate) domEdit.editSubmittedDate.textContent = submittedDate;
+        if (domEdit.mobileSubmittedDate) domEdit.mobileSubmittedDate.textContent = submittedDate;
+        const purposeText = normalizeDate(record.description || '') || '-';
+        if (domEdit.editPurpose) domEdit.editPurpose.textContent = purposeText;
+        if (domEdit.mobilePurpose) domEdit.mobilePurpose.textContent = purposeText;
+        const payableToText = normalizeDate(record.payable_to || '') || '-';
+        if (domEdit.editPayableTo) domEdit.editPayableTo.textContent = payableToText;
+        if (domEdit.mobilePayableTo) domEdit.mobilePayableTo.textContent = payableToText;
+        const addressText = normalizeDate(record.address || '') || '-';
+        if (domEdit.editAddress) domEdit.editAddress.textContent = addressText;
+        if (domEdit.mobileAddress) domEdit.mobileAddress.textContent = addressText;
+        if (domEdit.editCostCenter) {
+            const ccId = record.cost_center_id || '';
+            const ccName = record.cost_center_name || '';
+            const costCenterText = ccId && ccName ? `${ccId} - ${ccName}` : (normalizeDate(ccId || ccName) || '-');
+            domEdit.editCostCenter.textContent = costCenterText;
+            if (domEdit.mobileCostCenter) {
+                domEdit.mobileCostCenter.textContent = costCenterText;
+            }
+        }
         if (domEdit.cashAdvanceId) domEdit.cashAdvanceId.value = normalizeDate(record.cash_advance_id);
 
         const refund = Number(record.refund_amount || 0);
         const reimburse = Number(record.reimburse_amount || 0);
+        const variance = getVariancePresentation(refund, reimburse);
         if (domEdit.editVariance) {
-            let badgeHtml = '<span class="kna-var-badge kna-var-balanced">0.00</span>';
-            if (refund > 0) badgeHtml = `<span class="kna-var-badge kna-var-return">${formatPHP(refund)} to return</span>`;
-            else if (reimburse > 0) badgeHtml = `<span class="kna-var-badge kna-var-reimburse">${formatPHP(reimburse)} to reimburse</span>`;
-            domEdit.editVariance.innerHTML = badgeHtml;
+            domEdit.editVariance.innerHTML = variance.desktopHtml;
         }
+        if (domEdit.mobileVariance) {
+            domEdit.mobileVariance.textContent = variance.mobileText;
+        }
+    }).fail(() => {
+        Swal.fire({
+            icon: 'error',
+            title: 'Load Failed',
+            text: 'Could not load liquidation header.',
+        }).then(() => {
+            goToPath('transactions/liquidation');
+        });
     });
 
     ajax_loader('transactions/liquidation/api/get/for_edit', { LiquidationId: ref }).done((response) => {
@@ -707,7 +798,11 @@ const loadEditData = () => {
                 .sort();
             const first = dates[0] || '-';
             const last = dates[dates.length - 1] || '-';
-            domEdit.editExpenseDate.textContent = first === last ? first : `${first} – ${last}`;
+            const rangeText = first === last ? first : `${first} – ${last}`;
+            domEdit.editExpenseDate.textContent = rangeText;
+            if (domEdit.mobileExpenseDate) {
+                domEdit.mobileExpenseDate.textContent = rangeText;
+            }
         }
     }).fail(() => {
         if (domEdit.editExpenseItems) {
@@ -927,6 +1022,9 @@ const cacheEditDom = () => {
     domEdit.editLiquidatedAmount = document.getElementById('editLiquidatedAmount');
     domEdit.editVariance = document.getElementById('editVariance');
     domEdit.editPurpose = document.getElementById('editPurpose');
+    domEdit.editPayableTo = document.getElementById('editPayableTo');
+    domEdit.editAddress = document.getElementById('editAddress');
+    domEdit.editCostCenter = document.getElementById('editCostCenter');
     domEdit.editStatus = document.getElementById('editStatus');
     domEdit.editSubmittedDate = document.getElementById('editSubmittedDate');
     domEdit.editExpenseItems = document.getElementById('editExpenseItems');
@@ -938,6 +1036,19 @@ const cacheEditDom = () => {
     domEdit.btnSaveAsDraft = document.getElementById('btnSaveAsDraft');
     domEdit.btnSaveEditMobile = document.getElementById('btnSaveEditMobile');
     domEdit.btnSaveAsDraftMobile = document.getElementById('btnSaveAsDraftMobile');
+    domEdit.mobileLiquidationNo = document.getElementById('mobileLiquidationNo');
+    domEdit.mobileStatus = document.getElementById('mobileStatus');
+    domEdit.mobileCaAmount = document.getElementById('mobileCaAmount');
+    domEdit.mobileTotal = document.getElementById('mobileTotal');
+    domEdit.mobileVariance = document.getElementById('mobileVariance');
+    domEdit.mobileCaRef = document.getElementById('mobileCaRef');
+    domEdit.mobileCaDate = document.getElementById('mobileCaDate');
+    domEdit.mobileSubmittedDate = document.getElementById('mobileSubmittedDate');
+    domEdit.mobileExpenseDate = document.getElementById('mobileExpenseDate');
+    domEdit.mobilePayableTo = document.getElementById('mobilePayableTo');
+    domEdit.mobileCostCenter = document.getElementById('mobileCostCenter');
+    domEdit.mobileAddress = document.getElementById('mobileAddress');
+    domEdit.mobilePurpose = document.getElementById('mobilePurpose');
 
     const lbEl = document.getElementById('knaLightbox');
     if (lbEl) {

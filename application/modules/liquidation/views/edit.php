@@ -325,6 +325,9 @@
 		font-size: 11px;
 	}
 
+	/* ===== MOBILE COMPACT OVERVIEW (Hidden on desktop) ===== */
+	.kna-mobile-overview { display: none; }
+
 	/* ===== MOBILE CARDS (matching add.php) ===== */
 	.kna-exp-card {
 		border: 1px solid #e5e7eb;
@@ -748,6 +751,9 @@
 	}
 
 	@media (max-width: 767.98px) {
+		.kna-desktop-info { display: none !important; }
+		.kna-mobile-overview { display: block; }
+
 		.kna-page { padding: 8px 8px 12px; }
 		.kna-title { font-size: 18px; }
 		.kna-info-row-3 { grid-template-columns: 1fr; }
@@ -795,6 +801,112 @@
 		select.form-control {
 			height: 40px;
 		}
+
+		/* Mobile Hero */
+		.kna-mobile-hero {
+			background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+			border-radius: 12px;
+			padding: 14px 16px;
+			margin-bottom: 10px;
+			color: #fff;
+			box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+		}
+		.kna-mobile-hero-top {
+			display: flex;
+			justify-content: space-between;
+			align-items: flex-start;
+			margin-bottom: 10px;
+		}
+		.kna-mobile-hero-id {
+			font-size: 13px;
+			font-weight: 700;
+			opacity: 0.95;
+			letter-spacing: 0.3px;
+		}
+		.kna-mobile-hero-id span {
+			opacity: 0.7;
+			font-weight: 500;
+			font-size: 11px;
+			display: block;
+			margin-top: 2px;
+		}
+		.kna-mobile-hero-status {
+			font-size: 10px;
+			font-weight: 700;
+			padding: 3px 10px;
+			border-radius: 20px;
+			background: rgba(255,255,255,0.2);
+			backdrop-filter: blur(4px);
+			white-space: nowrap;
+		}
+		.kna-mobile-hero-amounts {
+			display: grid;
+			grid-template-columns: 1fr 1fr 1fr;
+			gap: 8px;
+		}
+		.kna-mobile-hero-amt {
+			text-align: center;
+			background: rgba(255,255,255,0.12);
+			border-radius: 8px;
+			padding: 8px 4px;
+		}
+		.kna-mobile-hero-amt-label {
+			font-size: 9px;
+			font-weight: 600;
+			text-transform: uppercase;
+			letter-spacing: 0.4px;
+			opacity: 0.75;
+			margin-bottom: 2px;
+		}
+		.kna-mobile-hero-amt-value { font-size: 14px; font-weight: 700; }
+		.kna-mobile-hero-amt-value.small { font-size: 12px; }
+
+		/* Mobile Info Grid */
+		.kna-info-section-mobile { display: block; margin-bottom: 10px; }
+		.kna-info-grid-mobile {
+			display: grid;
+			grid-template-columns: repeat(2, 1fr);
+			gap: 8px;
+		}
+		.kna-info-item-mobile {
+			background: #fff;
+			border-radius: 10px;
+			padding: 10px 12px;
+			border: 1px solid #e5e7eb;
+			border-left: 3px solid #6366f1;
+			box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+		}
+		.kna-info-item-mobile.liq-no { border-left-color: #6366f1; }
+		.kna-info-item-mobile.ca-ref { border-left-color: #3b82f6; }
+		.kna-info-item-mobile.ca-amt { border-left-color: #0f766e; }
+		.kna-info-item-mobile.ca-date { border-left-color: #8b5cf6; }
+		.kna-info-item-mobile.range { border-left-color: #f59e0b; }
+		.kna-info-item-mobile.total { border-left-color: #059669; }
+		.kna-info-item-mobile.variance { border-left-color: #ef4444; }
+		.kna-info-item-mobile.payable { border-left-color: #ec4899; }
+		.kna-info-item-mobile.address { border-left-color: #14b8a6; }
+		.kna-info-item-mobile.costcenter { border-left-color: #f97316; }
+		.kna-info-item-mobile.status { border-left-color: #6366f1; }
+		.kna-info-item-mobile.submitted { border-left-color: #64748b; }
+		.kna-info-item-mobile.expense-period { border-left-color: #a855f7; }
+		.kna-info-item-mobile.purpose { border-left-color: #6366f1; }
+		.kna-info-label-mobile {
+			font-size: 9px;
+			font-weight: 700;
+			color: #9ca3af;
+			text-transform: uppercase;
+			letter-spacing: 0.4px;
+			margin-bottom: 3px;
+		}
+		.kna-info-value-mobile {
+			font-size: 12px;
+			font-weight: 600;
+			color: #1f2937;
+			line-height: 1.3;
+			word-break: break-word;
+		}
+		.kna-info-value-mobile .kna-var-badge { font-size: 10px; padding: 1px 8px; }
+		.kna-info-item-mobile.full-width { grid-column: 1 / -1; }
 	}
 	  /* ─── OCR Status Indicators ─── */
   .kna-ocr-status {
@@ -849,63 +961,145 @@
 			<input type="hidden" id="editPageMarker" value="1">
 			<input type="hidden" id="cashAdvanceId" value="">
 
-			<div class="kna-section-title">
-				<i class="fas fa-info-circle"></i>
-				Liquidation Information
+			<!-- Desktop: Full Liquidation Information -->
+			<div class="kna-desktop-info">
+				<div class="kna-section-title">
+					<i class="fas fa-info-circle"></i>
+					Liquidation Information
+				</div>
+
+				<!-- Row 1: Identifiers & Status -->
+				<div class="kna-info-row kna-info-row-3">
+					<div class="form-group">
+						<label class="kna-form-label">Liquidation No</label>
+						<div class="kna-readonly" id="editLiquidationNo">-</div>
+					</div>
+					<div class="form-group">
+						<label class="kna-form-label">Cash Advance Ref</label>
+						<div class="kna-readonly" id="editCaRef">-</div>
+					</div>
+					<div class="form-group">
+						<label class="kna-form-label">Status</label>
+						<div class="kna-readonly" id="editStatus" style="background:transparent;border-color:transparent;padding-left:0;">-</div>
+					</div>
+				</div>
+
+				<!-- Row 2: Payable To, Address, Cost Center -->
+				<div class="kna-info-row kna-info-row-3">
+					<div class="form-group">
+						<label class="kna-form-label">Payable To</label>
+						<div class="kna-readonly" id="editPayableTo">-</div>
+					</div>
+					<div class="form-group">
+						<label class="kna-form-label">Address</label>
+						<div class="kna-readonly" id="editAddress">-</div>
+					</div>
+					<div class="form-group">
+						<label class="kna-form-label">Cost Center</label>
+						<div class="kna-readonly" id="editCostCenter">-</div>
+					</div>
+				</div>
+
+				<!-- Row 3: Dates -->
+				<div class="kna-info-row kna-info-row-3">
+					<div class="form-group">
+						<label class="kna-form-label">Submitted Date</label>
+						<div class="kna-readonly" id="editSubmittedDate">-</div>
+					</div>
+					<div class="form-group">
+						<label class="kna-form-label">Expense Period</label>
+						<div class="kna-readonly" id="editExpenseDate">-</div>
+					</div>
+					<div class="form-group">
+						<label class="kna-form-label">CA Date</label>
+						<div class="kna-readonly" id="editCaDate">-</div>
+					</div>
+				</div>
+
+				<!-- Row 3: Financial summary -->
+				<div class="kna-info-row kna-info-row-3" style="margin-bottom:12px;">
+					<div class="kna-fin-card ca">
+						<div class="kna-fin-label">CA Amount</div>
+						<div class="kna-fin-value" id="editCaAmount">-</div>
+					</div>
+					<div class="kna-fin-card liq">
+						<div class="kna-fin-label">Total Liquidated</div>
+						<div class="kna-fin-value" id="editLiquidatedAmount">-</div>
+					</div>
+					<div class="kna-fin-card var">
+						<div class="kna-fin-label">Variance</div>
+						<div class="kna-fin-value" id="editVariance">-</div>
+					</div>
+				</div>
+
+				<!-- Notes -->
+				<div class="form-group" style="margin-bottom:12px;">
+					<label class="kna-form-label">Notes / Purpose</label>
+					<div class="kna-readonly" id="editPurpose" style="min-height:48px;align-items:flex-start;padding-top:8px;"></div>
+				</div>
 			</div>
 
-			<!-- Row 1: Identifiers & Status -->
-			<div class="kna-info-row kna-info-row-3">
-				<div class="form-group">
-					<label class="kna-form-label">Liquidation No</label>
-					<div class="kna-readonly" id="editLiquidationNo">-</div>
+			<!-- Mobile: Compact Overview (hidden on desktop) -->
+			<div class="kna-mobile-overview">
+				<div class="kna-mobile-hero">
+					<div class="kna-mobile-hero-top">
+						<div class="kna-mobile-hero-id">
+							<span>Liquidation No</span>
+							<span id="mobileLiquidationNo">-</span>
+						</div>
+						<div class="kna-mobile-hero-status" id="mobileStatus">-</div>
+					</div>
+					<div class="kna-mobile-hero-amounts">
+						<div class="kna-mobile-hero-amt">
+							<div class="kna-mobile-hero-amt-label">CA Amount</div>
+							<div class="kna-mobile-hero-amt-value" id="mobileCaAmount">-</div>
+						</div>
+						<div class="kna-mobile-hero-amt">
+							<div class="kna-mobile-hero-amt-label">Total</div>
+							<div class="kna-mobile-hero-amt-value" id="mobileTotal">-</div>
+						</div>
+						<div class="kna-mobile-hero-amt">
+							<div class="kna-mobile-hero-amt-label">Variance</div>
+							<div class="kna-mobile-hero-amt-value small" id="mobileVariance">-</div>
+						</div>
+					</div>
 				</div>
-				<div class="form-group">
-					<label class="kna-form-label">Cash Advance Ref</label>
-					<div class="kna-readonly" id="editCaRef">-</div>
+				<div class="kna-info-section-mobile">
+					<div class="kna-info-grid-mobile">
+						<div class="kna-info-item-mobile ca-ref">
+							<div class="kna-info-label-mobile">CA Ref</div>
+							<div class="kna-info-value-mobile" id="mobileCaRef">-</div>
+						</div>
+						<div class="kna-info-item-mobile ca-date">
+							<div class="kna-info-label-mobile">CA Date</div>
+							<div class="kna-info-value-mobile" id="mobileCaDate">-</div>
+						</div>
+						<div class="kna-info-item-mobile submitted">
+							<div class="kna-info-label-mobile">Submitted</div>
+							<div class="kna-info-value-mobile" id="mobileSubmittedDate">-</div>
+						</div>
+						<div class="kna-info-item-mobile expense-period">
+							<div class="kna-info-label-mobile">Expense Period</div>
+							<div class="kna-info-value-mobile" id="mobileExpenseDate">-</div>
+						</div>
+						<div class="kna-info-item-mobile payable">
+							<div class="kna-info-label-mobile">Payable To</div>
+							<div class="kna-info-value-mobile" id="mobilePayableTo">-</div>
+						</div>
+						<div class="kna-info-item-mobile costcenter">
+							<div class="kna-info-label-mobile">Cost Center</div>
+							<div class="kna-info-value-mobile" id="mobileCostCenter">-</div>
+						</div>
+						<div class="kna-info-item-mobile address full-width">
+							<div class="kna-info-label-mobile">Address</div>
+							<div class="kna-info-value-mobile" id="mobileAddress">-</div>
+						</div>
+						<div class="kna-info-item-mobile purpose full-width">
+							<div class="kna-info-label-mobile">Notes / Purpose</div>
+							<div class="kna-info-value-mobile" id="mobilePurpose">-</div>
+						</div>
+					</div>
 				</div>
-				<div class="form-group">
-					<label class="kna-form-label">Status</label>
-					<div class="kna-readonly" id="editStatus" style="background:transparent;border-color:transparent;padding-left:0;">-</div>
-				</div>
-			</div>
-
-			<!-- Row 2: Dates -->
-			<div class="kna-info-row kna-info-row-3">
-				<div class="form-group">
-					<label class="kna-form-label">Submitted Date</label>
-					<div class="kna-readonly" id="editSubmittedDate">-</div>
-				</div>
-				<div class="form-group">
-					<label class="kna-form-label">Expense Period</label>
-					<div class="kna-readonly" id="editExpenseDate">-</div>
-				</div>
-				<div class="form-group">
-					<label class="kna-form-label">CA Date</label>
-					<div class="kna-readonly" id="editCaDate">-</div>
-				</div>
-			</div>
-
-			<!-- Row 3: Financial summary -->
-			<div class="kna-info-row kna-info-row-3" style="margin-bottom:12px;">
-				<div class="kna-fin-card ca">
-					<div class="kna-fin-label">CA Amount</div>
-					<div class="kna-fin-value" id="editCaAmount">-</div>
-				</div>
-				<div class="kna-fin-card liq">
-					<div class="kna-fin-label">Total Liquidated</div>
-					<div class="kna-fin-value" id="editLiquidatedAmount">-</div>
-				</div>
-				<div class="kna-fin-card var">
-					<div class="kna-fin-label">Variance</div>
-					<div class="kna-fin-value" id="editVariance">-</div>
-				</div>
-			</div>
-
-			<!-- Notes -->
-			<div class="form-group" style="margin-bottom:12px;">
-				<label class="kna-form-label">Notes / Purpose</label>
-				<div class="kna-readonly" id="editPurpose" style="min-height:48px;align-items:flex-start;padding-top:8px;"></div>
 			</div>
 
 			<hr />

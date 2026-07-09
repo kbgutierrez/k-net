@@ -8,14 +8,49 @@ const domDetail = {
 	viewLiquidatedAmount: null,
 	viewVariance: null,
 	viewPurpose: null,
+	viewPayableTo: null,
+	viewAddress: null,
+	viewCostCenter: null,
 	viewStatus: null,
 	viewSubmittedDate: null,
 	viewExpenseItems: null,
 	viewTimeline: null,
 	btnEditLiquidation: null,
+	mobileLiquidationNo: null,
+	mobileStatus: null,
+	mobileCaAmount: null,
+	mobileTotal: null,
+	mobileVariance: null,
+	mobileCaRef: null,
+	mobileCaDate: null,
+	mobileSubmittedDate: null,
+	mobileExpenseDate: null,
+	mobilePayableTo: null,
+	mobileCostCenter: null,
+	mobileAddress: null,
+	mobilePurpose: null,
 };
 
 const IMG_EXTS = /\.(jpg|jpeg|png|gif|webp)$/i;
+
+const getVariancePresentation = (refund, reimburse) => {
+	if (refund > 0) {
+		return {
+			desktopHtml: `<span class="kna-var-badge kna-var-return">${formatPHP(refund)} to return</span>`,
+			mobileText: `${formatPHP(refund)} return`,
+		};
+	}
+	if (reimburse > 0) {
+		return {
+			desktopHtml: `<span class="kna-var-badge kna-var-reimburse">${formatPHP(reimburse)} to reimburse</span>`,
+			mobileText: `${formatPHP(reimburse)} reimburse`,
+		};
+	}
+	return {
+		desktopHtml: '<span class="kna-var-badge kna-var-balanced">0.00</span>',
+		mobileText: '0.00',
+	};
+};
 
 const openLightbox = (url) => {
 	const lb = document.getElementById('knaLightbox');
@@ -211,6 +246,9 @@ const renderDetailExpenseItems = (expenses) => {
 	const total    = expenses.reduce((sum, e) => sum + Number(e.actual_amount || 0), 0);
 	const totalNet = expenses.reduce((sum, e) => sum + Number(e.net_amount    || 0), 0);
 	const totalVat = expenses.reduce((sum, e) => sum + Number(e.vat_amount    || 0), 0);
+	if (domDetail.mobileTotal) {
+		domDetail.mobileTotal.textContent = formatPHP(total);
+	}
 
 	container.innerHTML = `
 		<div class="kna-exp-wrap">
@@ -492,11 +530,27 @@ const cacheDetailDom = () => {
 	domDetail.viewLiquidatedAmount = document.getElementById('viewLiquidatedAmount');
 	domDetail.viewVariance = document.getElementById('viewVariance');
 	domDetail.viewPurpose = document.getElementById('viewPurpose');
+	domDetail.viewPayableTo = document.getElementById('viewPayableTo');
+	domDetail.viewAddress = document.getElementById('viewAddress');
+	domDetail.viewCostCenter = document.getElementById('viewCostCenter');
 	domDetail.viewStatus = document.getElementById('viewStatus');
 	domDetail.viewSubmittedDate = document.getElementById('viewSubmittedDate');
 	domDetail.viewExpenseItems = document.getElementById('viewExpenseItems');
 	domDetail.viewTimeline = document.getElementById('viewTimeline');
 	domDetail.btnEditLiquidation = document.getElementById('btnEditLiquidation');
+	domDetail.mobileLiquidationNo = document.getElementById('mobileLiquidationNo');
+	domDetail.mobileStatus = document.getElementById('mobileStatus');
+	domDetail.mobileCaAmount = document.getElementById('mobileCaAmount');
+	domDetail.mobileTotal = document.getElementById('mobileTotal');
+	domDetail.mobileVariance = document.getElementById('mobileVariance');
+	domDetail.mobileCaRef = document.getElementById('mobileCaRef');
+	domDetail.mobileCaDate = document.getElementById('mobileCaDate');
+	domDetail.mobileSubmittedDate = document.getElementById('mobileSubmittedDate');
+	domDetail.mobileExpenseDate = document.getElementById('mobileExpenseDate');
+	domDetail.mobilePayableTo = document.getElementById('mobilePayableTo');
+	domDetail.mobileCostCenter = document.getElementById('mobileCostCenter');
+	domDetail.mobileAddress = document.getElementById('mobileAddress');
+	domDetail.mobilePurpose = document.getElementById('mobilePurpose');
 
 	if (domDetail.viewExpenseItems) {
 		domDetail.viewExpenseItems.addEventListener('click', (e) => {
@@ -532,52 +586,100 @@ const initDetailPage = () => {
 	if (domDetail.viewLiquidationNo) {
 		domDetail.viewLiquidationNo.textContent = ref;
 	}
+	if (domDetail.mobileLiquidationNo) {
+		domDetail.mobileLiquidationNo.textContent = ref;
+	}
 
-	ajax_loader('transactions/liquidation/api/get/header', { Take: 100 }).done((response) => {
+	// Use dedicated endpoint instead of loading all headers
+	ajax_loader('transactions/liquidation/api/get/header_by_id', { LiquidationId: ref }).done((response) => {
 		const res = (typeof response === 'string') ? $.parseJSON(response) : response;
-		if (res.status !== 'success') {
+		if (res.status !== 'success' || !res.data) {
 			return;
 		}
 
-		const record = (res.data || []).find((r) => normalizeDate(r.liquidation_id) === ref);
-		if (!record) {
-			return;
-		}
+		const record = res.data;
 
 		if (domDetail.viewLiquidationNo) {
 			domDetail.viewLiquidationNo.textContent = normalizeDate(record.liquidation_id);
 		}
+		if (domDetail.mobileLiquidationNo) {
+			domDetail.mobileLiquidationNo.textContent = normalizeDate(record.liquidation_id) || '-';
+		}
 		if (domDetail.viewCaRef) {
 			domDetail.viewCaRef.textContent = normalizeDate(record.cash_advance_id);
+		}
+		if (domDetail.mobileCaRef) {
+			domDetail.mobileCaRef.textContent = normalizeDate(record.cash_advance_id) || '-';
 		}
 		if (domDetail.viewCaAmount) {
 			domDetail.viewCaAmount.textContent = formatPHP(Number(record.ca_amount || 0));
 		}
+		if (domDetail.mobileCaAmount) {
+			domDetail.mobileCaAmount.textContent = formatPHP(Number(record.ca_amount || 0));
+		}
+		const submittedDate = normalizeDate(record.submitted_date || '').slice(0, 10) || '-';
 		if (domDetail.viewCaDate) {
-			domDetail.viewCaDate.textContent = normalizeDate(record.submitted_date || '').slice(0, 10);
+			domDetail.viewCaDate.textContent = submittedDate;
+		}
+		if (domDetail.mobileCaDate) {
+			domDetail.mobileCaDate.textContent = submittedDate;
 		}
 		if (domDetail.viewLiquidatedAmount) {
 			domDetail.viewLiquidatedAmount.textContent = formatPHP(Number(record.total_amount_spent || 0));
 		}
+		if (domDetail.mobileTotal) {
+			domDetail.mobileTotal.textContent = formatPHP(Number(record.total_amount_spent || 0));
+		}
 		if (domDetail.viewStatus) {
 			domDetail.viewStatus.innerHTML = getStatusBadge(normalizeDate(record.status_name));
 		}
-		if (domDetail.viewSubmittedDate) {
-			domDetail.viewSubmittedDate.textContent = normalizeDate(record.submitted_date || '').slice(0, 10);
+		if (domDetail.mobileStatus) {
+			domDetail.mobileStatus.textContent = normalizeDate(record.status_name) || '-';
 		}
+		if (domDetail.viewSubmittedDate) {
+			domDetail.viewSubmittedDate.textContent = submittedDate;
+		}
+		if (domDetail.mobileSubmittedDate) {
+			domDetail.mobileSubmittedDate.textContent = submittedDate;
+		}
+
+		// New fields from SP
+		if (domDetail.viewPayableTo) {
+			domDetail.viewPayableTo.textContent = normalizeDate(record.payable_to || '') || '-';
+		}
+		if (domDetail.mobilePayableTo) {
+			domDetail.mobilePayableTo.textContent = normalizeDate(record.payable_to || '') || '-';
+		}
+		if (domDetail.viewAddress) {
+			domDetail.viewAddress.textContent = normalizeDate(record.address || '') || '-';
+		}
+		if (domDetail.mobileAddress) {
+			domDetail.mobileAddress.textContent = normalizeDate(record.address || '') || '-';
+		}
+		if (domDetail.viewCostCenter) {
+			const ccId = record.cost_center_id || '';
+			const ccName = record.cost_center_name || '';
+			const costCenterText = ccId && ccName ? `${ccId} - ${ccName}` : (normalizeDate(ccId || ccName) || '-');
+			domDetail.viewCostCenter.textContent = costCenterText;
+			if (domDetail.mobileCostCenter) {
+				domDetail.mobileCostCenter.textContent = costCenterText;
+			}
+		}
+
 		const refund = Number(record.refund_amount || 0);
 		const reimburse = Number(record.reimburse_amount || 0);
+		const variance = getVariancePresentation(refund, reimburse);
 		if (domDetail.viewVariance) {
-			let badgeHtml = '<span class="kna-var-badge kna-var-balanced">0.00</span>';
-			if (refund > 0) {
-				badgeHtml = `<span class="kna-var-badge kna-var-return">${formatPHP(refund)} to return</span>`;
-			} else if (reimburse > 0) {
-				badgeHtml = `<span class="kna-var-badge kna-var-reimburse">${formatPHP(reimburse)} to reimburse</span>`;
-			}
-			domDetail.viewVariance.innerHTML = badgeHtml;
+			domDetail.viewVariance.innerHTML = variance.desktopHtml;
+		}
+		if (domDetail.mobileVariance) {
+			domDetail.mobileVariance.textContent = variance.mobileText;
 		}
 		if (domDetail.viewPurpose) {
 			domDetail.viewPurpose.textContent = normalizeDate(record.description || '') || '-';
+		}
+		if (domDetail.mobilePurpose) {
+			domDetail.mobilePurpose.textContent = normalizeDate(record.description || '') || '-';
 		}
 
 		const statusCode = normalizeDate(record.status_code || '');
@@ -589,6 +691,8 @@ const initDetailPage = () => {
 			domDetail.btnEditLiquidation.classList.remove('d-none');
 			domDetail.btnEditLiquidation.href = `${base_url}transactions/liquidation/edit/${encodeURIComponent(ref)}`;
 		}
+	}).fail(() => {
+		// Silently fail - details will still try to load
 	});
 
 	ajax_loader('transactions/liquidation/api/get/details', { LiquidationId: ref }).done((response) => {
@@ -612,10 +716,14 @@ const initDetailPage = () => {
 					.sort();
 				const first = dates[0] || '-';
 				const last = dates[dates.length - 1] || '-';
-				domDetail.viewExpenseDate.textContent = first === last ? first : `${first} \u2013 ${last}`;
+				const rangeText = first === last ? first : `${first} \u2013 ${last}`;
+				domDetail.viewExpenseDate.textContent = rangeText;
+				if (domDetail.mobileExpenseDate) {
+					domDetail.mobileExpenseDate.textContent = rangeText;
+				}
 			}
 
-		loadAuditTrail();
+			loadAuditTrail();
 		});
 	}).fail(() => {
 		if (domDetail.viewExpenseItems) {

@@ -12,12 +12,26 @@ const domAdd = {
 	newLiquidatedAmount: null,
 	newVariance: null,
 	newPurpose: null,
+	newPayableTo: null,
+	newAddress: null,
+	newCostCenter: null,
 	btnAddExpenseItem: null,
 	expenseItemsContainer: null,
 	btnSaveDraftLiquidation: null,
 	btnSaveNewLiquidation: null,
 	btnSaveDraftLiquidationMobile: null,
 	btnSaveNewLiquidationMobile: null,
+	// Mobile overview elements
+	mobileCaRef: null,
+	mobileCaAmount: null,
+	mobileTotal: null,
+	mobileVariance: null,
+	mobileCaDate: null,
+	mobileDateRange: null,
+	mobilePayableTo: null,
+	mobileCostCenter: null,
+	mobileAddress: null,
+	mobilePurpose: null,
 };
 
 const MAX_ATTACHMENT_BYTES = 2 * 1024 * 1024;
@@ -77,6 +91,10 @@ const updateTotalFromItems = () => {
 	if (domAdd.newLiquidatedAmount) {
 		domAdd.newLiquidatedAmount.textContent = formatPHP(total);
 	}
+	// Update mobile total
+	if (domAdd.mobileTotal) {
+		domAdd.mobileTotal.textContent = formatPHP(total);
+	}
 	updateVarianceSummary();
 };
 
@@ -91,15 +109,22 @@ const updateVarianceSummary = () => {
 	const reimburseAmount = totalAmount > cashAdvanceAmount ? (totalAmount - cashAdvanceAmount) : 0;
 
 	let varianceHtml = '<span class="text-muted">-</span>';
+	let mobileVarianceText = '-';
 	if (totalAmount > 0 && refundAmount > 0) {
 		varianceHtml = `<span class="kna-var-badge kna-var-return">${formatPHP(refundAmount)} to return</span>`;
+		mobileVarianceText = `${formatPHP(refundAmount)} return`;
 	} else if (totalAmount > 0 && reimburseAmount > 0) {
 		varianceHtml = `<span class="kna-var-badge kna-var-reimburse">${formatPHP(reimburseAmount)} to reimburse</span>`;
+		mobileVarianceText = `${formatPHP(reimburseAmount)} reimburse`;
 	} else if (totalAmount > 0) {
 		varianceHtml = '<span class="kna-var-badge kna-var-balanced">0.00</span>';
+		mobileVarianceText = '0.00';
 	}
 
 	domAdd.newVariance.innerHTML = varianceHtml;
+	if (domAdd.mobileVariance) {
+		domAdd.mobileVariance.textContent = mobileVarianceText;
+	}
 };
 
 const getExpenseDocumentDateRange = () => {
@@ -124,7 +149,11 @@ const syncDateRangeFromDocumentDates = () => {
 	}
 
 	const range = getExpenseDocumentDateRange();
-	domAdd.newDateRange.value = range.from && range.to ? `${range.from} to ${range.to}` : '';
+	const rangeText = range.from && range.to ? `${range.from} to ${range.to}` : '';
+	domAdd.newDateRange.value = rangeText;
+	if (domAdd.mobileDateRange) {
+		domAdd.mobileDateRange.textContent = rangeText || '-';
+	}
 };
 
 const loadExpenseTypes = () => {
@@ -173,6 +202,20 @@ const resetCashAdvanceDetails = () => {
 	domAdd.newCaAmount.value = Number(0).toFixed(2);
 	domAdd.newCaDate.value = '';
 	domAdd.newPurpose.value = '';
+	if (domAdd.newPayableTo) domAdd.newPayableTo.value = '';
+	if (domAdd.newAddress) domAdd.newAddress.value = '';
+	if (domAdd.newCostCenter) domAdd.newCostCenter.value = '';
+	// Reset mobile overview
+	if (domAdd.mobileCaAmount) domAdd.mobileCaAmount.textContent = '-';
+	if (domAdd.mobileCaDate) domAdd.mobileCaDate.textContent = '-';
+	if (domAdd.mobilePayableTo) domAdd.mobilePayableTo.textContent = '-';
+	if (domAdd.mobileCostCenter) domAdd.mobileCostCenter.textContent = '-';
+	if (domAdd.mobileAddress) domAdd.mobileAddress.textContent = '-';
+	if (domAdd.mobilePurpose) domAdd.mobilePurpose.textContent = '-';
+	if (domAdd.mobileCaRef) domAdd.mobileCaRef.textContent = '-';
+	if (domAdd.mobileDateRange) domAdd.mobileDateRange.textContent = '-';
+	if (domAdd.mobileTotal) domAdd.mobileTotal.textContent = '-';
+	if (domAdd.mobileVariance) domAdd.mobileVariance.textContent = '-';
 	updateVarianceSummary();
 };
 
@@ -237,6 +280,25 @@ const syncCashAdvanceDetails = () => {
 		domAdd.newCaAmount.value = Number(details.amount || 0).toFixed(2);
 		domAdd.newCaDate.value = normalizeDate(details.created_date).slice(0, 10);
 		domAdd.newPurpose.value = normalizeDate(details.description);
+		if (domAdd.newPayableTo) domAdd.newPayableTo.value = normalizeDate(details.payable_to || '');
+		if (domAdd.newAddress) domAdd.newAddress.value = normalizeDate(details.address || '');
+		if (domAdd.newCostCenter) {
+			const ccId = details.cost_center_id || '';
+			const ccName = details.cost_center_name || '';
+			domAdd.newCostCenter.value = ccId && ccName ? `${ccId} - ${ccName}` : normalizeDate(ccId || ccName);
+		}
+		// Sync mobile overview
+		if (domAdd.mobileCaRef) domAdd.mobileCaRef.textContent = ref || '-';
+		if (domAdd.mobileCaAmount) domAdd.mobileCaAmount.textContent = formatPHP(Number(details.amount || 0));
+		if (domAdd.mobileCaDate) domAdd.mobileCaDate.textContent = normalizeDate(details.created_date).slice(0, 10) || '-';
+		if (domAdd.mobilePayableTo) domAdd.mobilePayableTo.textContent = normalizeDate(details.payable_to || '') || '-';
+		if (domAdd.mobileAddress) domAdd.mobileAddress.textContent = normalizeDate(details.address || '') || '-';
+		if (domAdd.mobileCostCenter) {
+			const ccId = details.cost_center_id || '';
+			const ccName = details.cost_center_name || '';
+			domAdd.mobileCostCenter.textContent = ccId && ccName ? `${ccId} - ${ccName}` : (normalizeDate(ccId || ccName) || '-');
+		}
+		if (domAdd.mobilePurpose) domAdd.mobilePurpose.textContent = normalizeDate(details.description) || '-';
 		updateVarianceSummary();
 	}).fail(() => {
 		resetCashAdvanceDetails();
@@ -458,7 +520,7 @@ const renderExpenseItems = () => {
 					<div>Vendor</div>
 					<div>Attachment</div>
 					<div>Remarks</div>
-					<div>Actions</div>
+					<div></div>
 				</div>
 				${desktopRowsHtml}
 			</div>
@@ -692,12 +754,26 @@ const cacheAddDom = () => {
 	domAdd.newLiquidatedAmount = document.getElementById('newLiquidatedAmount');
 	domAdd.newVariance = document.getElementById('newVariance');
 	domAdd.newPurpose = document.getElementById('newPurpose');
+	domAdd.newPayableTo = document.getElementById('newPayableTo');
+	domAdd.newAddress = document.getElementById('newAddress');
+	domAdd.newCostCenter = document.getElementById('newCostCenter');
 	domAdd.btnAddExpenseItem = document.getElementById('btnAddExpenseItem');
 	domAdd.expenseItemsContainer = document.getElementById('expenseItemsContainer');
 	domAdd.btnSaveDraftLiquidation = document.getElementById('btnSaveDraftLiquidation');
 	domAdd.btnSaveNewLiquidation = document.getElementById('btnSaveNewLiquidation');
 	domAdd.btnSaveDraftLiquidationMobile = document.getElementById('btnSaveDraftLiquidationMobile');
 	domAdd.btnSaveNewLiquidationMobile = document.getElementById('btnSaveNewLiquidationMobile');
+	// Mobile overview elements
+	domAdd.mobileCaRef = document.getElementById('mobileCaRef');
+	domAdd.mobileCaAmount = document.getElementById('mobileCaAmount');
+	domAdd.mobileTotal = document.getElementById('mobileTotal');
+	domAdd.mobileVariance = document.getElementById('mobileVariance');
+	domAdd.mobileCaDate = document.getElementById('mobileCaDate');
+	domAdd.mobileDateRange = document.getElementById('mobileDateRange');
+	domAdd.mobilePayableTo = document.getElementById('mobilePayableTo');
+	domAdd.mobileCostCenter = document.getElementById('mobileCostCenter');
+	domAdd.mobileAddress = document.getElementById('mobileAddress');
+	domAdd.mobilePurpose = document.getElementById('mobilePurpose');
 };
 
 const setEditability = (editable) => {
@@ -758,6 +834,26 @@ const loadDraftForEdit = () => {
 		domAdd.newCaAmount.value = Number(header.ca_amount || 0).toFixed(2);
 		domAdd.newCaDate.value = normalizeDate(header.created_date).slice(0, 10);
 		domAdd.newPurpose.value = normalizeDate(header.description);
+		if (domAdd.newPayableTo) domAdd.newPayableTo.value = normalizeDate(header.payable_to || '');
+		if (domAdd.newAddress) domAdd.newAddress.value = normalizeDate(header.address || '');
+		if (domAdd.newCostCenter) {
+			const ccId = header.cost_center_id || '';
+			const ccName = header.cost_center_name || '';
+			domAdd.newCostCenter.value = ccId && ccName ? `${ccId} - ${ccName}` : normalizeDate(ccId || ccName);
+		}
+
+		// Sync mobile overview for draft
+		if (domAdd.mobileCaRef) domAdd.mobileCaRef.textContent = draftCaRef || '-';
+		if (domAdd.mobileCaAmount) domAdd.mobileCaAmount.textContent = formatPHP(Number(header.ca_amount || 0));
+		if (domAdd.mobileCaDate) domAdd.mobileCaDate.textContent = normalizeDate(header.created_date).slice(0, 10) || '-';
+		if (domAdd.mobilePayableTo) domAdd.mobilePayableTo.textContent = normalizeDate(header.payable_to || '') || '-';
+		if (domAdd.mobileAddress) domAdd.mobileAddress.textContent = normalizeDate(header.address || '') || '-';
+		if (domAdd.mobileCostCenter) {
+			const ccId = header.cost_center_id || '';
+			const ccName = header.cost_center_name || '';
+			domAdd.mobileCostCenter.textContent = ccId && ccName ? `${ccId} - ${ccName}` : (normalizeDate(ccId || ccName) || '-');
+		}
+		if (domAdd.mobilePurpose) domAdd.mobilePurpose.textContent = normalizeDate(header.description) || '-';
 
 		expenseItems = details.map((detail) => ({
 			id: ++expenseItemCounter,

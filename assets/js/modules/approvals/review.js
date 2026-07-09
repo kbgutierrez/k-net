@@ -557,7 +557,7 @@ const renderLiquidation = (data, attachments = []) => {
     </div>
     <div class="kna-overview-cell">
       <div class="kna-overview-label">Cost Center</div>
-      <div class="kna-overview-value">${escapeHtml(first.cost_center_name || first.cost_center_id || first.cost_center || '-')}</div>
+      <div class="kna-overview-value">${escapeHtml(first.cost_center_id)} - ${escapeHtml(first.cost_center_name || first.cost_center || '-')}</div>
     </div>
     <div class="kna-overview-cell wide">
       <div class="kna-overview-label">Address</div>
