@@ -201,6 +201,37 @@
 	.kna-info-row-3 {
 		grid-template-columns: repeat(3, 1fr);
 	}
+	.kna-desktop-info .kna-info-row {
+		gap: 6px;
+		margin-bottom: 6px;
+	}
+	.kna-desktop-info .kna-form-label {
+		margin-bottom: .2rem;
+	}
+	.kna-compact-field {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+	.kna-compact-value {
+		min-height: 30px;
+		padding: 4px 8px;
+		border-radius: 4px;
+		border: 1px solid #e5e7eb;
+		background: #fff;
+		font-size: 11px;
+		font-weight: 500;
+		color: #1f2937;
+		display: flex;
+		align-items: center;
+	}
+	.kna-compact-value.is-muted {
+		background: #f8fafc;
+	}
+	.kna-compact-value .kna-var-badge {
+		font-size: 11px;
+		padding: 2px 8px;
+	}
 
 	/* Financial summary cards */
 	.kna-fin-card {
@@ -943,17 +974,17 @@
 
 				<!-- Row 3: Financial summary -->
 				<div class="kna-info-row kna-info-row-3" style="margin-bottom:12px;">
-					<div class="kna-fin-card ca">
-						<div class="kna-fin-label">CA Amount</div>
-						<div class="kna-fin-value" id="viewCaAmount">-</div>
+					<div class="form-group kna-compact-field">
+						<label class="kna-form-label">CA Amount</label>
+						<div class="kna-compact-value is-muted" id="viewCaAmount">-</div>
 					</div>
-					<div class="kna-fin-card liq">
-						<div class="kna-fin-label">Total Liquidated</div>
-						<div class="kna-fin-value" id="viewLiquidatedAmount">-</div>
+					<div class="form-group kna-compact-field">
+						<label class="kna-form-label">Total Liquidated</label>
+						<div class="kna-compact-value is-muted" id="viewLiquidatedAmount">-</div>
 					</div>
-					<div class="kna-fin-card var">
-						<div class="kna-fin-label">Variance</div>
-						<div class="kna-fin-value" id="viewVariance">-</div>
+					<div class="form-group kna-compact-field">
+						<label class="kna-form-label">Variance</label>
+						<div class="kna-compact-value is-muted" id="viewVariance">-</div>
 					</div>
 				</div>
 

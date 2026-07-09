@@ -40,6 +40,13 @@
   }
   .kna-item-table-head {
     background: #e5e7eb;
+    .kna-desktop-info .kna-info-row {
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .kna-desktop-info .kna-form-label {
+      margin-bottom: .2rem;
+    }
     border-color: #d1d5db;
     font-size: 10px;
     font-weight: 700;
@@ -270,6 +277,30 @@
     margin-bottom: 10px;
   }
   .kna-info-row-3 { grid-template-columns: repeat(3, 1fr); }
+  .kna-compact-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .kna-compact-value {
+    min-height: 30px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    font-size: 11px;
+    font-weight: 500;
+    color: #1f2937;
+    display: flex;
+    align-items: center;
+  }
+  .kna-compact-value.is-muted {
+    background: #f8fafc;
+  }
+  .kna-compact-value .kna-var-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+  }
   .kna-fin-card {
     background: #f8fafc;
     border: 1px solid #e5e7eb;
@@ -759,18 +790,18 @@
             </div>
           </div>
           <div class="kna-info-row kna-info-row-3">
-            <div class="form-group">
+            <div class="form-group kna-compact-field">
               <label class="kna-form-label">Expense Range</label>
               <input type="text" class="form-control form-control-sm kna-small" id="newDateRange"
                 placeholder="Auto based on document dates" required readonly style="background: #f0f4f8;">
             </div>
-            <div class="kna-fin-card liq">
-              <div class="kna-fin-label">Total Amount</div>
-              <div class="kna-fin-value" id="newLiquidatedAmount">0.00</div>
+            <div class="form-group kna-compact-field">
+              <label class="kna-form-label">Total Amount</label>
+              <div class="kna-compact-value is-muted" id="newLiquidatedAmount">0.00</div>
             </div>
-            <div class="kna-fin-card var">
-              <div class="kna-fin-label">Variance</div>
-              <div class="kna-fin-value" id="newVariance">-</div>
+            <div class="form-group kna-compact-field">
+              <label class="kna-form-label">Variance</label>
+              <div class="kna-compact-value is-muted" id="newVariance">-</div>
             </div>
           </div>
           <div class="form-group" style="margin-bottom: 12px;">

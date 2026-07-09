@@ -54,6 +54,7 @@ class Cash_Advance extends MY_Controller
     public function add()
     {
         $userId = $this->session->userdata('user_id');
+        $departmentId = $this->session->userdata('user_info')['department_id'];
         $pendingCa = $this->getPendingCashAdvance($userId);
 
         if (!empty($pendingCa)) {
@@ -61,7 +62,16 @@ class Cash_Advance extends MY_Controller
             return;
         }
 
-        $costCenters = $this->sp->fetchData('sp_fetch_active_cost_centers');
+   
+        $params = array(
+            'departmentId' => $departmentId,
+        );
+
+        $costCenters = $this->sp->readData(
+            build_sp('sp_fetch_cost_center_by_deptid', count($params)),
+            $params,
+            'result'
+        );
 
         $data = array(
             'title' => 'New Cash Advance',
@@ -74,7 +84,7 @@ class Cash_Advance extends MY_Controller
                 '../cash-advance/add.js',
             ),
         );
-
+    
         $this->load->view('main', $data);
     }
 
