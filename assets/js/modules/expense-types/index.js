@@ -3,15 +3,18 @@ let nextCursorId = null;
 let hasMoreRows = false;
 let isLoadingRows = false;
 let desktopPage = 1;
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 10;      // records shown per page
+const FETCH_SIZE = 5000;   // load all maintenance records at once
 
 const dom = {
 	filterKeyword: null,
 	filterStatus: null,
+	filterCategory: null,
 	btnReset: null,
 	sumTotal: null,
 	sumActive: null,
 	sumInactive: null,
+	sumCategory: null,
 	expenseTypesTbody: null,
 	expenseTypesMobileList: null,
 	resultCount: null,
@@ -23,16 +26,22 @@ const dom = {
 	btnSaveExpenseType: null,
 	expenseTypeMode: null,
 	expenseTypeId: null,
+	expenseTypeCode: null,
 	expenseTypeCategoryName: null,
-	expenseTypeDescription: null,
+	expenseTypeLongText: null,
+	expenseTypeShortText: null,
+	expenseTypeCategory: null,
 	expenseTypeStatus: null,
 	modalExpenseTypeLabel: null,
 	viewExpenseTypeId: null,
+	viewExpenseTypeCode: null,
 	viewExpenseTypeStatus: null,
+	viewExpenseTypeCategory: null,
 	viewExpenseTypeCreatedBy: null,
 	viewExpenseTypeUpdatedBy: null,
 	viewExpenseTypeCategoryName: null,
-	viewExpenseTypeDescription: null,
+	viewExpenseTypeLongText: null,
+	viewExpenseTypeShortText: null,
 	viewExpenseTypeCreatedDate: null,
 	viewExpenseTypeUpdatedDate: null,
 };
@@ -59,13 +68,22 @@ const getStatusBadge = (statusCode, statusName) => {
 	return `<span class="kna-badge kna-badge-inactive">${escapeHtml(statusName || statusCode || 'Unknown')}</span>`;
 };
 
+const getCategoryBadge = (cat) => {
+	if (cat === 'SD') return '<span class="kna-badge kna-badge-sd">SD</span>';
+	if (cat === 'GA') return '<span class="kna-badge kna-badge-ga">GA</span>';
+	return `<span class="kna-badge kna-badge-inactive">${escapeHtml(cat || '-')}</span>`;
+};
+
 const normalizeApiRows = (rows) =>
 	(rows || []).map((row) => ({
 		id: Number(row.id),
+		expenseCode: normalizeText(row.expense_code),
 		categoryName: normalizeText(row.category_name),
-		description: normalizeText(row.description),
+		longText: normalizeText(row.long_text),
+		shortText: normalizeText(row.short_text),
+		category: normalizeText(row.category),
 		createdBy: normalizeText(row.created_by_name || row.created_by),
-		updatedBy: normalizeText(row.updated_by_name),
+		updatedBy: normalizeText(row.updated_by_name || row.updated_by),
 		createdDate: toIsoDate(row.created_date),
 		updatedDate: toIsoDate(row.updated_date),
 		statusCode: normalizeText(row.status),
@@ -96,8 +114,9 @@ const loadExpenseTypes = (reset = false) => {
 	isLoadingRows = true;
 	updateLoadMoreButtons();
 
-	const payload = { Take: PAGE_SIZE };
-	if (nextCursorId !== null) {
+	// Fetch all records in one call; client-side handles filtering & paging
+	const payload = { Take: reset ? FETCH_SIZE : PAGE_SIZE };
+	if (!reset && nextCursorId !== null) {
 		payload.CursorId = nextCursorId;
 	}
 
@@ -177,15 +196,11 @@ const goToDesktopPage = (targetPage) => {
 	}
 
 	const rows = getFilteredRows();
-	const loadedPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+	const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
 
-	if (targetPage <= loadedPages) {
-		desktopPage = targetPage;
-		refreshUI();
-		return;
-	}
-
-	if (targetPage === loadedPages + 1 && hasMoreRows) {
+	if (targetPage > totalPages && hasMoreRows) {
+		// Edge case: should not happen now that we load all upfront,
+		// but keep the guard just in case.
 		const request = loadExpenseTypes(false);
 		if (request) {
 			request.done(() => {
@@ -193,19 +208,28 @@ const goToDesktopPage = (targetPage) => {
 				refreshUI();
 			});
 		}
+		return;
 	}
+
+	desktopPage = Math.min(targetPage, totalPages);
+	refreshUI();
 };
 
 const matchesFilters = (row) => {
 	const keyword = normalizeText(dom.filterKeyword.value).trim().toLowerCase();
 	const status = normalizeText(dom.filterStatus.value).trim();
+	const category = normalizeText(dom.filterCategory.value).trim();
 
 	if (status && row.statusCode !== status) {
 		return false;
 	}
 
+	if (category && row.category !== category) {
+		return false;
+	}
+
 	if (keyword) {
-		const haystack = `${row.categoryName} ${row.description}`.toLowerCase();
+		const haystack = `${row.expenseCode} ${row.categoryName} ${row.longText} ${row.shortText}`.toLowerCase();
 		if (haystack.indexOf(keyword) === -1) {
 			return false;
 		}
@@ -218,17 +242,20 @@ const renderDesktopTable = (rows) => {
 	dom.expenseTypesTbody.innerHTML = '';
 
 	if (!rows.length) {
-		dom.expenseTypesTbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No records found</td></tr>';
+		dom.expenseTypesTbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted">No records found</td></tr>';
 		return;
 	}
 
 	rows.forEach((row) => {
 		const tr = document.createElement('tr');
 		tr.innerHTML = `
-			<td class="text-truncate" style="max-width:200px;" title="${escapeHtml(row.categoryName)}">${escapeHtml(row.categoryName)}</td>
-			<td class="text-truncate" style="max-width:420px;" title="${escapeHtml(row.description)}">${escapeHtml(row.description || '-')}</td>
+			<td class="font-weight-bold">${escapeHtml(row.expenseCode || '-')}</td>
+			<td class="text-truncate" style="max-width:180px;" title="${escapeHtml(row.categoryName)}">${escapeHtml(row.categoryName)}</td>
+			<td class="text-truncate" style="max-width:180px;" title="${escapeHtml(row.longText)}">${escapeHtml(row.longText || '-')}</td>
+			<td class="text-truncate" style="max-width:140px;" title="${escapeHtml(row.shortText)}">${escapeHtml(row.shortText || '-')}</td>
+			<td>${getCategoryBadge(row.category)}</td>
 			<td>${getStatusBadge(row.statusCode, row.statusName)}</td>
-			<td class="text-truncate" style="max-width:140px;" title="${escapeHtml(row.createdBy || '-')}">${escapeHtml(row.createdBy || '-')}</td>
+			<td class="text-truncate" style="max-width:120px;" title="${escapeHtml(row.createdBy || '-')}">${escapeHtml(row.createdBy || '-')}</td>
 			<td>${escapeHtml(row.createdDate || '-')}</td>
 			<td class="text-truncate" style="max-width:120px;" title="${escapeHtml(row.updatedBy || '-')}">${escapeHtml(row.updatedBy || '-')}</td>
 			<td>${escapeHtml(row.updatedDate || '-')}</td>
@@ -254,10 +281,15 @@ const renderMobileCards = (rows) => {
 		item.className = 'kna-item';
 		item.innerHTML = `
 			<div class="kna-row">
-				<div class="kna-small font-weight-bold">${escapeHtml(row.categoryName)}</div>
+				<div class="kna-small font-weight-bold">${escapeHtml(row.expenseCode || '-')}</div>
 				<div>${getStatusBadge(row.statusCode, row.statusName)}</div>
 			</div>
-			<div class="kna-small text-muted mb-1">${escapeHtml(row.description || '-')}</div>
+			<div class="kna-small font-weight-bold">${escapeHtml(row.categoryName)}</div>
+			<div class="kna-small text-muted mb-1">${escapeHtml(row.longText || row.shortText || '-')}</div>
+			<div class="kna-row">
+				<div class="kna-small text-muted">Category</div>
+				<div class="kna-small">${getCategoryBadge(row.category)}</div>
+			</div>
 			<div class="kna-row">
 				<div class="kna-small text-muted">Created By</div>
 				<div class="kna-small">${escapeHtml(row.createdBy || '-')}</div>
@@ -265,14 +297,6 @@ const renderMobileCards = (rows) => {
 			<div class="kna-row">
 				<div class="kna-small text-muted">Created Date</div>
 				<div class="kna-small">${escapeHtml(row.createdDate || '-')}</div>
-			</div>
-			<div class="kna-row">
-				<div class="kna-small text-muted">Updated By</div>
-				<div class="kna-small">${escapeHtml(row.updatedBy || '-')}</div>
-			</div>
-			<div class="kna-row">
-				<div class="kna-small text-muted">Updated Date</div>
-				<div class="kna-small">${escapeHtml(row.updatedDate || '-')}</div>
 			</div>
 			<div class="d-flex mt-2" style="gap:6px;">
 				<button type="button" class="btn btn-outline-primary btn-sm kna-small w-50" data-action="view" data-id="${row.id}">View</button>
@@ -287,10 +311,13 @@ const renderSummary = (rows) => {
 	const total = rows.length;
 	const active = rows.filter((row) => row.statusCode === 'CAT_ACTIVE').length;
 	const inactive = rows.filter((row) => row.statusCode === 'CAT_INACTIVE').length;
+	const sd = rows.filter((row) => row.category === 'SD').length;
+	const ga = rows.filter((row) => row.category === 'GA').length;
 
 	dom.sumTotal.textContent = String(total);
 	dom.sumActive.textContent = String(active);
 	dom.sumInactive.textContent = String(inactive);
+	if (dom.sumCategory) dom.sumCategory.textContent = `${sd} / ${ga}`;
 };
 
 const getFilteredRows = () => expenseTypes.filter(matchesFilters);
@@ -319,6 +346,7 @@ const resetFilters = () => {
 	desktopPage = 1;
 	dom.filterKeyword.value = '';
 	dom.filterStatus.value = '';
+	dom.filterCategory.value = '';
 	refreshUI();
 };
 
@@ -331,11 +359,14 @@ const openViewModal = (id) => {
 	}
 
 	dom.viewExpenseTypeId.textContent = row.id;
+	dom.viewExpenseTypeCode.textContent = row.expenseCode || '-';
 	dom.viewExpenseTypeStatus.innerHTML = getStatusBadge(row.statusCode, row.statusName);
+	dom.viewExpenseTypeCategory.innerHTML = getCategoryBadge(row.category);
 	dom.viewExpenseTypeCreatedBy.textContent = row.createdBy || '-';
 	dom.viewExpenseTypeUpdatedBy.textContent = row.updatedBy || '-';
 	dom.viewExpenseTypeCategoryName.textContent = row.categoryName || '-';
-	dom.viewExpenseTypeDescription.textContent = row.description || '-';
+	dom.viewExpenseTypeLongText.textContent = row.longText || '-';
+	dom.viewExpenseTypeShortText.textContent = row.shortText || '-';
 	dom.viewExpenseTypeCreatedDate.textContent = row.createdDate || '-';
 	dom.viewExpenseTypeUpdatedDate.textContent = row.updatedDate || '-';
 
@@ -345,8 +376,11 @@ const openViewModal = (id) => {
 const openCreateModal = () => {
 	dom.expenseTypeMode.value = 'create';
 	dom.expenseTypeId.value = '';
+	dom.expenseTypeCode.value = '';
 	dom.expenseTypeCategoryName.value = '';
-	dom.expenseTypeDescription.value = '';
+	dom.expenseTypeLongText.value = '';
+	dom.expenseTypeShortText.value = '';
+	dom.expenseTypeCategory.value = 'SD';
 	dom.expenseTypeStatus.value = 'CAT_ACTIVE';
 	dom.modalExpenseTypeLabel.textContent = 'New Expense Type';
 	$('#modalExpenseType').modal('show');
@@ -360,21 +394,31 @@ const openEditModal = (id) => {
 
 	dom.expenseTypeMode.value = 'edit';
 	dom.expenseTypeId.value = String(row.id);
+	dom.expenseTypeCode.value = row.expenseCode;
 	dom.expenseTypeCategoryName.value = row.categoryName;
-	dom.expenseTypeDescription.value = row.description;
+	dom.expenseTypeLongText.value = row.longText;
+	dom.expenseTypeShortText.value = row.shortText;
+	dom.expenseTypeCategory.value = row.category || 'SD';
 	dom.expenseTypeStatus.value = row.statusCode || 'CAT_ACTIVE';
 	dom.modalExpenseTypeLabel.textContent = 'Edit Expense Type';
 	$('#modalExpenseType').modal('show');
 };
 
 const validateForm = () => {
+	const expenseCode = normalizeText(dom.expenseTypeCode.value).trim();
 	const categoryName = normalizeText(dom.expenseTypeCategoryName.value).trim();
+	const category = normalizeText(dom.expenseTypeCategory.value).trim();
+
+	if (!expenseCode) {
+		Swal.fire({ icon: 'warning', title: 'Missing fields', text: 'Expense code is required.' });
+		return false;
+	}
 	if (!categoryName) {
-		Swal.fire({
-			icon: 'warning',
-			title: 'Missing fields',
-			text: 'Category name is required.',
-		});
+		Swal.fire({ icon: 'warning', title: 'Missing fields', text: 'Description is required.' });
+		return false;
+	}
+	if (!category) {
+		Swal.fire({ icon: 'warning', title: 'Missing fields', text: 'Category (SD/GA) is required.' });
 		return false;
 	}
 	return true;
@@ -388,8 +432,11 @@ const saveExpenseType = () => {
 	const mode = normalizeText(dom.expenseTypeMode.value);
 	const endpoint = mode === 'edit' ? 'maintenance/expense-types/api/update' : 'maintenance/expense-types/api/save';
 	const payload = {
+		ExpenseCode: normalizeText(dom.expenseTypeCode.value).trim(),
 		CategoryName: normalizeText(dom.expenseTypeCategoryName.value).trim(),
-		Description: normalizeText(dom.expenseTypeDescription.value).trim(),
+		LongText: normalizeText(dom.expenseTypeLongText.value).trim(),
+		ShortText: normalizeText(dom.expenseTypeShortText.value).trim(),
+		Category: normalizeText(dom.expenseTypeCategory.value).trim(),
 		Status: normalizeText(dom.expenseTypeStatus.value) || 'CAT_ACTIVE',
 	};
 
@@ -442,10 +489,12 @@ const saveExpenseType = () => {
 const cacheDom = () => {
 	dom.filterKeyword = document.getElementById('filterKeyword');
 	dom.filterStatus = document.getElementById('filterStatus');
+	dom.filterCategory = document.getElementById('filterCategory');
 	dom.btnReset = document.getElementById('btnReset');
 	dom.sumTotal = document.getElementById('sumTotal');
 	dom.sumActive = document.getElementById('sumActive');
 	dom.sumInactive = document.getElementById('sumInactive');
+	dom.sumCategory = document.getElementById('sumCategory');
 	dom.expenseTypesTbody = document.getElementById('expenseTypesTbody');
 	dom.expenseTypesMobileList = document.getElementById('expenseTypesMobileList');
 	dom.resultCount = document.getElementById('resultCount');
@@ -457,17 +506,23 @@ const cacheDom = () => {
 	dom.btnSaveExpenseType = document.getElementById('btnSaveExpenseType');
 	dom.expenseTypeMode = document.getElementById('expenseTypeMode');
 	dom.expenseTypeId = document.getElementById('expenseTypeId');
+	dom.expenseTypeCode = document.getElementById('expenseTypeCode');
 	dom.expenseTypeCategoryName = document.getElementById('expenseTypeCategoryName');
-	dom.expenseTypeDescription = document.getElementById('expenseTypeDescription');
+	dom.expenseTypeLongText = document.getElementById('expenseTypeLongText');
+	dom.expenseTypeShortText = document.getElementById('expenseTypeShortText');
+	dom.expenseTypeCategory = document.getElementById('expenseTypeCategory');
 	dom.expenseTypeStatus = document.getElementById('expenseTypeStatus');
 	dom.modalExpenseTypeLabel = document.getElementById('modalExpenseTypeLabel');
 
 	dom.viewExpenseTypeId = document.getElementById('viewExpenseTypeId');
+	dom.viewExpenseTypeCode = document.getElementById('viewExpenseTypeCode');
 	dom.viewExpenseTypeStatus = document.getElementById('viewExpenseTypeStatus');
+	dom.viewExpenseTypeCategory = document.getElementById('viewExpenseTypeCategory');
 	dom.viewExpenseTypeCreatedBy = document.getElementById('viewExpenseTypeCreatedBy');
 	dom.viewExpenseTypeUpdatedBy = document.getElementById('viewExpenseTypeUpdatedBy');
 	dom.viewExpenseTypeCategoryName = document.getElementById('viewExpenseTypeCategoryName');
-	dom.viewExpenseTypeDescription = document.getElementById('viewExpenseTypeDescription');
+	dom.viewExpenseTypeLongText = document.getElementById('viewExpenseTypeLongText');
+	dom.viewExpenseTypeShortText = document.getElementById('viewExpenseTypeShortText');
 	dom.viewExpenseTypeCreatedDate = document.getElementById('viewExpenseTypeCreatedDate');
 	dom.viewExpenseTypeUpdatedDate = document.getElementById('viewExpenseTypeUpdatedDate');
 };
@@ -475,6 +530,7 @@ const cacheDom = () => {
 const bindEvents = () => {
 	dom.filterKeyword.addEventListener('input', applyFilters);
 	dom.filterStatus.addEventListener('change', applyFilters);
+	dom.filterCategory.addEventListener('change', applyFilters);
 	dom.btnReset.addEventListener('click', resetFilters);
 	dom.btnOpenNewExpenseType.addEventListener('click', openCreateModal);
 	dom.btnSaveExpenseType.addEventListener('click', saveExpenseType);

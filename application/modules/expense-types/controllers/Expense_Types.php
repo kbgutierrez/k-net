@@ -2,6 +2,7 @@
 
 require 'vendor/autoload.php';
 (defined('BASEPATH')) or exit('No direct script access allowed');
+
 class Expense_Types extends MY_Controller
 {
     public function __construct()
@@ -10,6 +11,7 @@ class Expense_Types extends MY_Controller
         $this->load->model('SPModel', 'sp');
         $this->sp->setDatabase('dbknet');
     }
+
     public function index()
     {
         $data = array(
@@ -58,7 +60,7 @@ class Expense_Types extends MY_Controller
                 array_pop($result);
             }
             $nextCursorId = null;
-            if(!empty($result)) {
+            if (!empty($result)) {
                 $lastRow = end($result);
                 $nextCursorId = isset($lastRow['id']) ? (int) $lastRow['id'] : null;
             }
@@ -72,8 +74,7 @@ class Expense_Types extends MY_Controller
                     'nextCursorId' => $nextCursorId,
                 ),
             ));
-
-        }catch (Exception $e) {
+        } catch (Exception $e) {
             echo json_encode(array(
                 'status' => 'error',
                 'response' => "An error occurred: " . $e->getMessage(),
@@ -87,12 +88,24 @@ class Expense_Types extends MY_Controller
             $this->output->set_content_type('application/json');
 
             $data = $this->getRequestPayload();
+
+            $expenseCode = isset($data['ExpenseCode']) ? trim((string) $data['ExpenseCode']) : '';
             $categoryName = isset($data['CategoryName']) ? trim((string) $data['CategoryName']) : '';
-            $description = isset($data['Description']) ? trim((string) $data['Description']) : '';
+            $longText = isset($data['LongText']) ? trim((string) $data['LongText']) : '';
+            $shortText = isset($data['ShortText']) ? trim((string) $data['ShortText']) : '';
+            $category = isset($data['Category']) ? trim((string) $data['Category']) : '';
             $status = isset($data['Status']) ? trim((string) $data['Status']) : 'CAT_ACTIVE';
+
+            if ($expenseCode === '') {
+                return $this->respondError('Expense code is required');
+            }
 
             if ($categoryName === '') {
                 return $this->respondError('Category name is required');
+            }
+
+            if (!in_array($category, array('SD', 'GA'), true)) {
+                return $this->respondError('Category must be SD or GA');
             }
 
             if (!in_array($status, array('CAT_ACTIVE', 'CAT_INACTIVE'), true)) {
@@ -100,10 +113,13 @@ class Expense_Types extends MY_Controller
             }
 
             $params = array(
+                'ExpenseCode'  => $expenseCode,
                 'CategoryName' => $categoryName,
-                'Description' => $description,
-                'Status' => $status,
-                'CreatedBy' => (int) $this->session->userdata('user_id'),
+                'LongText'     => $longText,
+                'ShortText'    => $shortText,
+                'Category'     => $category,
+                'Status'       => $status,
+                'CreatedBy'    => (int) $this->session->userdata('user_id'),
             );
 
             $result = $this->sp->createData(
@@ -127,17 +143,29 @@ class Expense_Types extends MY_Controller
             $this->output->set_content_type('application/json');
 
             $data = $this->getRequestPayload();
+
             $id = isset($data['Id']) ? (int) $data['Id'] : 0;
+            $expenseCode = isset($data['ExpenseCode']) ? trim((string) $data['ExpenseCode']) : '';
             $categoryName = isset($data['CategoryName']) ? trim((string) $data['CategoryName']) : '';
-            $description = isset($data['Description']) ? trim((string) $data['Description']) : '';
+            $longText = isset($data['LongText']) ? trim((string) $data['LongText']) : '';
+            $shortText = isset($data['ShortText']) ? trim((string) $data['ShortText']) : '';
+            $category = isset($data['Category']) ? trim((string) $data['Category']) : '';
             $status = isset($data['Status']) ? trim((string) $data['Status']) : 'CAT_ACTIVE';
 
             if ($id <= 0) {
                 return $this->respondError('Invalid expense type id');
             }
 
+            if ($expenseCode === '') {
+                return $this->respondError('Expense code is required');
+            }
+
             if ($categoryName === '') {
                 return $this->respondError('Category name is required');
+            }
+
+            if (!in_array($category, array('SD', 'GA'), true)) {
+                return $this->respondError('Category must be SD or GA');
             }
 
             if (!in_array($status, array('CAT_ACTIVE', 'CAT_INACTIVE'), true)) {
@@ -145,11 +173,14 @@ class Expense_Types extends MY_Controller
             }
 
             $params = array(
-                'Id' => $id,
+                'Id'           => $id,
+                'ExpenseCode'  => $expenseCode,
                 'CategoryName' => $categoryName,
-                'Description' => $description,
-                'Status' => $status,
-                'UpdatedBy' => (int) $this->session->userdata('user_id'),
+                'LongText'     => $longText,
+                'ShortText'    => $shortText,
+                'Category'     => $category,
+                'Status'       => $status,
+                'UpdatedBy'    => (int) $this->session->userdata('user_id'),
             );
 
             $result = $this->sp->createData(
@@ -188,7 +219,8 @@ class Expense_Types extends MY_Controller
         ));
         return;
     }
-       private function respondError($message)
+
+    private function respondError($message)
     {
         echo json_encode(array(
             'status' => 'error',
@@ -196,5 +228,4 @@ class Expense_Types extends MY_Controller
         ));
         return;
     }
-
 }
