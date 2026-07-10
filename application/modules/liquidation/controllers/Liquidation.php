@@ -635,7 +635,7 @@ class Liquidation extends MY_Controller
             if (!$authHeader || !preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
                 return $this->respondError("Unauthorized: Token missing", 401);
             }
-
+            $departmentId = $this->session->userdata('user_info')['department_id'];
             $token = $matches[1];
 
             $secureToken = "12345678";
@@ -643,8 +643,15 @@ class Liquidation extends MY_Controller
             if ($token !== $secureToken) {
                 return $this->respondError("Unauthorized: Invalid token.", 401);
             }
+            $params = array(
+                "departmentId" => $departmentId,
+            );
 
-            $result = $this->sp->fetchData('sp_fetch_expense_types');
+            $result = $this->sp->readData(
+                build_sp('sp_fetch_expense_types_by_department', count($params)),
+                $params,
+                'result'
+            );
 
             return $this->respondSuccess("success", $result);
         } catch (Exception $e) {

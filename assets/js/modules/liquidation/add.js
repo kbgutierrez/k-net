@@ -1,1037 +1,519 @@
-let expenseItems = [];
-let expenseItemCounter = 0;
-
-const domAdd = {
-	liquidationRef: null,
-	draftEditWindowDays: null,
-	isEditMode: null,
-	newCaRef: null,
-	newCaAmount: null,
-	newCaDate: null,
-	newDateRange: null,
-	newLiquidatedAmount: null,
-	newVariance: null,
-	newPurpose: null,
-	newPayableTo: null,
-	newAddress: null,
-	newCostCenter: null,
-	btnAddExpenseItem: null,
-	expenseItemsContainer: null,
-	btnSaveDraftLiquidation: null,
-	btnSaveNewLiquidation: null,
-	btnSaveDraftLiquidationMobile: null,
-	btnSaveNewLiquidationMobile: null,
-	// Mobile overview elements
-	mobileCaRef: null,
-	mobileCaAmount: null,
-	mobileTotal: null,
-	mobileVariance: null,
-	mobileCaDate: null,
-	mobileDateRange: null,
-	mobilePayableTo: null,
-	mobileCostCenter: null,
-	mobileAddress: null,
-	mobilePurpose: null,
-};
-
+let expenseItems = [], expenseItemCounter = 0, expenseTypeOptions = [];
+let liquidationReceiptOcr = null, currentLiquidationId = '', draftCanEdit = true;
+let draftEditWindowDays = 7, draftAgeDays = 0;
 const MAX_ATTACHMENT_BYTES = 2 * 1024 * 1024;
-let liquidationReceiptOcr = null;
-let currentLiquidationId = '';
-let draftCanEdit = true;
-let draftEditWindowDays = 7;
-let draftAgeDays = 0;
 
-let expenseTypeOptions = [];
+const domAdd = {};
 
-const getExpenseTypeById = (idValue) =>
-	expenseTypeOptions.find((item) => String(item.id) === String(idValue));
+// ─── Helpers ───
+const qs = (sel, ctx = document) => ctx.querySelector(sel);
+const getExpenseTypeById = (id) => expenseTypeOptions.find((it) => String(it.id) === String(id));
+const getExpenseTypeDisplayText = (opt) => opt ? `${normalizeDate(opt.expense_code)} - ${normalizeDate(opt.long_text)}`.replace(/^ - | - $/g, '') : '';
+const findExpenseItem = (id) => expenseItems.find((it) => it.id === id);
+const getItemAmount = (it) => Number(it.amount || 0);
+const getAllAttachments = (it) => (it.existingAttachments || []).map((n) => ({ name: n })).concat(it.attachments || []);
+const getAttachmentNamesCsv = (it) => (it.existingAttachments || []).map(normalizeDate).filter(Boolean).join(',');
+const hasVendorData = (it) => !!(it.vendorName || it.vendorAddress || it.vendorTin);
+const createExpenseItem = () => ({ id: ++expenseItemCounter, documentDate: '', expenseType: '', reference: '', amount: '', isVattable: false, existingAttachments: [], attachments: [], remarks: '', vendorName: '', vendorAddress: '', vendorTin: '', _vendorExpanded: false });
+const renderVendorFields = (it, isMobile = false) => `
+  <div class="kna-vendor-inline ${isMobile ? 'is-mobile' : ''}">
+    <div class="kna-vendor-inline-caption">Vendor details</div>
+    <div class="kna-vendor-inline-grid">
+      <input type="text" class="form-control form-control-sm" data-item-field="vendorName" data-item-id="${it.id}" value="${escapeHtml(it.vendorName)}" placeholder="Vendor name" aria-label="Vendor name">
+      <input type="text" class="form-control form-control-sm" data-item-field="vendorAddress" data-item-id="${it.id}" value="${escapeHtml(it.vendorAddress)}" placeholder="Address" aria-label="Vendor address">
+      <input type="text" class="form-control form-control-sm" data-item-field="vendorTin" data-item-id="${it.id}" value="${escapeHtml(it.vendorTin)}" placeholder="TIN" aria-label="Vendor TIN">
+    </div>
+  </div>`;
 
-const expenseTypeOptionsMarkup = (selectedValue) =>
-	`<option value="">Select type</option>${expenseTypeOptions
-		.map((option) => {
-			const id = normalizeDate(option.id);
-			const categoryName = normalizeDate(option.categoryName);
-			const description = normalizeDate(option.description);
-			return `<option value="${escapeHtml(id)}" title="${escapeHtml(description)}" ${String(selectedValue) === String(id) ? 'selected' : ''}>${escapeHtml(categoryName)}</option>`;
-		})
-		.join('')}`;
+const swal = (icon, title, text, opts = {}) => Swal.fire({ icon, title, text, ...opts });
+const parseRes = (r) => (typeof r === 'string' ? jQuery.parseJSON(r) : r);
+const safeNum = (v) => Number(v || 0);
 
-const createExpenseItem = () => ({
-	id: ++expenseItemCounter,
-	documentDate: '',
-	expenseType: '',
-	reference: '',
-	amount: '',
-	isVattable: false,
-	existingAttachments: [],
-	attachments: [],
-	remarks: '',
-	vendorName: '',
-	vendorAddress: '',
-	vendorTin: '',
-});
-
-const findExpenseItem = (itemId) => expenseItems.find((item) => item.id === itemId);
-
-const getAllAttachmentObjects = (item) => {
-	const existing = (item.existingAttachments || []).map((name) => ({ name }));
-	const current = item.attachments || [];
-	return existing.concat(current);
+// ─── Expense Type Options ───
+const expenseTypeOptionsMarkup = (selected) => {
+  const opts = expenseTypeOptions.map((o) => {
+    const id = normalizeDate(o.id), txt = getExpenseTypeDisplayText(o), desc = normalizeDate(o.description);
+    return `<option value="${escapeHtml(id)}" title="${escapeHtml(desc)}" ${String(selected) === String(id) ? 'selected' : ''}>${escapeHtml(txt)}</option>`;
+  }).join('');
+  return `<option value="">Select type</option>${opts}`;
 };
 
-const getAttachmentNamesCsv = (item) => {
-	const existing = (item.existingAttachments || []).map((name) => normalizeDate(name)).filter(Boolean);
-	return existing.join(',');
+const initExpenseTypeSelect2 = () => {
+  if (!domAdd.expenseItemsContainer || typeof jQuery.fn?.select2 === 'undefined') return;
+  jQuery(domAdd.expenseItemsContainer).find('select[data-item-field="expenseType"]').each(function () {
+    const $s = jQuery(this);
+    if ($s.hasClass('select2-hidden-accessible')) $s.select2('destroy');
+    $s.select2({ placeholder: 'Select type', allowClear: false, width: '100%', dropdownAutoWidth: false, minimumResultsForSearch: 5 });
+    const $c = $s.next('.select2-container');
+    $c.find('.select2-selection--single').css({ height: '30px', border: '1px solid #d1d5db', borderRadius: '4px', background: '#fff', fontSize: '10px' });
+    $c.find('.select2-selection__rendered').css({ lineHeight: '28px', paddingLeft: '8px', paddingRight: '20px', color: '#374151' });
+    $c.find('.select2-selection__arrow').css({ height: '28px', width: '20px' });
+    $c.find('.select2-selection__arrow b').css({ borderWidth: '3px 3px 0 3px', marginTop: '-2px' });
+    const cv = $s.attr('data-current-value') || $s.val();
+    if (cv) $s.val(cv).trigger('change');
+  });
 };
 
-const getItemAmount = (item) => Number(item.amount || 0);
+// ─── Totals & Variance ───
+const getTotal = () => expenseItems.reduce((s, it) => s + getItemAmount(it), 0);
 
-const updateTotalFromItems = () => {
-	const total = expenseItems.reduce((sum, item) => sum + getItemAmount(item), 0);
-	if (domAdd.newLiquidatedAmount) {
-		domAdd.newLiquidatedAmount.textContent = formatPHP(total);
-	}
-	// Update mobile total
-	if (domAdd.mobileTotal) {
-		domAdd.mobileTotal.textContent = formatPHP(total);
-	}
-	updateVarianceSummary();
+const updateTotal = () => {
+  const total = getTotal();
+  if (domAdd.newLiquidatedAmount) domAdd.newLiquidatedAmount.textContent = formatPHP(total);
+  if (domAdd.mobileTotal) domAdd.mobileTotal.textContent = formatPHP(total);
+  updateVariance();
 };
 
-const updateVarianceSummary = () => {
-	if (!domAdd.newVariance) {
-		return;
-	}
-
-	const cashAdvanceAmount = Number(domAdd.newCaAmount ? domAdd.newCaAmount.value : 0);
-	const totalAmount = expenseItems.reduce((sum, item) => sum + getItemAmount(item), 0);
-	const refundAmount = cashAdvanceAmount > totalAmount ? (cashAdvanceAmount - totalAmount) : 0;
-	const reimburseAmount = totalAmount > cashAdvanceAmount ? (totalAmount - cashAdvanceAmount) : 0;
-
-	let varianceHtml = '<span class="text-muted">-</span>';
-	let mobileVarianceText = '-';
-	if (totalAmount > 0 && refundAmount > 0) {
-		varianceHtml = `<span class="kna-var-badge kna-var-return">${formatPHP(refundAmount)} to return</span>`;
-		mobileVarianceText = `${formatPHP(refundAmount)} return`;
-	} else if (totalAmount > 0 && reimburseAmount > 0) {
-		varianceHtml = `<span class="kna-var-badge kna-var-reimburse">${formatPHP(reimburseAmount)} to reimburse</span>`;
-		mobileVarianceText = `${formatPHP(reimburseAmount)} reimburse`;
-	} else if (totalAmount > 0) {
-		varianceHtml = '<span class="kna-var-badge kna-var-balanced">0.00</span>';
-		mobileVarianceText = '0.00';
-	}
-
-	domAdd.newVariance.innerHTML = varianceHtml;
-	if (domAdd.mobileVariance) {
-		domAdd.mobileVariance.textContent = mobileVarianceText;
-	}
+const updateVariance = () => {
+  if (!domAdd.newVariance) return;
+  const ca = safeNum(domAdd.newCaAmount?.value), total = getTotal();
+  const refund = ca > total ? ca - total : 0, reimburse = total > ca ? total - ca : 0;
+  let html = '<span class="text-muted">-</span>', mob = '-';
+  if (total > 0 && refund > 0) {
+    html = `<span class="kna-var-badge kna-var-return">${formatPHP(refund)} to return</span>`;
+    mob = `${formatPHP(refund)} return`;
+  } else if (total > 0 && reimburse > 0) {
+    html = `<span class="kna-var-badge kna-var-reimburse">${formatPHP(reimburse)} to reimburse</span>`;
+    mob = `${formatPHP(reimburse)} reimburse`;
+  } else if (total > 0) {
+    html = '<span class="kna-var-badge kna-var-balanced">0.00</span>';
+    mob = '0.00';
+  }
+  domAdd.newVariance.innerHTML = html;
+  if (domAdd.mobileVariance) domAdd.mobileVariance.textContent = mob;
 };
 
-const getExpenseDocumentDateRange = () => {
-	const validDates = expenseItems
-		.map((item) => normalizeDate(item.documentDate))
-		.filter((value) => /^\d{4}-\d{2}-\d{2}$/.test(value))
-		.sort();
-
-	if (!validDates.length) {
-		return { from: '', to: '' };
-	}
-
-	return {
-		from: validDates[0],
-		to: validDates[validDates.length - 1],
-	};
+// ─── Date Range ───
+const getDateRange = () => {
+  const dates = expenseItems.map((it) => normalizeDate(it.documentDate)).filter((v) => /^\d{4}-\d{2}-\d{2}$/.test(v)).sort();
+  return dates.length ? { from: dates[0], to: dates[dates.length - 1] } : { from: '', to: '' };
 };
 
-const syncDateRangeFromDocumentDates = () => {
-	if (!domAdd.newDateRange) {
-		return;
-	}
-
-	const range = getExpenseDocumentDateRange();
-	const rangeText = range.from && range.to ? `${range.from} to ${range.to}` : '';
-	domAdd.newDateRange.value = rangeText;
-	if (domAdd.mobileDateRange) {
-		domAdd.mobileDateRange.textContent = rangeText || '-';
-	}
+const syncDateRange = () => {
+  const { from, to } = getDateRange();
+  const txt = from && to ? `${from} to ${to}` : '';
+  if (domAdd.newDateRange) domAdd.newDateRange.value = txt;
+  if (domAdd.mobileDateRange) domAdd.mobileDateRange.textContent = txt || '-';
 };
 
+// ─── DOM Cache ───
+const cacheAddDom = () => {
+  const ids = ['liquidationRef','draftEditWindowDays','isEditMode','newCaRef','newCaAmount','newCaDate','newDateRange','newLiquidatedAmount','newVariance','newPurpose','newPayableTo','newAddress','newCostCenter','btnAddExpenseItem','expenseItemsContainer','btnSaveDraftLiquidation','btnSaveNewLiquidation','btnSaveDraftLiquidationMobile','btnSaveNewLiquidationMobile','mobileCaRef','mobileCaAmount','mobileTotal','mobileVariance','mobileCaDate','mobileDateRange','mobilePayableTo','mobileCostCenter','mobileAddress','mobilePurpose'];
+  ids.forEach((id) => { domAdd[id] = document.getElementById(id); });
+};
+
+// ─── Cash Advance Sync ───
+const resetCADetails = () => {
+  domAdd.newCaAmount.value = '0.00';
+  ['newCaDate','newPurpose','newPayableTo','newAddress','newCostCenter'].forEach((k) => { if (domAdd[k]) domAdd[k].value = ''; });
+  ['mobileCaAmount','mobileCaDate','mobilePayableTo','mobileCostCenter','mobileAddress','mobilePurpose','mobileCaRef','mobileDateRange','mobileTotal','mobileVariance'].forEach((k) => { if (domAdd[k]) domAdd[k].textContent = '-'; });
+  updateVariance();
+};
+
+const syncCADetails = () => {
+  const ref = normalizeDate(domAdd.newCaRef.value);
+  if (!ref) return resetCADetails();
+  ajax_loader('transactions/liquidation/api/get/ca_details', { CashAdvanceId: ref })
+    .done((r) => {
+      const res = parseRes(r);
+      if (res.status !== 'success' || !res.data) { resetCADetails(); return swal('error', 'Load Failed', res.response || 'Could not load cash advance details.'); }
+      const d = res.data;
+      domAdd.newCaAmount.value = safeNum(d.amount).toFixed(2);
+      domAdd.newCaDate.value = normalizeDate(d.created_date).slice(0, 10);
+      domAdd.newPurpose.value = normalizeDate(d.description);
+      if (domAdd.newPayableTo) domAdd.newPayableTo.value = normalizeDate(d.payable_to || '');
+      if (domAdd.newAddress) domAdd.newAddress.value = normalizeDate(d.address || '');
+      if (domAdd.newCostCenter) {
+        const ccId = d.cost_center_id || '', ccName = d.cost_center_name || '';
+        domAdd.newCostCenter.value = ccId && ccName ? `${ccId} - ${ccName}` : normalizeDate(ccId || ccName);
+      }
+      if (domAdd.mobileCaRef) domAdd.mobileCaRef.textContent = ref || '-';
+      if (domAdd.mobileCaAmount) domAdd.mobileCaAmount.textContent = formatPHP(safeNum(d.amount));
+      if (domAdd.mobileCaDate) domAdd.mobileCaDate.textContent = normalizeDate(d.created_date).slice(0, 10) || '-';
+      if (domAdd.mobilePayableTo) domAdd.mobilePayableTo.textContent = normalizeDate(d.payable_to || '') || '-';
+      if (domAdd.mobileAddress) domAdd.mobileAddress.textContent = normalizeDate(d.address || '') || '-';
+      if (domAdd.mobileCostCenter) {
+        const ccId = d.cost_center_id || '', ccName = d.cost_center_name || '';
+        domAdd.mobileCostCenter.textContent = ccId && ccName ? `${ccId} - ${ccName}` : (normalizeDate(ccId || ccName) || '-');
+      }
+      if (domAdd.mobilePurpose) domAdd.mobilePurpose.textContent = normalizeDate(d.description) || '-';
+      updateVariance();
+    })
+    .fail(() => { resetCADetails(); swal('error', 'Load Failed', 'Could not load cash advance details.'); });
+};
+
+const loadPendingCA = () => {
+  ajax_loader('transactions/liquidation/api/get/pending/ca_no', {})
+    .done((r) => {
+      const res = parseRes(r);
+      if (res.status !== 'success') { domAdd.newCaRef.innerHTML = '<option value="">No pending cash advance</option>'; resetCADetails(); return swal('error', 'Load Failed', res.response || 'Unable to load pending cash advances.'); }
+      const opts = (res.data || []).map((it) => normalizeDate(it.cash_advance_id)).filter(Boolean);
+      domAdd.newCaRef.innerHTML = '<option value="">Select cash advance</option>';
+      if (opts.length === 1) { domAdd.newCaRef.innerHTML = `<option value="${escapeHtml(opts[0])}" selected>${escapeHtml(opts[0])}</option>`; syncCADetails(); }
+      else if (!opts.length) resetCADetails();
+    })
+    .fail(() => { domAdd.newCaRef.innerHTML = '<option value="">No pending cash advance</option>'; resetCADetails(); swal('error', 'Load Failed', 'Could not load pending cash advance numbers.'); });
+};
+
+// ─── Expense Types ───
 const loadExpenseTypes = () => {
-	const request = $.ajax({
-		url: base_url + 'transactions/liquidation/api/get/expense_types',
-		type: 'POST',
-		dataType: 'json',
-		headers: {
-			'Authorization': 'Bearer 12345678'
-		}
-	});
-
-	request.done((response) => {
-
-		const res = (typeof response === 'string') ? $.parseJSON(response) : response;
-
-		if (res.status !== 'success') {
-			expenseTypeOptions = [];
-			renderExpenseItems();
-			return;
-		}
-
-		const options = (res.data || []).map((item) => ({
-			id: Number(item.id || 0),
-			categoryName: normalizeDate(item.category_name),
-			description: normalizeDate(item.description),
-		})).filter((item) => item.id && item.categoryName);
-
-		if (!options.length) {
-			expenseTypeOptions = [];
-			renderExpenseItems();
-			return;
-		}
-
-		expenseTypeOptions = options;
-		renderExpenseItems();
-	}).fail(() => {
-		expenseTypeOptions = [];
-		renderExpenseItems();
-	});
-
-	return request;
+  jQuery.ajax({ url: base_url + 'transactions/liquidation/api/get/expense_types', type: 'POST', dataType: 'json', headers: { Authorization: 'Bearer 12345678' } })
+    .done((r) => {
+      const res = parseRes(r);
+      if (res.status !== 'success') { expenseTypeOptions = []; renderExpenseItems(); return; }
+      expenseTypeOptions = (res.data || []).map((it) => ({ id: Number(it.id || 0), expense_code: normalizeDate(it.expense_code), long_text: normalizeDate(it.long_text), description: normalizeDate(it.description), categoryName: normalizeDate(it.category_name), short_text: normalizeDate(it.short_text) })).filter((it) => it.id && it.expense_code);
+      if (!expenseTypeOptions.length) { expenseTypeOptions = []; renderExpenseItems(); return; }
+      renderExpenseItems();
+    })
+    .fail(() => { expenseTypeOptions = []; renderExpenseItems(); });
 };
 
-const resetCashAdvanceDetails = () => {
-	domAdd.newCaAmount.value = Number(0).toFixed(2);
-	domAdd.newCaDate.value = '';
-	domAdd.newPurpose.value = '';
-	if (domAdd.newPayableTo) domAdd.newPayableTo.value = '';
-	if (domAdd.newAddress) domAdd.newAddress.value = '';
-	if (domAdd.newCostCenter) domAdd.newCostCenter.value = '';
-	// Reset mobile overview
-	if (domAdd.mobileCaAmount) domAdd.mobileCaAmount.textContent = '-';
-	if (domAdd.mobileCaDate) domAdd.mobileCaDate.textContent = '-';
-	if (domAdd.mobilePayableTo) domAdd.mobilePayableTo.textContent = '-';
-	if (domAdd.mobileCostCenter) domAdd.mobileCostCenter.textContent = '-';
-	if (domAdd.mobileAddress) domAdd.mobileAddress.textContent = '-';
-	if (domAdd.mobilePurpose) domAdd.mobilePurpose.textContent = '-';
-	if (domAdd.mobileCaRef) domAdd.mobileCaRef.textContent = '-';
-	if (domAdd.mobileDateRange) domAdd.mobileDateRange.textContent = '-';
-	if (domAdd.mobileTotal) domAdd.mobileTotal.textContent = '-';
-	if (domAdd.mobileVariance) domAdd.mobileVariance.textContent = '-';
-	updateVarianceSummary();
+// ─── OCR Helpers ───
+const ocr = {
+  label: (atts, id) => liquidationReceiptOcr ? liquidationReceiptOcr.attachmentsLabel(atts, id) : '<span class="kna-attachment-cell"><span class="text-muted">No file</span></span>',
+  add: (id, files) => liquidationReceiptOcr ? liquidationReceiptOcr.addItemAttachments(id, files) : Promise.resolve([]),
+  run: (id, file) => liquidationReceiptOcr?.runOcrAutofillForItem(id, file),
+  camPerm: () => liquidationReceiptOcr?.ensureCameraPermission(),
+  prompt: (id) => {
+    if (!liquidationReceiptOcr) return;
+    liquidationReceiptOcr.promptAttachmentSource(id, {
+      onGallery: (tid) => { const el = qs(`[data-item-file="upload"][data-item-id="${tid}"]`, domAdd.expenseItemsContainer); if (el) el.click(); },
+      onCamera: async (tid) => { const el = qs(`[data-item-file="camera"][data-item-id="${tid}"]`, domAdd.expenseItemsContainer); if (el && await ocr.camPerm()) el.click(); }
+    });
+  },
+  statusHtml: (id) => {
+    if (!liquidationReceiptOcr) return '';
+    const s = liquidationReceiptOcr.getItemOcrState(id);
+    if (!s || s.status === 'idle') return '';
+    const manualBtn = `<button type="button" class="kna-ocr-manual-btn" data-item-action="ocrManual" data-item-id="${id}">Enter manually</button>`;
+    const map = {
+      scanning: `<div class="kna-ocr-status kna-ocr-scanning"><i class="fas fa-spinner fa-spin"></i> <span>Reading…</span>${manualBtn}</div>`,
+      success: `<div class="kna-ocr-status kna-ocr-success"><i class="fas fa-check"></i></div>`,
+      timeout: `<div class="kna-ocr-status kna-ocr-error"><i class="fas fa-exclamation-triangle"></i> <span>${escapeHtml(s.error)}</span>${manualBtn}</div>`,
+      error: `<div class="kna-ocr-status kna-ocr-error"><i class="fas fa-exclamation-triangle"></i> <span>${escapeHtml(s.error)}</span>${manualBtn}</div>`,
+      manual: ''
+    };
+    return map[s.status] || '';
+  }
 };
 
-const loadPendingCashAdvanceNumbers = () => {
-	const request = ajax_loader('transactions/liquidation/api/get/pending/ca_no', {});
+// ─── Vendor ───
+const vendorBadge = (it) => `<span class="kna-vendor-toggle-badge">${escapeHtml(getVendorStatus(it))}</span>`;
 
-	request.done((response) => {
-		const res = (typeof response === 'string') ? $.parseJSON(response) : response;
-		if (res.status !== 'success') {
-			domAdd.newCaRef.innerHTML = '<option value="">No pending cash advance</option>';
-			resetCashAdvanceDetails();
-			Swal.fire({
-				icon: 'error',
-				title: 'Load Failed',
-				text: res.response || 'Unable to load pending cash advances.',
-			});
-			return;
-		}
-
-		const options = (res.data || []).map((item) => normalizeDate(item.cash_advance_id)).filter(Boolean);
-		domAdd.newCaRef.innerHTML = '<option value="">Select cash advance</option>';
-
-		if (options.length === 1) {
-			domAdd.newCaRef.innerHTML = `<option value="${escapeHtml(options[0])}" selected>${escapeHtml(options[0])}</option>`;
-			syncCashAdvanceDetails();
-		} else if (options.length === 0) {
-			resetCashAdvanceDetails();
-		}
-	}).fail(() => {
-		domAdd.newCaRef.innerHTML = '<option value="">No pending cash advance</option>';
-		resetCashAdvanceDetails();
-		Swal.fire({
-			icon: 'error',
-			title: 'Load Failed',
-			text: 'Could not load pending cash advance numbers.',
-		});
-	});
-
-	return request;
-};
-
-const syncCashAdvanceDetails = () => {
-	const ref = normalizeDate(domAdd.newCaRef.value);
-	if (!ref) {
-		resetCashAdvanceDetails();
-		return;
-	}
-
-	ajax_loader('transactions/liquidation/api/get/ca_details', { CashAdvanceId: ref }).done((response) => {
-		const res = (typeof response === 'string') ? $.parseJSON(response) : response;
-		if (res.status !== 'success' || !res.data) {
-			resetCashAdvanceDetails();
-			Swal.fire({
-				icon: 'error',
-				title: 'Load Failed',
-				text: res.response || 'Could not load cash advance details.',
-			});
-			return;
-		}
-
-		const details = res.data;
-		domAdd.newCaAmount.value = Number(details.amount || 0).toFixed(2);
-		domAdd.newCaDate.value = normalizeDate(details.created_date).slice(0, 10);
-		domAdd.newPurpose.value = normalizeDate(details.description);
-		if (domAdd.newPayableTo) domAdd.newPayableTo.value = normalizeDate(details.payable_to || '');
-		if (domAdd.newAddress) domAdd.newAddress.value = normalizeDate(details.address || '');
-		if (domAdd.newCostCenter) {
-			const ccId = details.cost_center_id || '';
-			const ccName = details.cost_center_name || '';
-			domAdd.newCostCenter.value = ccId && ccName ? `${ccId} - ${ccName}` : normalizeDate(ccId || ccName);
-		}
-		// Sync mobile overview
-		if (domAdd.mobileCaRef) domAdd.mobileCaRef.textContent = ref || '-';
-		if (domAdd.mobileCaAmount) domAdd.mobileCaAmount.textContent = formatPHP(Number(details.amount || 0));
-		if (domAdd.mobileCaDate) domAdd.mobileCaDate.textContent = normalizeDate(details.created_date).slice(0, 10) || '-';
-		if (domAdd.mobilePayableTo) domAdd.mobilePayableTo.textContent = normalizeDate(details.payable_to || '') || '-';
-		if (domAdd.mobileAddress) domAdd.mobileAddress.textContent = normalizeDate(details.address || '') || '-';
-		if (domAdd.mobileCostCenter) {
-			const ccId = details.cost_center_id || '';
-			const ccName = details.cost_center_name || '';
-			domAdd.mobileCostCenter.textContent = ccId && ccName ? `${ccId} - ${ccName}` : (normalizeDate(ccId || ccName) || '-');
-		}
-		if (domAdd.mobilePurpose) domAdd.mobilePurpose.textContent = normalizeDate(details.description) || '-';
-		updateVarianceSummary();
-	}).fail(() => {
-		resetCashAdvanceDetails();
-		Swal.fire({
-			icon: 'error',
-			title: 'Load Failed',
-			text: 'Could not load cash advance details.',
-		});
-	});
-};
-
-const attachmentsLabel = (attachments, itemId) => {
-	if (!liquidationReceiptOcr) {
-		return '<span class="kna-attachment-cell"><span class="text-muted">No file</span></span>';
-	}
-	return liquidationReceiptOcr.attachmentsLabel(attachments, itemId);
-};
-
-
-const addItemAttachments = async (itemId, incomingFiles) => {
-	if (!liquidationReceiptOcr) {
-		return [];
-	}
-	return liquidationReceiptOcr.addItemAttachments(itemId, incomingFiles);
-};
-
-const runOcrAutofillForItem = async (itemId, file) => {
-	if (!liquidationReceiptOcr) {
-		return;
-	}
-	return liquidationReceiptOcr.runOcrAutofillForItem(itemId, file);
-};
-
-const ensureCameraPermission = async () => {
-	if (!liquidationReceiptOcr) {
-		return false;
-	}
-	return liquidationReceiptOcr.ensureCameraPermission();
-};
-
-const promptAttachmentSource = (itemId) => {
-	if (!liquidationReceiptOcr) {
-		return;
-	}
-	liquidationReceiptOcr.promptAttachmentSource(itemId, {
-		onGallery: (targetItemId) => {
-			const uploadInput = domAdd.expenseItemsContainer.querySelector(`[data-item-file="upload"][data-item-id="${targetItemId}"]`);
-			if (uploadInput) {
-				uploadInput.click();
-			}
-		},
-		onCamera: async (targetItemId) => {
-			const cameraInput = domAdd.expenseItemsContainer.querySelector(`[data-item-file="camera"][data-item-id="${targetItemId}"]`);
-			if (cameraInput) {
-				const allowed = await ensureCameraPermission();
-				if (allowed) {
-					cameraInput.click();
-				}
-			}
-		},
-	});
-};
-
-const buildOcrStatusHtml = (itemId) => {
-	if (!liquidationReceiptOcr) return '';
-	const state = liquidationReceiptOcr.getItemOcrState(itemId);
-	if (!state || state.status === 'idle') return '';
-	if (state.status === 'scanning') {
-		return `<div class="kna-ocr-status kna-ocr-scanning">
-			<i class="fas fa-spinner fa-spin"></i> <span>Reading…</span>
-			<button type="button" class="kna-ocr-manual-btn" data-item-action="ocrManual" data-item-id="${itemId}">Enter manually</button>
-		</div>`;
-	}
-	if (state.status === 'success') {
-		return `<div class="kna-ocr-status kna-ocr-success"><i class="fas fa-check"></i></div>`;
-	}
-	if (state.status === 'timeout' || state.status === 'error') {
-		return `<div class="kna-ocr-status kna-ocr-error">
-			<i class="fas fa-exclamation-triangle"></i> <span>${escapeHtml(state.error)}</span>
-			<button type="button" class="kna-ocr-manual-btn" data-item-action="ocrManual" data-item-id="${itemId}">Enter manually</button>
-		</div>`;
-	}
-	if (state.status === 'manual') {
-		return '';
-	}
-	return '';
-};
-
+// ─── Render ───
 const renderExpenseItems = () => {
-	if (!domAdd.expenseItemsContainer) {
-		return;
-	}
-	if (!expenseItems.length) {
-		expenseItems = [createExpenseItem()];
-	}
+  if (!domAdd.expenseItemsContainer) return;
+  if (!expenseItems.length) expenseItems = [createExpenseItem()];
 
-	const desktopRowsHtml = expenseItems
-		.map((item, index) => {
-			const selectedExpenseType = getExpenseTypeById(item.expenseType);
-			const selectedExpenseDescription = normalizeDate((selectedExpenseType || {}).description);
-			const allAttachments = getAllAttachmentObjects(item);
-			return `
-				<div class="kna-item-table kna-item-table-row" data-item-id="${item.id}">
-					<div><input type="date" class="form-control form-control-sm" data-item-field="documentDate" data-item-id="${item.id}" value="${escapeHtml(item.documentDate)}"></div>
-					<div><select class="form-control form-control-sm" data-item-field="expenseType" data-item-id="${item.id}" title="${escapeHtml(selectedExpenseDescription)}">${expenseTypeOptionsMarkup(item.expenseType)}</select></div>
-					<div><input type="text" class="form-control form-control-sm" data-item-field="reference" data-item-id="${item.id}" value="${escapeHtml(item.reference)}" placeholder="Invoice / OR no."></div>
-					<div><input type="number" min="0" step="0.01" class="form-control form-control-sm text-right" data-item-field="amount" data-item-id="${item.id}" value="${escapeHtml(item.amount)}" placeholder="0.00"></div>
-					<div><label class="kna-vat-wrap"><input type="checkbox" class="kna-vat-input" data-item-field="isVattable" data-item-id="${item.id}" ${item.isVattable ? 'checked' : ''}></label></div>
-					<div class="kna-vendor-cell">
-						<input type="text" class="form-control form-control-sm" data-item-field="vendorName" data-item-id="${item.id}" value="${escapeHtml(item.vendorName)}" placeholder="Vendor name">
-						<input type="text" class="form-control form-control-sm" data-item-field="vendorAddress" data-item-id="${item.id}" value="${escapeHtml(item.vendorAddress)}" placeholder="Address">
-						<input type="text" class="form-control form-control-sm" data-item-field="vendorTin" data-item-id="${item.id}" value="${escapeHtml(item.vendorTin)}" placeholder="TIN">
-					</div>
-					<div class="kna-attach-cell">
-						<div class="kna-attachment-cell">${attachmentsLabel(allAttachments, item.id)}</div>
-						${buildOcrStatusHtml(item.id)}
-						<button type="button" class="btn btn-outline-primary btn-sm kna-small" data-item-action="attach" data-item-id="${item.id}">Attach</button>
-						<input type="file" class="d-none" data-item-file="upload" data-item-id="${item.id}" accept="image/*" multiple>
-						<input type="file" class="d-none" data-item-file="camera" data-item-id="${item.id}" accept="image/*" capture="environment">
-					</div>
-					<div class="kna-remarks-cell"><input type="text" class="form-control form-control-sm" data-item-field="remarks" data-item-id="${item.id}" value="${escapeHtml(item.remarks)}" placeholder="Remarks"></div>
-					<div class="kna-action-cell"><button type="button" class="btn btn-outline-danger btn-sm kna-icon-btn" data-item-action="remove" data-item-id="${item.id}" title="Remove item"><i class="fas fa-trash"></i></button></div>
-				</div>
-			`;
-		})
-		.join('');
+  const desktop = expenseItems.map((it, i) => {
+    const et = getExpenseTypeById(it.expenseType), desc = normalizeDate((et || {}).description);
+    const atts = getAllAttachments(it);
+    return `
+      <div class="kna-item-row-wrapper" data-item-id="${it.id}">
+        <div class="kna-item-table kna-item-table-row" data-item-id="${it.id}">
+          <div class="kna-cell-index">${i + 1}</div>
+          <div><input type="date" class="form-control form-control-sm" data-item-field="documentDate" data-item-id="${it.id}" value="${escapeHtml(it.documentDate)}"></div>
+          <div><select class="form-control form-control-sm kna-expense-type-select" data-item-field="expenseType" data-item-id="${it.id}" data-current-value="${escapeHtml(it.expenseType)}" title="${escapeHtml(desc)}">${expenseTypeOptionsMarkup(it.expenseType)}</select></div>
+          <div><input type="text" class="form-control form-control-sm" data-item-field="reference" data-item-id="${it.id}" value="${escapeHtml(it.reference)}" placeholder="Invoice / OR no."></div>
+          <div><input type="number" min="0" step="0.01" class="form-control form-control-sm text-right" data-item-field="amount" data-item-id="${it.id}" value="${escapeHtml(it.amount)}" placeholder="0.00"></div>
+          <div class="text-center"><label class="kna-vat-wrap"><input type="checkbox" class="kna-vat-input" data-item-field="isVattable" data-item-id="${it.id}" ${it.isVattable ? 'checked' : ''}></label></div>
+          <div class="kna-attach-cell">
+            <div class="kna-attachment-cell">${ocr.label(atts, it.id)}</div>
+            ${ocr.statusHtml(it.id)}
+            <button type="button" class="btn btn-outline-primary btn-sm kna-small" data-item-action="attach" data-item-id="${it.id}">Attach</button>
+            <input type="file" class="d-none" data-item-file="upload" data-item-id="${it.id}" accept="image/*" multiple>
+            <input type="file" class="d-none" data-item-file="camera" data-item-id="${it.id}" accept="image/*" capture="environment">
+          </div>
+          <div class="kna-remarks-cell"><input type="text" class="form-control form-control-sm" data-item-field="remarks" data-item-id="${it.id}" value="${escapeHtml(it.remarks)}" placeholder="Remarks"></div>
+          <div class="kna-action-cell">
+            <button type="button" class="btn btn-outline-danger btn-sm kna-icon-btn" data-item-action="remove" data-item-id="${it.id}" title="Remove item"><i class="fas fa-trash"></i></button>
+          </div>
+        </div>
+        ${renderVendorFields(it)}
+      </div>`;
+  }).join('');
 
-	const mobileCardsHtml = expenseItems
-		.map((item, index) => {
-			const selectedExpenseType = getExpenseTypeById(item.expenseType);
-			const selectedExpenseDescription = normalizeDate((selectedExpenseType || {}).description);
-			const allAttachments = getAllAttachmentObjects(item);
-			const attachmentSummary = attachmentsLabel(allAttachments, item.id);
-			const hasAnyAttachment = allAttachments.length > 0;
-			const attachmentButtonLabel = hasAnyAttachment ? 'Replace Receipt' : 'Attach Receipt';
-			const attachmentButtonClass = hasAnyAttachment ? 'btn btn-outline-primary btn-sm kna-attach-btn' : 'btn btn-primary btn-sm kna-attach-btn';
-			return `
-				<div class="kna-exp-card" data-item-id="${item.id}">
-					<div class="kna-exp-card-head">
-						<div class="kna-exp-card-head-left">
-							<div class="kna-exp-card-badge">${index + 1}</div>
-							<div class="kna-exp-card-title">${escapeHtml(selectedExpenseType ? selectedExpenseType.categoryName : 'Expense Item')}</div>
-							<div class="kna-exp-card-meta">${escapeHtml(item.documentDate || 'No date')} • ${escapeHtml(item.reference || 'No reference')}</div>
-						</div>
-						<button type="button" class="kna-exp-card-remove" data-item-action="remove" data-item-id="${item.id}" title="Remove item">
-							<i class="fas fa-trash"></i>
-						</button>
-					</div>
-					<div class="kna-exp-card-body">
-						<div class="kna-exp-card-grid">
-							<div class="kna-exp-card-field">
-								<span class="kna-exp-card-label">Document Date</span>
-								<input type="date" class="form-control form-control-sm" data-item-field="documentDate" data-item-id="${item.id}" value="${escapeHtml(item.documentDate)}">
-							</div>
-							<div class="kna-exp-card-field">
-								<span class="kna-exp-card-label">Expense Type</span>
-								<select class="form-control form-control-sm" data-item-field="expenseType" data-item-id="${item.id}" title="${escapeHtml(selectedExpenseDescription)}">${expenseTypeOptionsMarkup(item.expenseType)}</select>
-							</div>
-							<div class="kna-exp-card-field">
-								<span class="kna-exp-card-label">Reference</span>
-								<input type="text" class="form-control form-control-sm" data-item-field="reference" data-item-id="${item.id}" value="${escapeHtml(item.reference)}" placeholder="Invoice / OR no.">
-							</div>
-							<div class="kna-exp-card-field">
-								<span class="kna-exp-card-label">Amount</span>
-								<input type="number" min="0" step="0.01" class="form-control form-control-sm text-right" data-item-field="amount" data-item-id="${item.id}" value="${escapeHtml(item.amount)}" placeholder="0.00">
-							</div>
-							<div class="kna-exp-card-field kna-exp-card-field-full">
-								<span class="kna-exp-card-label">Vendor Name</span>
-								<input type="text" class="form-control form-control-sm" data-item-field="vendorName" data-item-id="${item.id}" value="${escapeHtml(item.vendorName)}" placeholder="Vendor name">
-							</div>
-							<div class="kna-exp-card-field kna-exp-card-field-full">
-								<span class="kna-exp-card-label">Vendor Address</span>
-								<input type="text" class="form-control form-control-sm" data-item-field="vendorAddress" data-item-id="${item.id}" value="${escapeHtml(item.vendorAddress)}" placeholder="Address">
-							</div>
-							<div class="kna-exp-card-field">
-								<span class="kna-exp-card-label">Vendor TIN</span>
-								<input type="text" class="form-control form-control-sm" data-item-field="vendorTin" data-item-id="${item.id}" value="${escapeHtml(item.vendorTin)}" placeholder="TIN">
-							</div>
+  const mobile = expenseItems.map((it, i) => {
+    const et = getExpenseTypeById(it.expenseType), desc = normalizeDate((et || {}).description);
+    const atts = getAllAttachments(it), summary = ocr.label(atts, it.id), hasAtt = atts.length > 0;
+    const btnLabel = hasAtt ? 'Replace Receipt' : 'Attach Receipt';
+    const btnClass = hasAtt ? 'btn btn-outline-primary btn-sm kna-attach-btn' : 'btn btn-primary btn-sm kna-attach-btn';
+    return `
+      <div class="kna-exp-card" data-item-id="${it.id}">
+        <div class="kna-exp-card-head">
+          <div class="kna-exp-card-head-left">
+            <div class="kna-exp-card-badge">${i + 1}</div>
+            <div class="kna-exp-card-title">${escapeHtml(et ? getExpenseTypeDisplayText(et) : 'Expense Item')}</div>
+            <div class="kna-exp-card-meta">${escapeHtml(it.documentDate || 'No date')} • ${escapeHtml(it.reference || 'No reference')}</div>
+          </div>
+          <button type="button" class="kna-exp-card-remove" data-item-action="remove" data-item-id="${it.id}" title="Remove item"><i class="fas fa-trash"></i></button>
+        </div>
+        <div class="kna-exp-card-body">
+          <div class="kna-exp-card-grid">
+            <div class="kna-exp-card-field"><span class="kna-exp-card-label">Document Date</span><input type="date" class="form-control form-control-sm" data-item-field="documentDate" data-item-id="${it.id}" value="${escapeHtml(it.documentDate)}"></div>
+            <div class="kna-exp-card-field"><span class="kna-exp-card-label">Expense Type</span><select class="form-control form-control-sm kna-expense-type-select" data-item-field="expenseType" data-item-id="${it.id}" data-current-value="${escapeHtml(it.expenseType)}" title="${escapeHtml(desc)}">${expenseTypeOptionsMarkup(it.expenseType)}</select></div>
+            <div class="kna-exp-card-field"><span class="kna-exp-card-label">Reference</span><input type="text" class="form-control form-control-sm" data-item-field="reference" data-item-id="${it.id}" value="${escapeHtml(it.reference)}" placeholder="Invoice / OR no."></div>
+            <div class="kna-exp-card-field"><span class="kna-exp-card-label">Amount</span><input type="number" min="0" step="0.01" class="form-control form-control-sm text-right" data-item-field="amount" data-item-id="${it.id}" value="${escapeHtml(it.amount)}" placeholder="0.00"></div>
+            <div class="kna-exp-card-field kna-exp-card-field-full kna-vat-toggle-row">
+              <label class="kna-vat-toggle"><input type="checkbox" class="kna-vat-input" data-item-field="isVattable" data-item-id="${it.id}" ${it.isVattable ? 'checked' : ''}><span class="kna-vat-toggle-slider"></span><span class="kna-vat-toggle-label">VAT Inclusive</span></label>
+            </div>
+          </div>
+          ${renderVendorFields(it, true)}
+          <div class="kna-attach-section">
+            <div class="kna-attach-header"><span class="kna-exp-card-label">Receipt / Attachment</span><span class="kna-attach-status">${summary}</span></div>
+            ${ocr.statusHtml(it.id)}
+            <button type="button" class="${btnClass}" data-item-action="attach" data-item-id="${it.id}"><i class="fas ${hasAtt ? 'fa-sync-alt' : 'fa-camera'} mr-1"></i> ${btnLabel}</button>
+            <input type="file" class="d-none" data-item-file="upload" data-item-id="${it.id}" accept="image/*" multiple>
+            <input type="file" class="d-none" data-item-file="camera" data-item-id="${it.id}" accept="image/*" capture="environment">
+          </div>
+          <div class="kna-remarks-section"><span class="kna-exp-card-label">Remarks</span><input type="text" class="form-control form-control-sm" data-item-field="remarks" data-item-id="${it.id}" value="${escapeHtml(it.remarks)}" placeholder="Enter remarks..."></div>
+        </div>
+      </div>`;
+  }).join('');
 
-							<div class="kna-exp-card-field kna-exp-card-field-full kna-vat-toggle-row">
-								<label class="kna-vat-toggle">
-									<input type="checkbox" class="kna-vat-input" data-item-field="isVattable" data-item-id="${item.id}" ${item.isVattable ? 'checked' : ''}>
-									<span class="kna-vat-toggle-slider"></span>
-									<span class="kna-vat-toggle-label">VAT Inclusive</span>
-								</label>
-							</div>
-						</div>
-						<div class="kna-attach-section">
-							<div class="kna-attach-header">
-								<span class="kna-exp-card-label">Receipt / Attachment</span>
-								<span class="kna-attach-status">${attachmentSummary}</span>
-							</div>
-							${buildOcrStatusHtml(item.id)}
-							<button type="button" class="${attachmentButtonClass}" data-item-action="attach" data-item-id="${item.id}">
-								<i class="fas ${hasAnyAttachment ? 'fa-sync-alt' : 'fa-camera'} mr-1"></i> ${attachmentButtonLabel}
-							</button>
-							<input type="file" class="d-none" data-item-file="upload" data-item-id="${item.id}" accept="image/*" multiple>
-							<input type="file" class="d-none" data-item-file="camera" data-item-id="${item.id}" accept="image/*" capture="environment">
-						</div>
-						<div class="kna-remarks-section">
-							<span class="kna-exp-card-label">Remarks</span>
-							<input type="text" class="form-control form-control-sm" data-item-field="remarks" data-item-id="${item.id}" value="${escapeHtml(item.remarks)}" placeholder="Enter remarks...">
-						</div>
-					</div>
-				</div>
-			`;
-		})
-		.join('');
+  domAdd.expenseItemsContainer.innerHTML = `
+    <div class="kna-exp-summary">
+      <div class="kna-item-table-wrap">
+        <div class="kna-item-table kna-item-table-head">
+          <div style="width:32px">#</div>
+          <div style="width:110px">Doc Date</div>
+          <div style="min-width:200px;flex:1.6">Expense Type</div>
+          <div style="width:110px">Reference</div>
+          <div style="width:100px">Amount</div>
+          <div style="width:44px" class="text-center">VAT</div>
+          <div style="width:120px">Attachment</div>
+          <div style="min-width:140px;flex:1.4">Remarks</div>
+          <div style="width:80px"></div>
+        </div>
+        ${desktop}
+      </div>
+    </div>
+    <div class="kna-exp-mobile">${mobile}</div>`;
 
-	domAdd.expenseItemsContainer.innerHTML = `
-		<div class="kna-exp-summary">
-			<div class="kna-item-table-wrap">
-				<div class="kna-item-table kna-item-table-head">
-					<div>Doc Date</div>
-					<div>Expense Type</div>
-					<div>Reference</div>
-					<div>Amount</div>
-					<div>VAT</div>
-					<div>Vendor</div>
-					<div>Attachment</div>
-					<div>Remarks</div>
-					<div></div>
-				</div>
-				${desktopRowsHtml}
-			</div>
-		</div>
-		<div class="kna-exp-mobile">
-			${mobileCardsHtml}
-		</div>
-	`;
-
-	updateTotalFromItems();
-	syncDateRangeFromDocumentDates();
+  initExpenseTypeSelect2();
+  updateTotal();
+  syncDateRange();
 };
 
+// ─── Form State & Validation ───
 const getFormState = () => {
-	const caRef = normalizeDate(domAdd.newCaRef.value);
-	const totalAmount = Number(normalizeDate(domAdd.newLiquidatedAmount ? domAdd.newLiquidatedAmount.textContent : '0').replace(/[^0-9.\-]/g, '') || 0);
-	const autoRange = getExpenseDocumentDateRange();
-	const dateFrom = autoRange.from;
-	const dateTo = autoRange.to;
-	const purpose = normalizeDate(domAdd.newPurpose.value);
-
-	return {
-		caRef,
-		totalAmount,
-		dateFrom,
-		dateTo,
-		purpose,
-	};
+  const caRef = normalizeDate(domAdd.newCaRef.value);
+  const totalAmount = Number(normalizeDate(domAdd.newLiquidatedAmount?.textContent || '0').replace(/[^0-9.\-]/g, '') || 0);
+  const { from: dateFrom, to: dateTo } = getDateRange();
+  return { caRef, totalAmount, dateFrom, dateTo, purpose: normalizeDate(domAdd.newPurpose.value) };
 };
 
 const validateBeforeSave = (statusCode) => {
-	const state = getFormState();
-	const itemWithMissingFields = expenseItems.find(
-		(item) => !item.documentDate || !item.expenseType || !item.reference || Number(item.amount || 0) <= 0 || !item.remarks,
-	);
+  const state = getFormState();
+  const missing = expenseItems.find((it) => !it.documentDate || !it.expenseType || !it.reference || getItemAmount(it) <= 0 || !it.remarks);
 
-	if (!state.caRef || !state.dateFrom || !state.dateTo || !state.purpose) {
-		Swal.fire({
-			icon: 'warning',
-			title: 'Missing fields',
-			text: 'Cash advance, document dates, and notes are required.',
-		});
-		return null;
-	}
+  if (!state.caRef || !state.dateFrom || !state.dateTo || !state.purpose)
+    return swal('warning', 'Missing fields', 'Cash advance, document dates, and notes are required.'), null;
+  if (state.dateFrom > state.dateTo)
+    return swal('warning', 'Invalid expense range', 'Expense range start must not be later than end.'), null;
+  if (!expenseItems.length)
+    return swal('warning', 'Item required', 'Please add at least one expense item.'), null;
+  if (missing)
+    return swal('warning', 'Incomplete item', 'Each item requires document date, expense type, reference, amount, and remarks.'), null;
+  if (state.totalAmount <= 0)
+    return swal('warning', 'Invalid total', 'Total must be greater than 0.'), null;
+  if (statusCode === 'LQ_SUBMITTED' && !draftCanEdit)
+    return swal('warning', 'Draft locked', `This draft is already ${draftAgeDays} day(s) old and can no longer be edited.`), null;
 
-	if (state.dateFrom > state.dateTo) {
-		Swal.fire({
-			icon: 'warning',
-			title: 'Invalid expense range',
-			text: 'Expense range start must not be later than end.',
-		});
-		return null;
-	}
-
-	if (!expenseItems.length) {
-		Swal.fire({
-			icon: 'warning',
-			title: 'Item required',
-			text: 'Please add at least one expense item.',
-		});
-		return null;
-	}
-
-	if (itemWithMissingFields) {
-		Swal.fire({
-			icon: 'warning',
-			title: 'Incomplete item',
-			text: 'Each item requires document date, expense type, reference, amount, and remarks.',
-		});
-		return null;
-	}
-
-	if (state.totalAmount <= 0) {
-		Swal.fire({
-			icon: 'warning',
-			title: 'Invalid total',
-			text: 'Total must be greater than 0.',
-		});
-		return null;
-	}
-
-	if (statusCode === 'LQ_SUBMITTED' && !draftCanEdit) {
-		Swal.fire({
-			icon: 'warning',
-			title: 'Draft locked',
-			text: `This draft is already ${draftAgeDays} day(s) old and can no longer be edited.`,
-		});
-		return null;
-	}
-
-	return state;
+  return state;
 };
 
+// ─── Save / Submit ───
 const sendLiquidation = (statusCode) => {
-	const state = validateBeforeSave(statusCode);
-	if (!state) {
-		return;
-	}
+  const state = validateBeforeSave(statusCode);
+  if (!state) return;
 
-	const itemWithoutAttachment = expenseItems.find((item) => getAllAttachmentObjects(item).length === 0);
-	const cashAdvanceAmount = Number(domAdd.newCaAmount.value || 0);
-	const refundAmount = cashAdvanceAmount > state.totalAmount ? (cashAdvanceAmount - state.totalAmount) : 0;
-	const reimburseAmount = state.totalAmount > cashAdvanceAmount ? (state.totalAmount - cashAdvanceAmount) : 0;
+  const noAtt = expenseItems.find((it) => !getAllAttachments(it).length);
+  const caAmt = safeNum(domAdd.newCaAmount?.value);
+  const refund = caAmt > state.totalAmount ? caAmt - state.totalAmount : 0;
+  const reimburse = state.totalAmount > caAmt ? state.totalAmount - caAmt : 0;
 
-	const postToServer = () => {
-		const expensePayload = expenseItems.map((item) => ({
-			DocumentDate: item.documentDate,
-			ExpenseCategory: Number(item.expenseType),
-			InvoiceReceiptNo: item.reference,
-			ActualAmount: Number(item.amount || 0),
-			IsVatable: Boolean(item.isVattable),
-			Description: item.remarks,
-			Attachment: getAttachmentNamesCsv(item),
-			VendorName: item.vendorName || '',
-			VendorAddress: item.vendorAddress || '',
-			VendorTin: item.vendorTin || '',
-		}));
+  const post = () => {
+    const fd = new FormData();
+    if (currentLiquidationId) fd.append('LiquidationId', currentLiquidationId);
+    fd.append('CashAdvanceId', state.caRef);
+    fd.append('CashAdvanceAmount', caAmt.toFixed(2));
+    fd.append('TotalAmountSpent', state.totalAmount.toFixed(2));
+    fd.append('RefundAmount', refund.toFixed(2));
+    fd.append('ReimburseAmount', reimburse.toFixed(2));
+    fd.append('StatusCode', statusCode);
+    fd.append('Description', state.purpose);
+    fd.append('ExpenseRangeFrom', state.dateFrom);
+    fd.append('ExpenseRangeTo', state.dateTo);
+    fd.append('Expenses', JSON.stringify(expenseItems.map((it) => ({
+      DocumentDate: it.documentDate, ExpenseCategory: Number(it.expenseType), InvoiceReceiptNo: it.reference,
+      ActualAmount: getItemAmount(it), IsVatable: Boolean(it.isVattable), Description: it.remarks,
+      Attachment: getAttachmentNamesCsv(it), VendorName: it.vendorName || '', VendorAddress: it.vendorAddress || '', VendorTin: it.vendorTin || ''
+    }))));
+    expenseItems.forEach((it, i) => { (it.attachments || []).forEach((f) => fd.append(`attachments[${index}][]`, f)); });
 
-		const formData = new FormData();
-		if (currentLiquidationId) {
-			formData.append('LiquidationId', currentLiquidationId);
-		}
-		formData.append('CashAdvanceId', state.caRef);
-		formData.append('CashAdvanceAmount', cashAdvanceAmount.toFixed(2));
-		formData.append('TotalAmountSpent', state.totalAmount.toFixed(2));
-		formData.append('RefundAmount', refundAmount.toFixed(2));
-		formData.append('ReimburseAmount', reimburseAmount.toFixed(2));
-		formData.append('StatusCode', statusCode);
-		formData.append('Description', state.purpose);
-		formData.append('ExpenseRangeFrom', state.dateFrom);
-		formData.append('ExpenseRangeTo', state.dateTo);
-		formData.append('Expenses', JSON.stringify(expensePayload));
+    ajax_loader_formdata_loading('transactions/liquidation/api/save', fd)
+      .done((r) => {
+        const res = parseRes(r);
+        if (res.status !== 'success') return swal('error', 'Failed', res.response || 'Failed to save liquidation.');
+        const gid = res.data && res.data.id ? normalizeDate(res.data.id) : '';
+        if (gid) { currentLiquidationId = gid; if (domAdd.liquidationRef) domAdd.liquidationRef.value = gid; }
+        const isDraft = statusCode === 'LQ_DRAFT';
+        swal('success', isDraft ? 'Draft Saved' : 'Submitted', `${isDraft ? 'Draft saved' : 'Liquidation submitted'} successfully.<br><strong>${escapeHtml(gid || currentLiquidationId)}</strong>`, { html: true })
+          .then(() => goToPath('transactions/liquidation'));
+      })
+      .fail(() => swal('error', 'Request Failed', 'Could not connect to the server.'));
+  };
 
-		expenseItems.forEach((item, index) => {
-			(item.attachments || []).forEach((file) => {
-				formData.append(`attachments[${index}][]`, file);
-			});
-		});
-
-		ajax_loader_formdata_loading('transactions/liquidation/api/save', formData).done((response) => {
-			const res = (typeof response === 'string') ? $.parseJSON(response) : response;
-			if (res.status !== 'success') {
-				Swal.fire({
-					icon: 'error',
-					title: 'Failed',
-					text: res.response || 'Failed to save liquidation.',
-				});
-				return;
-			}
-
-			const generatedId = res.data && res.data.id ? normalizeDate(res.data.id) : '';
-			if (generatedId) {
-				currentLiquidationId = generatedId;
-				if (domAdd.liquidationRef) {
-					domAdd.liquidationRef.value = generatedId;
-				}
-			}
-
-			if (statusCode === 'LQ_DRAFT') {
-				Swal.fire({
-					icon: 'success',
-					title: 'Draft Saved',
-					html: `Draft saved successfully.<br><strong>${escapeHtml(generatedId || currentLiquidationId)}</strong>`,
-				}).then(() => {
-					goToPath('transactions/liquidation');
-				});
-				return;
-			}
-
-			Swal.fire({
-				icon: 'success',
-				title: 'Submitted',
-				html: `Liquidation submitted successfully.<br><strong>${escapeHtml(generatedId || currentLiquidationId)}</strong>`,
-			}).then(() => {
-				goToPath('transactions/liquidation');
-			});
-		}).fail(() => {
-			Swal.fire({
-				icon: 'error',
-				title: 'Request Failed',
-				text: 'Could not connect to the server.',
-			});
-		});
-	};
-
-	if (statusCode === 'LQ_SUBMITTED' && itemWithoutAttachment) {
-		Swal.fire({
-			icon: 'warning',
-			title: 'Missing attachment',
-			text: 'Some expense items do not have attachments. Please confirm if you want to continue.',
-			showCancelButton: true,
-			confirmButtonText: 'Continue',
-			cancelButtonText: 'Review items',
-			reverseButtons: true,
-		}).then((result) => {
-			if (result.isConfirmed) {
-				postToServer();
-			}
-		});
-		return;
-	}
-
-	if (statusCode === 'LQ_SUBMITTED') {
-		Swal.fire({
-			icon: 'question',
-			title: 'Confirm Submission',
-			text: 'Are you sure you want to proceed?',
-			showCancelButton: true,
-			confirmButtonText: 'Yes',
-			cancelButtonText: 'No',
-			reverseButtons: true,
-		}).then((result) => {
-			if (result.isConfirmed) {
-				postToServer();
-			}
-		});
-		return;
-	}
-
-	postToServer();
+  if (statusCode === 'LQ_SUBMITTED' && noAtt) {
+    swal('warning', 'Missing attachment', 'Some expense items do not have attachments. Please confirm if you want to continue.', { showCancelButton: true, confirmButtonText: 'Continue', cancelButtonText: 'Review items', reverseButtons: true })
+      .then((r) => { if (r.isConfirmed) post(); });
+    return;
+  }
+  if (statusCode === 'LQ_SUBMITTED') {
+    swal('question', 'Confirm Submission', 'Are you sure you want to proceed?', { showCancelButton: true, confirmButtonText: 'Yes', cancelButtonText: 'No', reverseButtons: true })
+      .then((r) => { if (r.isConfirmed) post(); });
+    return;
+  }
+  post();
 };
 
-const cacheAddDom = () => {
-	domAdd.liquidationRef = document.getElementById('liquidationRef');
-	domAdd.draftEditWindowDays = document.getElementById('draftEditWindowDays');
-	domAdd.isEditMode = document.getElementById('isEditMode');
-	domAdd.newCaRef = document.getElementById('newCaRef');
-	domAdd.newCaAmount = document.getElementById('newCaAmount');
-	domAdd.newCaDate = document.getElementById('newCaDate');
-	domAdd.newDateRange = document.getElementById('newDateRange');
-	domAdd.newLiquidatedAmount = document.getElementById('newLiquidatedAmount');
-	domAdd.newVariance = document.getElementById('newVariance');
-	domAdd.newPurpose = document.getElementById('newPurpose');
-	domAdd.newPayableTo = document.getElementById('newPayableTo');
-	domAdd.newAddress = document.getElementById('newAddress');
-	domAdd.newCostCenter = document.getElementById('newCostCenter');
-	domAdd.btnAddExpenseItem = document.getElementById('btnAddExpenseItem');
-	domAdd.expenseItemsContainer = document.getElementById('expenseItemsContainer');
-	domAdd.btnSaveDraftLiquidation = document.getElementById('btnSaveDraftLiquidation');
-	domAdd.btnSaveNewLiquidation = document.getElementById('btnSaveNewLiquidation');
-	domAdd.btnSaveDraftLiquidationMobile = document.getElementById('btnSaveDraftLiquidationMobile');
-	domAdd.btnSaveNewLiquidationMobile = document.getElementById('btnSaveNewLiquidationMobile');
-	// Mobile overview elements
-	domAdd.mobileCaRef = document.getElementById('mobileCaRef');
-	domAdd.mobileCaAmount = document.getElementById('mobileCaAmount');
-	domAdd.mobileTotal = document.getElementById('mobileTotal');
-	domAdd.mobileVariance = document.getElementById('mobileVariance');
-	domAdd.mobileCaDate = document.getElementById('mobileCaDate');
-	domAdd.mobileDateRange = document.getElementById('mobileDateRange');
-	domAdd.mobilePayableTo = document.getElementById('mobilePayableTo');
-	domAdd.mobileCostCenter = document.getElementById('mobileCostCenter');
-	domAdd.mobileAddress = document.getElementById('mobileAddress');
-	domAdd.mobilePurpose = document.getElementById('mobilePurpose');
-};
-
+// ─── Editability & Draft ───
 const setEditability = (editable) => {
-	draftCanEdit = editable;
-	const disabled = !editable;
-
-	if (domAdd.newCaRef) {
-		domAdd.newCaRef.disabled = disabled || Boolean(currentLiquidationId);
-	}
-	if (domAdd.btnAddExpenseItem) {
-		domAdd.btnAddExpenseItem.disabled = disabled;
-	}
-	if (domAdd.btnSaveNewLiquidation) {
-		domAdd.btnSaveNewLiquidation.disabled = disabled;
-	}
-	if (domAdd.btnSaveDraftLiquidation) {
-		domAdd.btnSaveDraftLiquidation.disabled = disabled;
-	}
+  draftCanEdit = editable;
+  const d = !editable;
+  if (domAdd.newCaRef) domAdd.newCaRef.disabled = d || Boolean(currentLiquidationId);
+  if (domAdd.btnAddExpenseItem) domAdd.btnAddExpenseItem.disabled = d;
+  if (domAdd.btnSaveNewLiquidation) domAdd.btnSaveNewLiquidation.disabled = d;
+  if (domAdd.btnSaveDraftLiquidation) domAdd.btnSaveDraftLiquidation.disabled = d;
 };
 
 const loadDraftForEdit = () => {
-	const draftRef = normalizeDate(domAdd.liquidationRef ? domAdd.liquidationRef.value : '');
-	if (!draftRef) {
-		return $.Deferred().resolve().promise();
-	}
+  const draftRef = normalizeDate(domAdd.liquidationRef?.value || '');
+  if (!draftRef) return jQuery.Deferred().resolve().promise();
+  currentLiquidationId = draftRef;
 
-	currentLiquidationId = draftRef;
+  return ajax_loader('transactions/liquidation/api/get/draft', { LiquidationId: draftRef })
+    .done((r) => {
+      const res = parseRes(r);
+      if (res.status !== 'success' || !res.data || !res.data.header) {
+        swal('error', 'Unable to open draft', res.response || 'Draft liquidation is not available.').then(() => goToPath('transactions/liquidation'));
+        return;
+      }
+      const payload = res.data, header = payload.header, details = payload.details || [];
+      const draftCaRef = normalizeDate(header.cash_advance_id);
+      draftAgeDays = safeNum(payload.draftAgeDays);
+      draftEditWindowDays = safeNum(payload.draftEditWindowDays) || draftEditWindowDays;
+      setEditability(Boolean(payload.canEdit));
 
-	return ajax_loader('transactions/liquidation/api/get/draft', { LiquidationId: draftRef }).done((response) => {
-		const res = (typeof response === 'string') ? $.parseJSON(response) : response;
-		if (res.status !== 'success' || !res.data || !res.data.header) {
-			Swal.fire({
-				icon: 'error',
-				title: 'Unable to open draft',
-				text: res.response || 'Draft liquidation is not available.',
-			}).then(() => {
-				goToPath('transactions/liquidation');
-			});
-			return;
-		}
+      if (draftCaRef && !domAdd.newCaRef.querySelector(`option[value="${draftCaRef}"]`)) {
+        const opt = document.createElement('option'); opt.value = draftCaRef; opt.textContent = draftCaRef; domAdd.newCaRef.appendChild(opt);
+      }
+      domAdd.newCaRef.value = draftCaRef;
+      domAdd.newCaAmount.value = safeNum(header.ca_amount).toFixed(2);
+      domAdd.newCaDate.value = normalizeDate(header.created_date).slice(0, 10);
+      domAdd.newPurpose.value = normalizeDate(header.description);
+      if (domAdd.newPayableTo) domAdd.newPayableTo.value = normalizeDate(header.payable_to || '');
+      if (domAdd.newAddress) domAdd.newAddress.value = normalizeDate(header.address || '');
+      if (domAdd.newCostCenter) {
+        const ccId = header.cost_center_id || '', ccName = header.cost_center_name || '';
+        domAdd.newCostCenter.value = ccId && ccName ? `${ccId} - ${ccName}` : normalizeDate(ccId || ccName);
+      }
+      if (domAdd.mobileCaRef) domAdd.mobileCaRef.textContent = draftCaRef || '-';
+      if (domAdd.mobileCaAmount) domAdd.mobileCaAmount.textContent = formatPHP(safeNum(header.ca_amount));
+      if (domAdd.mobileCaDate) domAdd.mobileCaDate.textContent = normalizeDate(header.created_date).slice(0, 10) || '-';
+      if (domAdd.mobilePayableTo) domAdd.mobilePayableTo.textContent = normalizeDate(header.payable_to || '') || '-';
+      if (domAdd.mobileAddress) domAdd.mobileAddress.textContent = normalizeDate(header.address || '') || '-';
+      if (domAdd.mobileCostCenter) {
+        const ccId = header.cost_center_id || '', ccName = header.cost_center_name || '';
+        domAdd.mobileCostCenter.textContent = ccId && ccName ? `${ccId} - ${ccName}` : (normalizeDate(ccId || ccName) || '-');
+      }
+      if (domAdd.mobilePurpose) domAdd.mobilePurpose.textContent = normalizeDate(header.description) || '-';
 
-		const payload = res.data;
-		const header = payload.header;
-		const details = payload.details || [];
-		const draftCaRef = normalizeDate(header.cash_advance_id);
-
-		draftAgeDays = Number(payload.draftAgeDays || 0);
-		draftEditWindowDays = Number(payload.draftEditWindowDays || draftEditWindowDays || 7);
-		setEditability(Boolean(payload.canEdit));
-
-		if (draftCaRef && !domAdd.newCaRef.querySelector(`option[value="${draftCaRef}"]`)) {
-			const option = document.createElement('option');
-			option.value = draftCaRef;
-			option.textContent = draftCaRef;
-			domAdd.newCaRef.appendChild(option);
-		}
-		domAdd.newCaRef.value = draftCaRef;
-		domAdd.newCaAmount.value = Number(header.ca_amount || 0).toFixed(2);
-		domAdd.newCaDate.value = normalizeDate(header.created_date).slice(0, 10);
-		domAdd.newPurpose.value = normalizeDate(header.description);
-		if (domAdd.newPayableTo) domAdd.newPayableTo.value = normalizeDate(header.payable_to || '');
-		if (domAdd.newAddress) domAdd.newAddress.value = normalizeDate(header.address || '');
-		if (domAdd.newCostCenter) {
-			const ccId = header.cost_center_id || '';
-			const ccName = header.cost_center_name || '';
-			domAdd.newCostCenter.value = ccId && ccName ? `${ccId} - ${ccName}` : normalizeDate(ccId || ccName);
-		}
-
-		// Sync mobile overview for draft
-		if (domAdd.mobileCaRef) domAdd.mobileCaRef.textContent = draftCaRef || '-';
-		if (domAdd.mobileCaAmount) domAdd.mobileCaAmount.textContent = formatPHP(Number(header.ca_amount || 0));
-		if (domAdd.mobileCaDate) domAdd.mobileCaDate.textContent = normalizeDate(header.created_date).slice(0, 10) || '-';
-		if (domAdd.mobilePayableTo) domAdd.mobilePayableTo.textContent = normalizeDate(header.payable_to || '') || '-';
-		if (domAdd.mobileAddress) domAdd.mobileAddress.textContent = normalizeDate(header.address || '') || '-';
-		if (domAdd.mobileCostCenter) {
-			const ccId = header.cost_center_id || '';
-			const ccName = header.cost_center_name || '';
-			domAdd.mobileCostCenter.textContent = ccId && ccName ? `${ccId} - ${ccName}` : (normalizeDate(ccId || ccName) || '-');
-		}
-		if (domAdd.mobilePurpose) domAdd.mobilePurpose.textContent = normalizeDate(header.description) || '-';
-
-		expenseItems = details.map((detail) => ({
-			id: ++expenseItemCounter,
-			documentDate: normalizeDate(detail.document_date).slice(0, 10),
-			expenseType: normalizeDate(detail.expense_category || detail.expense_category_id || ''),
-			reference: normalizeDate(detail.invoice_receipt_no),
-			amount: normalizeDate(detail.actual_amount),
-			isVattable: Boolean(Number(detail.is_vatable || 0)),
-			existingAttachments: normalizeDate(detail.attachment)
-				.split(',')
-				.map((name) => name.trim())
-				.filter(Boolean),
-			attachments: [],
-			remarks: normalizeDate(detail.description),
-			vendorName: normalizeDate(detail.vendor_name || ''),
-			vendorAddress: normalizeDate(detail.vendor_address || ''),
-			vendorTin: normalizeDate(detail.vendor_tin || ''),
-		}));
-
-		if (!expenseItems.length) {
-			expenseItems = [createExpenseItem()];
-		}
-
-		renderExpenseItems();
-
-		if (!payload.canEdit) {
-			Swal.fire({
-				icon: 'info',
-				title: 'Draft Locked',
-				text: `This draft is ${draftAgeDays} day(s) old. Drafts can only be edited within ${draftEditWindowDays} day(s).`,
-			});
-		}
-	}).fail(() => {
-		Swal.fire({
-			icon: 'error',
-			title: 'Unable to open draft',
-			text: 'Could not load draft liquidation.',
-		}).then(() => {
-			goToPath('transactions/liquidation');
-		});
-	});
+      expenseItems = details.map((d) => ({
+        id: ++expenseItemCounter, documentDate: normalizeDate(d.document_date).slice(0, 10),
+        expenseType: normalizeDate(d.expense_category || d.expense_category_id || ''),
+        reference: normalizeDate(d.invoice_receipt_no), amount: normalizeDate(d.actual_amount),
+        isVattable: Boolean(Number(d.is_vatable || 0)),
+        existingAttachments: normalizeDate(d.attachment).split(',').map((n) => n.trim()).filter(Boolean),
+        attachments: [], remarks: normalizeDate(d.description),
+        vendorName: normalizeDate(d.vendor_name || ''), vendorAddress: normalizeDate(d.vendor_address || ''), vendorTin: normalizeDate(d.vendor_tin || ''), _vendorExpanded: false
+      }));
+      if (!expenseItems.length) expenseItems = [createExpenseItem()];
+      renderExpenseItems();
+      if (!payload.canEdit) swal('info', 'Draft Locked', `This draft is ${draftAgeDays} day(s) old. Drafts can only be edited within ${draftEditWindowDays} day(s).`);
+    })
+    .fail(() => swal('error', 'Unable to open draft', 'Could not load draft liquidation.').then(() => goToPath('transactions/liquidation')));
 };
 
+// ─── Event Handlers ───
+const onInput = (e) => {
+  const t = e.target, itemId = Number(t.getAttribute('data-item-id')), field = t.getAttribute('data-item-field');
+  if (!itemId || !field) return;
+  const item = findExpenseItem(itemId);
+  if (!item) return;
+  if (field === 'isVattable') { item.isVattable = Boolean(t.checked); return; }
+  item[field] = t.value;
+  if (field === 'expenseType') t.title = normalizeDate((getExpenseTypeById(t.value) || {}).description);
+  if (field === 'amount') { updateTotal(); return; }
+  if (field === 'documentDate') syncDateRange();
+};
+
+const onChange = async (e) => {
+  const t = e.target, itemId = Number(t.getAttribute('data-item-id')), fileMode = t.getAttribute('data-item-file');
+  if (!itemId || !fileMode) return;
+  const item = findExpenseItem(itemId);
+  if (!item) return;
+  item.attachments = []; item.existingAttachments = [];
+  if (liquidationReceiptOcr) liquidationReceiptOcr.cancelOcr(itemId);
+  const accepted = await ocr.add(itemId, Array.from(t.files || []));
+  if (accepted.length) { item.attachments = [accepted[0]]; ocr.run(itemId, accepted[0]); }
+  t.value = '';
+  renderExpenseItems();
+};
+
+const onClick = (e) => {
+  const btn = e.target.closest('[data-item-action]');
+  if (!btn) return;
+  const itemId = Number(btn.getAttribute('data-item-id')), action = btn.getAttribute('data-item-action');
+  if (!itemId || !action) return;
+  const item = findExpenseItem(itemId);
+  if (!item) return;
+
+  switch (action) {
+    case 'remove':
+      if (liquidationReceiptOcr) liquidationReceiptOcr.cancelOcr(itemId);
+      expenseItems = expenseItems.filter((it) => it.id !== itemId);
+      renderExpenseItems();
+      break;
+    case 'attach': ocr.prompt(itemId); break;
+    case 'ocrManual': if (liquidationReceiptOcr) liquidationReceiptOcr.markManual(itemId); break;
+  }
+};
+
+// ─── Init ───
 const initAddPage = () => {
-	cacheAddDom();
-	draftEditWindowDays = Number(domAdd.draftEditWindowDays ? domAdd.draftEditWindowDays.value : 7) || 7;
-	currentLiquidationId = normalizeDate(domAdd.liquidationRef ? domAdd.liquidationRef.value : '');
-	liquidationReceiptOcr = window.SharedReceiptOcr.create({
-		maxAttachmentBytes: MAX_ATTACHMENT_BYTES,
-		getExpenseItem: findExpenseItem,
-		getExpenseTypeOptions: () => expenseTypeOptions,
-		renderItems: renderExpenseItems,
-		normalizeDate,
-		escapeHtml,
-		swal: Swal,
-		ocrEndpoint: 'transactions/liquidation/api/ocr',
-		baseUrl: base_url,
-	});
-	if (domAdd.newDateRange) {
-		domAdd.newDateRange.setAttribute('readonly', 'readonly');
-		domAdd.newDateRange.setAttribute('placeholder', 'Auto based on document dates');
-	}
-	expenseItems = [createExpenseItem()];
-	renderExpenseItems();
-	resetCashAdvanceDetails();
-	loadExpenseTypes();
-	if (currentLiquidationId) {
-		loadDraftForEdit();
-	} else {
-		loadPendingCashAdvanceNumbers();
-	}
+  cacheAddDom();
+  draftEditWindowDays = safeNum(domAdd.draftEditWindowDays?.value) || 7;
+  currentLiquidationId = normalizeDate(domAdd.liquidationRef?.value || '');
+  liquidationReceiptOcr = window.SharedReceiptOcr && window.SharedReceiptOcr.create({
+    maxAttachmentBytes: MAX_ATTACHMENT_BYTES, getExpenseItem: findExpenseItem, getExpenseTypeOptions: () => expenseTypeOptions,
+    renderItems: renderExpenseItems, normalizeDate, escapeHtml, swal: Swal, ocrEndpoint: 'transactions/liquidation/api/ocr', baseUrl: base_url
+  });
+  if (domAdd.newDateRange) { domAdd.newDateRange.setAttribute('readonly', 'readonly'); domAdd.newDateRange.setAttribute('placeholder', 'Auto based on document dates'); }
+  expenseItems = [createExpenseItem()];
+  renderExpenseItems();
+  resetCADetails();
+  loadExpenseTypes();
+  if (currentLiquidationId) loadDraftForEdit(); else loadPendingCA();
 
-	domAdd.btnSaveNewLiquidation.addEventListener('click', () => sendLiquidation('LQ_SUBMITTED'));
-	if (domAdd.btnSaveDraftLiquidation) {
-		domAdd.btnSaveDraftLiquidation.addEventListener('click', () => sendLiquidation('LQ_DRAFT'));
-	}
-	if (domAdd.btnSaveNewLiquidationMobile) {
-		domAdd.btnSaveNewLiquidationMobile.addEventListener('click', () => sendLiquidation('LQ_SUBMITTED'));
-	}
-	if (domAdd.btnSaveDraftLiquidationMobile) {
-		domAdd.btnSaveDraftLiquidationMobile.addEventListener('click', () => sendLiquidation('LQ_DRAFT'));
-	}
-	domAdd.btnAddExpenseItem.addEventListener('click', () => {
-		expenseItems.push(createExpenseItem());
-		renderExpenseItems();
-	});
-
-	domAdd.newCaRef.addEventListener('change', syncCashAdvanceDetails);
-
-	domAdd.expenseItemsContainer.addEventListener('input', (event) => {
-		const target = event.target;
-		const itemId = Number(target.getAttribute('data-item-id'));
-		const field = target.getAttribute('data-item-field');
-		if (!itemId || !field) {
-			return;
-		}
-
-		const item = findExpenseItem(itemId);
-		if (!item) {
-			return;
-		}
-
-		if (field === 'isVattable') {
-			item.isVattable = Boolean(target.checked);
-			return;
-		}
-
-		item[field] = target.value;
-		if (field === 'expenseType') {
-			const selectedExpenseType = getExpenseTypeById(target.value);
-			target.title = normalizeDate((selectedExpenseType || {}).description);
-		}
-		if (field === 'amount') {
-			updateTotalFromItems();
-			return;
-		}
-		if (field === 'documentDate') {
-			syncDateRangeFromDocumentDates();
-		}
-	});
-
-	domAdd.expenseItemsContainer.addEventListener('change', async (event) => {
-		const target = event.target;
-		const itemId = Number(target.getAttribute('data-item-id'));
-		const fileMode = target.getAttribute('data-item-file');
-		if (!itemId || !fileMode) {
-			return;
-		}
-
-		const item = findExpenseItem(itemId);
-		if (!item) {
-			return;
-		}
-
-		// Clear existing attachments first — only 1 attachment allowed per item
-		item.attachments = [];
-		item.existingAttachments = [];
-		if (liquidationReceiptOcr) {
-			liquidationReceiptOcr.cancelOcr(itemId);
-		}
-
-		const acceptedFiles = await addItemAttachments(itemId, Array.from(target.files || []));
-		if (acceptedFiles.length) {
-			// Only keep the first file (single attachment policy)
-			item.attachments = [acceptedFiles[0]];
-			liquidationReceiptOcr.runOcrAutofillForItem(itemId, acceptedFiles[0]);
-		}
-		target.value = '';
-		renderExpenseItems();
-	});
-
-	domAdd.expenseItemsContainer.addEventListener('click', (event) => {
-		const actionBtn = event.target.closest('[data-item-action]');
-		if (!actionBtn) {
-			return;
-		}
-
-		const itemId = Number(actionBtn.getAttribute('data-item-id'));
-		const action = actionBtn.getAttribute('data-item-action');
-		if (!itemId || !action) {
-			return;
-		}
-
-		if (action === 'remove') {
-			if (liquidationReceiptOcr) liquidationReceiptOcr.cancelOcr(itemId);
-			expenseItems = expenseItems.filter((item) => item.id !== itemId);
-			renderExpenseItems();
-			return;
-		}
-
-		if (action === 'attach') {
-			promptAttachmentSource(itemId);
-			return;
-		}
-
-		if (action === 'ocrManual') {
-			if (liquidationReceiptOcr) liquidationReceiptOcr.markManual(itemId);
-			return;
-		}
-	});
+  domAdd.btnSaveNewLiquidation?.addEventListener('click', () => sendLiquidation('LQ_SUBMITTED'));
+  domAdd.btnSaveDraftLiquidation?.addEventListener('click', () => sendLiquidation('LQ_DRAFT'));
+  domAdd.btnSaveNewLiquidationMobile?.addEventListener('click', () => sendLiquidation('LQ_SUBMITTED'));
+  domAdd.btnSaveDraftLiquidationMobile?.addEventListener('click', () => sendLiquidation('LQ_DRAFT'));
+  domAdd.btnAddExpenseItem?.addEventListener('click', () => { expenseItems.push(createExpenseItem()); renderExpenseItems(); });
+  domAdd.newCaRef?.addEventListener('change', syncCADetails);
+  domAdd.expenseItemsContainer?.addEventListener('input', onInput);
+  domAdd.expenseItemsContainer?.addEventListener('change', onChange);
+  domAdd.expenseItemsContainer?.addEventListener('click', onClick);
 };

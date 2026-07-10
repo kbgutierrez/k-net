@@ -75,6 +75,140 @@ const renderAttachment = (name) => {
 	</span>`;
 };
 
+const getExpenseTypeDisplayText = (expense) => {
+	const code = normalizeDate(expense.expense_code || expense.expense_category_code || expense.category_code || '');
+	const longText = normalizeDate(expense.long_text || expense.expense_category_name || expense.category_name || expense.description || '');
+
+	if (code && longText) {
+		return `${code} - ${longText}`;
+	}
+	return code || longText || 'Expense Item';
+};
+
+const getExpenseVendorHtml = (expense) => {
+	const vendorName = normalizeDate(expense.vendor_name || '');
+	const vendorAddress = normalizeDate(expense.vendor_address || '');
+	const vendorTin = normalizeDate(expense.vendor_tin || '');
+
+	if (!vendorName && !vendorAddress && !vendorTin) {
+		return '<span class="text-muted" style="font-size:11px;">\u2014</span>';
+	}
+
+	return `
+		<div class="kna-vendor-display">
+			${vendorName ? `<div>${escapeHtml(vendorName)}</div>` : ''}
+			${vendorAddress ? `<div class="kna-vendor-sub">${escapeHtml(vendorAddress)}</div>` : ''}
+			${vendorTin ? `<div class="kna-vendor-sub">TIN: ${escapeHtml(vendorTin)}</div>` : ''}
+		</div>
+	`;
+};
+
+const getExpenseStatusBadge = (expense) => {
+	const hasApproved = Boolean(Number(expense.has_approved || 0));
+	const hasRejected = Boolean(Number(expense.has_rejected || 0));
+	const rejectionReason = normalizeDate(expense.rejection_reason || '');
+	const rejectedByName = normalizeDate(expense.rejected_by_name || '');
+
+	if (hasApproved) {
+		return {
+			desktop: '<div class="kna-approved-badge" style="margin-top:4px;"><i class="fas fa-check"></i> Approved</div>',
+			mobile: '<span class="kna-status-badge kna-status-approved"><i class="fas fa-check"></i> Approved</span>',
+		};
+	}
+
+	if (hasRejected) {
+		return {
+			desktop: `<div class="kna-rejected-badge" style="margin-top:4px;"><i class="fas fa-times"></i> Rejected by ${escapeHtml(rejectedByName)}</div><div class="kna-rejected-reason" style="font-size:11px;color:#991b1b;font-style:italic;">"${escapeHtml(rejectionReason)}"</div>`,
+			mobile: `<span class="kna-status-badge kna-status-rejected"><i class="fas fa-times"></i> Rejected by ${escapeHtml(rejectedByName)}</span>`,
+		};
+	}
+
+	return { desktop: '', mobile: '' };
+};
+
+const getExpenseItemSummary = (expense) => ({
+	docDate: normalizeDate(expense.document_date || '').slice(0, 10),
+	typeText: getExpenseTypeDisplayText(expense),
+	reference: normalizeDate(expense.invoice_receipt_no || '') || '\u2014',
+	amount: Number(expense.actual_amount || 0),
+	netAmt: Number(expense.net_amount || 0),
+	vatAmt: Number(expense.vat_amount || 0),
+	isVattable: Boolean(Number(expense.is_vatable)),
+	description: normalizeDate(expense.description || ''),
+	attachNames: normalizeDate(expense.attachment || '').split(',').map((s) => s.trim()).filter(Boolean),
+	vendorName: normalizeDate(expense.vendor_name || ''),
+	vendorAddress: normalizeDate(expense.vendor_address || ''),
+	vendorTin: normalizeDate(expense.vendor_tin || ''),
+	vendorHtml: getExpenseVendorHtml(expense),
+	statusBadge: getExpenseStatusBadge(expense),
+});
+
+const renderExpenseRow = (summary, index) => {
+	const vatBadge = summary.isVattable
+		? '<input type="checkbox" class="kna-vat-check" checked disabled>'
+		: '<input type="checkbox" class="kna-vat-check" disabled>';
+
+	const amountHtml = summary.isVattable
+		? `<div class="kna-amount-main">${formatPHP(summary.amount)}</div><div class="kna-amount-breakdown">Net ${formatPHP(summary.netAmt)}</div><div class="kna-amount-breakdown">VAT ${formatPHP(summary.vatAmt)}</div>`
+		: `<div class="kna-amount-main">${formatPHP(summary.amount)}</div>`;
+
+	return `
+		<tr>
+			<td class="text-center kna-rownum kna-cell-index" data-label="#">${index + 1}</td>
+			<td data-label="Date">${escapeHtml(summary.docDate)}</td>
+			<td data-label="Expense Type">${escapeHtml(summary.typeText)}</td>
+			<td data-label="Reference">${escapeHtml(summary.reference)}</td>
+			<td class="text-center kna-cell-vat" data-label="VAT">${vatBadge}</td>
+			<td data-label="Vendor">${summary.vendorHtml}</td>
+			<td class="kna-cell-attachment" data-label="Attachment">${summary.attachNames.length ? summary.attachNames.map(renderAttachment).join('') : '<span class="text-muted" style="font-size:11px;">\u2014</span>'}</td>
+			<td data-label="Remarks">${escapeHtml(summary.description)}${summary.statusBadge.desktop}</td>
+			<td class="text-right kna-cell-amount" data-label="Amount">${amountHtml}</td>
+		</tr>
+	`;
+};
+
+const renderExpenseCard = (summary, index) => {
+	const amountHtml = summary.isVattable
+		? `<div class="kna-amount-main">${formatPHP(summary.amount)}</div><div class="kna-amount-breakdown">Net ${formatPHP(summary.netAmt)}</div><div class="kna-amount-breakdown">VAT ${formatPHP(summary.vatAmt)}</div>`
+		: `<div class="kna-amount-main">${formatPHP(summary.amount)}</div>`;
+
+	return `
+		<div class="kna-exp-card">
+			<div class="kna-exp-card-head">
+				<div class="kna-exp-card-head-left">
+					<div class="kna-exp-card-badge">${index + 1}</div>
+					<div class="kna-exp-card-title">${escapeHtml(summary.typeText || 'Expense Item')}</div>
+					<div class="kna-exp-card-meta">${escapeHtml(summary.docDate)} \u2022 ${escapeHtml(summary.reference)}</div>
+					${summary.statusBadge.mobile}
+				</div>
+				<div class="kna-exp-card-amount">${amountHtml}</div>
+			</div>
+
+			<div class="kna-exp-card-body">
+				<div class="kna-exp-card-grid">
+					<div class="kna-exp-card-field kna-exp-card-field-full">
+						<span class="kna-exp-card-label">Vendor</span>
+						<span class="kna-exp-card-value kna-vendor-display">${summary.vendorHtml}</span>
+					</div>
+					<div class="kna-exp-card-field">
+						<span class="kna-exp-card-label">VAT</span>
+						<span class="kna-exp-card-value">${summary.isVattable ? '<input type="checkbox" class="kna-vat-check" checked disabled>' : '<input type="checkbox" class="kna-vat-check" disabled>'}</span>
+					</div>
+					<div class="kna-exp-card-field kna-exp-card-field-full">
+						<span class="kna-exp-card-label">Remarks</span>
+						<span class="kna-exp-card-value">${escapeHtml(summary.description || '\u2014')}</span>
+					</div>
+				</div>
+
+				<div class="kna-exp-card-field kna-exp-card-field-full">
+					<span class="kna-exp-card-label">Attachment</span>
+					<span class="kna-exp-card-value kna-exp-card-attach">${summary.attachNames.length ? summary.attachNames.map(renderAttachment).join('') : '<span class="text-muted">\u2014</span>'}</span>
+				</div>
+			</div>
+		</div>
+	`;
+};
+
 const renderDetailExpenseItems = (expenses) => {
 	const container = domDetail.viewExpenseItems;
 	if (!container) {
@@ -88,158 +222,13 @@ const renderDetailExpenseItems = (expenses) => {
 
 	const rowsHtml = expenses
 		.map((expense, i) => {
-			const docDate = normalizeDate(expense.document_date || '').slice(0, 10);
-			const category = normalizeDate(expense.category_name || '');
-			const reference = normalizeDate(expense.invoice_receipt_no || '') || '\u2014';
-			const amount = Number(expense.actual_amount || 0);
-			const netAmt = Number(expense.net_amount || 0);
-			const vatAmt = Number(expense.vat_amount || 0);
-			const isVattable = Boolean(Number(expense.is_vatable));
-			const description = normalizeDate(expense.description || '');
-
-			const attachNames = normalizeDate(expense.attachment || '')
-				.split(',')
-				.map((s) => s.trim())
-				.filter(Boolean);
-			const attachHtml = attachNames.length
-				? attachNames.map(renderAttachment).join('')
-				: '<span class="text-muted" style="font-size:11px;">\u2014</span>';
-
-			const vatBadge = isVattable
-				? '<input type="checkbox" class="kna-vat-check" checked disabled>'
-				: '<input type="checkbox" class="kna-vat-check" disabled>';
-
-			const amountHtml = isVattable
-				? `<div class="kna-amount-main">${formatPHP(amount)}</div><div class="kna-amount-breakdown">Net ${formatPHP(netAmt)}</div><div class="kna-amount-breakdown">VAT ${formatPHP(vatAmt)}</div>`
-				: `<div class="kna-amount-main">${formatPHP(amount)}</div>`;
-
-			const hasApproved = Boolean(Number(expense.has_approved || 0));
-			const hasRejected = Boolean(Number(expense.has_rejected || 0));
-			const rejectionReason = normalizeDate(expense.rejection_reason || '');
-			const rejectedByName = normalizeDate(expense.rejected_by_name || '');
-
-			let statusBadge = '';
-			if (hasApproved) {
-				statusBadge = `<div class="kna-approved-badge" style="margin-top:4px;"><i class="fas fa-check"></i> Approved</div>`;
-			} else if (hasRejected) {
-				statusBadge = `<div class="kna-rejected-badge" style="margin-top:4px;"><i class="fas fa-times"></i> Rejected by ${escapeHtml(rejectedByName)}</div>
-					<div class="kna-rejected-reason" style="font-size:11px;color:#991b1b;font-style:italic;">"${escapeHtml(rejectionReason)}"</div>`;
-			}
-
-			const vendorName = normalizeDate(expense.vendor_name || '');
-			const vendorAddress = normalizeDate(expense.vendor_address || '');
-			const vendorTin = normalizeDate(expense.vendor_tin || '');
-
-			let vendorHtml = '<span class="text-muted" style="font-size:11px;">\u2014</span>';
-			if (vendorName || vendorAddress || vendorTin) {
-				vendorHtml = `
-					<div class="kna-vendor-display">
-						${vendorName ? `<div>${escapeHtml(vendorName)}</div>` : ''}
-						${vendorAddress ? `<div class="kna-vendor-sub">${escapeHtml(vendorAddress)}</div>` : ''}
-						${vendorTin ? `<div class="kna-vendor-sub">TIN: ${escapeHtml(vendorTin)}</div>` : ''}
-					</div>
-				`;
-			}
-
-			return `
-				<tr>
-					<td class="text-center kna-rownum kna-cell-index" data-label="#">${i + 1}</td>
-					<td data-label="Date">${escapeHtml(docDate)}</td>
-					<td data-label="Category">${escapeHtml(category)}</td>
-					<td data-label="Reference">${escapeHtml(reference)}</td>
-					<td class="text-center kna-cell-vat" data-label="VAT">${vatBadge}</td>
-					<td data-label="Vendor">${vendorHtml}</td>
-					<td class="kna-cell-attachment" data-label="Attachment">${attachHtml}</td>
-					<td data-label="Remarks">${escapeHtml(description)}${statusBadge}</td>
-					<td class="text-right kna-cell-amount" data-label="Amount">${amountHtml}</td>
-				</tr>
-			`;
+			return renderExpenseRow(getExpenseItemSummary(expense), i);
 		})
 		.join('');
 
 	const mobileCardsHtml = expenses
 		.map((expense, i) => {
-			const docDate = normalizeDate(expense.document_date || '').slice(0, 10);
-			const category = normalizeDate(expense.category_name || '');
-			const reference = normalizeDate(expense.invoice_receipt_no || '') || '\u2014';
-			const amount = Number(expense.actual_amount || 0);
-			const netAmt = Number(expense.net_amount || 0);
-			const vatAmt = Number(expense.vat_amount || 0);
-			const isVattable = Boolean(Number(expense.is_vatable));
-			const description = normalizeDate(expense.description || '') || '\u2014';
-
-			const attachNames = normalizeDate(expense.attachment || '')
-				.split(',')
-				.map((s) => s.trim())
-				.filter(Boolean);
-
-			const amountHtml = isVattable
-				? `<div class="kna-amount-main">${formatPHP(amount)}</div><div class="kna-amount-breakdown">Net ${formatPHP(netAmt)}</div><div class="kna-amount-breakdown">VAT ${formatPHP(vatAmt)}</div>`
-				: `<div class="kna-amount-main">${formatPHP(amount)}</div>`;
-
-			const hasApproved = Boolean(Number(expense.has_approved || 0));
-			const hasRejected = Boolean(Number(expense.has_rejected || 0));
-			const rejectionReason = normalizeDate(expense.rejection_reason || '');
-			const rejectedByName = normalizeDate(expense.rejected_by_name || '');
-
-			let statusBadge = '';
-			if (hasApproved) {
-				statusBadge = `<span class="kna-status-badge kna-status-approved"><i class="fas fa-check"></i> Approved</span>`;
-			} else if (hasRejected) {
-				statusBadge = `<span class="kna-status-badge kna-status-rejected"><i class="fas fa-times"></i> Rejected by ${escapeHtml(rejectedByName)}</span>`;
-			}
-
-			const vendorName = normalizeDate(expense.vendor_name || '');
-			const vendorAddress = normalizeDate(expense.vendor_address || '');
-			const vendorTin = normalizeDate(expense.vendor_tin || '');
-
-			return `
-				<div class="kna-exp-card">
-					<div class="kna-exp-card-head">
-						<div class="kna-exp-card-head-left">
-							<div class="kna-exp-card-badge">${i + 1}</div>
-							<div class="kna-exp-card-title">${escapeHtml(category || 'Expense Item')}</div>
-							<div class="kna-exp-card-meta">${escapeHtml(docDate)} \u2022 ${escapeHtml(reference)}</div>
-							${statusBadge}
-						</div>
-						<div class="kna-exp-card-amount">${amountHtml}</div>
-					</div>
-
-					<div class="kna-exp-card-body">
-						<div class="kna-exp-card-grid">
-							<div class="kna-exp-card-field kna-exp-card-field-full">
-								<span class="kna-exp-card-label">Vendor Name</span>
-								<span class="kna-exp-card-value">${escapeHtml(vendorName || '\u2014')}</span>
-							</div>
-							<div class="kna-exp-card-field kna-exp-card-field-full">
-								<span class="kna-exp-card-label">Vendor Address</span>
-								<span class="kna-exp-card-value">${escapeHtml(vendorAddress || '\u2014')}</span>
-							</div>
-							<div class="kna-exp-card-field">
-								<span class="kna-exp-card-label">Vendor TIN</span>
-								<span class="kna-exp-card-value">${escapeHtml(vendorTin || '\u2014')}</span>
-							</div>
-							<div class="kna-exp-card-field">
-								<span class="kna-exp-card-label">VAT</span>
-								<span class="kna-exp-card-value">
-									<input type="checkbox" class="kna-vat-check" ${isVattable ? 'checked' : ''} disabled>
-								</span>
-							</div>
-							<div class="kna-exp-card-field kna-exp-card-field-full">
-								<span class="kna-exp-card-label">Remarks</span>
-								<span class="kna-exp-card-value">${escapeHtml(description)}</span>
-							</div>
-						</div>
-
-						<div class="kna-exp-card-field kna-exp-card-field-full">
-							<span class="kna-exp-card-label">Attachment</span>
-							<span class="kna-exp-card-value kna-exp-card-attach">
-								${attachNames.length ? attachNames.map(renderAttachment).join('') : '<span class="text-muted">\u2014</span>'}
-							</span>
-						</div>
-					</div>
-				</div>
-			`;
+			return renderExpenseCard(getExpenseItemSummary(expense), i);
 		})
 		.join('');
 
@@ -258,7 +247,7 @@ const renderDetailExpenseItems = (expenses) => {
 					<tr>
 						<th style="width:34px;">#</th>
 						<th style="width:96px;">Date</th>
-						<th style="width:120px;">Category</th>
+						<th style="width:120px;">Expense Type</th>
 						<th style="width:110px;">Reference</th>
 						<th style="width:72px;" class="text-center">VAT</th>
 						<th style="width:340px;">Vendor</th>
