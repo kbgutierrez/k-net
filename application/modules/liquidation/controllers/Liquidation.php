@@ -819,10 +819,10 @@ class Liquidation extends MY_Controller
 
             foreach ($data['Expenses'] as $index => $expense) {
                 $actualAmount = isset($expense['ActualAmount']) ? (float) $expense['ActualAmount'] : (isset($expense['amount']) ? (float) $expense['amount'] : 0);
-                $expenseCategory = isset($expense['ExpenseCategory']) ? (int) $expense['ExpenseCategory'] : (isset($expense['expenseType']) ? (int) $expense['expenseType'] : 0);
+                $expenseCategory = isset($expense['ExpenseCategory']) ? trim((string) $expense['ExpenseCategory']) : (isset($expense['expenseType']) ? trim((string) $expense['expenseType']) : '');
                 $isVatable = isset($expense['IsVatable']) ? (bool) $expense['IsVatable'] : (isset($expense['isVattable']) ? (bool) $expense['isVattable'] : false);
 
-                if ($actualAmount <= 0 || $expenseCategory <= 0) {
+                if ($actualAmount <= 0 || $expenseCategory === '') {
                     return $this->respondError("Invalid expense item at index {$index}");
                 }
 
@@ -1244,10 +1244,10 @@ class Liquidation extends MY_Controller
                 }
 
                 $actualAmount = isset($expense['ActualAmount']) ? (float) $expense['ActualAmount'] : 0;
-                $expenseCategory = isset($expense['ExpenseCategory']) ? (int) $expense['ExpenseCategory'] : 0;
+                $expenseCategory = isset($expense['ExpenseCategory']) ? trim((string) $expense['ExpenseCategory']) : '';
                 $isVatable = isset($expense['IsVatable']) ? (bool) $expense['IsVatable'] : false;
 
-                if ($actualAmount <= 0 || $expenseCategory <= 0) {
+                if ($actualAmount <= 0 || $expenseCategory === '') {
                     return $this->respondError('Invalid expense item at index ' . $index);
                 }
 

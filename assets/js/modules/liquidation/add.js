@@ -7,10 +7,35 @@ const domAdd = {};
 
 // ─── Helpers ───
 const qs = (sel, ctx = document) => ctx.querySelector(sel);
+const getExpenseTypeByCode = (code) => expenseTypeOptions.find((it) => String(it.expense_code) === String(code));
 const getExpenseTypeById = (id) => expenseTypeOptions.find((it) => String(it.id) === String(id));
 const getExpenseTypeDisplayText = (opt) => opt ? `${normalizeDate(opt.expense_code)} - ${normalizeDate(opt.long_text)}`.replace(/^ - | - $/g, '') : '';
 const findExpenseItem = (id) => expenseItems.find((it) => it.id === id);
 const getItemAmount = (it) => Number(it.amount || 0);
+const getItemFieldElements = (itemId, field) => Array.from((domAdd.expenseItemsContainer || document).querySelectorAll(`[data-item-field="${field}"][data-item-id="${itemId}"]`));
+const getLiveItemTextField = (itemId, field) => {
+  const els = getItemFieldElements(itemId, field);
+  if (!els.length) return '';
+  const values = els.map((el) => normalizeDate(el.value)).filter((v) => v !== '');
+  return values.length ? values[0] : normalizeDate(els[0].value);
+};
+const getLiveItemCheckboxField = (itemId, field) => getItemFieldElements(itemId, field).some((el) => Boolean(el.checked));
+const syncExpenseItemFromDom = (item) => {
+  if (!item || !item.id) return;
+
+  const liveDocumentDate = getLiveItemTextField(item.id, 'documentDate');
+  const liveExpenseType = getLiveItemTextField(item.id, 'expenseType');
+  const liveReference = getLiveItemTextField(item.id, 'reference');
+  const liveAmount = getLiveItemTextField(item.id, 'amount');
+  const liveRemarks = getLiveItemTextField(item.id, 'remarks');
+
+  if (liveDocumentDate !== '' || !item.documentDate) item.documentDate = liveDocumentDate;
+  if (liveExpenseType !== '' || !item.expenseType) item.expenseType = liveExpenseType;
+  if (liveReference !== '' || !item.reference) item.reference = liveReference;
+  if (liveAmount !== '' || !item.amount) item.amount = liveAmount;
+  if (liveRemarks !== '' || !item.remarks) item.remarks = liveRemarks;
+  item.isVattable = getLiveItemCheckboxField(item.id, 'isVattable');
+};
 const getAllAttachments = (it) => (it.existingAttachments || []).map((n) => ({ name: n })).concat(it.attachments || []);
 const getAttachmentNamesCsv = (it) => (it.existingAttachments || []).map(normalizeDate).filter(Boolean).join(',');
 const hasVendorData = (it) => !!(it.vendorName || it.vendorAddress || it.vendorTin);
@@ -32,8 +57,8 @@ const safeNum = (v) => Number(v || 0);
 // ─── Expense Type Options ───
 const expenseTypeOptionsMarkup = (selected) => {
   const opts = expenseTypeOptions.map((o) => {
-    const id = normalizeDate(o.id), txt = getExpenseTypeDisplayText(o), desc = normalizeDate(o.description);
-    return `<option value="${escapeHtml(id)}" title="${escapeHtml(desc)}" ${String(selected) === String(id) ? 'selected' : ''}>${escapeHtml(txt)}</option>`;
+    const code = normalizeDate(o.expense_code), txt = getExpenseTypeDisplayText(o), desc = normalizeDate(o.description);
+    return `<option value="${escapeHtml(code)}" title="${escapeHtml(desc)}" ${String(selected) === String(code) ? 'selected' : ''}>${escapeHtml(txt)}</option>`;
   }).join('');
   return `<option value="">Select type</option>${opts}`;
 };
@@ -206,8 +231,9 @@ const renderExpenseItems = () => {
   if (!expenseItems.length) expenseItems = [createExpenseItem()];
 
   const desktop = expenseItems.map((it, i) => {
-    const et = getExpenseTypeById(it.expenseType), desc = normalizeDate((et || {}).description);
+    const et = getExpenseTypeByCode(it.expenseType), desc = normalizeDate((et || {}).description);
     const atts = getAllAttachments(it);
+	console.log(it);
     return `
       <div class="kna-item-row-wrapper" data-item-id="${it.id}">
         <div class="kna-item-table kna-item-table-row" data-item-id="${it.id}">
@@ -234,7 +260,7 @@ const renderExpenseItems = () => {
   }).join('');
 
   const mobile = expenseItems.map((it, i) => {
-    const et = getExpenseTypeById(it.expenseType), desc = normalizeDate((et || {}).description);
+    const et = getExpenseTypeByCode(it.expenseType), desc = normalizeDate((et || {}).description);
     const atts = getAllAttachments(it), summary = ocr.label(atts, it.id), hasAtt = atts.length > 0;
     const btnLabel = hasAtt ? 'Replace Receipt' : 'Attach Receipt';
     const btnClass = hasAtt ? 'btn btn-outline-primary btn-sm kna-attach-btn' : 'btn btn-primary btn-sm kna-attach-btn';
@@ -304,8 +330,9 @@ const getFormState = () => {
 };
 
 const validateBeforeSave = (statusCode) => {
+  expenseItems.forEach(syncExpenseItemFromDom);
   const state = getFormState();
-  const missing = expenseItems.find((it) => !it.documentDate || !it.expenseType || !it.reference || getItemAmount(it) <= 0 || !it.remarks);
+  const missingIndex = expenseItems.findIndex((it) => !normalizeDate(it.documentDate) || !normalizeDate(it.expenseType) || !normalizeDate(it.reference) || getItemAmount(it) <= 0 || !normalizeDate(it.remarks));
 
   if (!state.caRef || !state.dateFrom || !state.dateTo || !state.purpose)
     return swal('warning', 'Missing fields', 'Cash advance, document dates, and notes are required.'), null;
@@ -313,8 +340,21 @@ const validateBeforeSave = (statusCode) => {
     return swal('warning', 'Invalid expense range', 'Expense range start must not be later than end.'), null;
   if (!expenseItems.length)
     return swal('warning', 'Item required', 'Please add at least one expense item.'), null;
-  if (missing)
-    return swal('warning', 'Incomplete item', 'Each item requires document date, expense type, reference, amount, and remarks.'), null;
+  if (missingIndex >= 0) {
+    const item = expenseItems[missingIndex] || {};
+    const missingFields = [];
+    if (!normalizeDate(item.documentDate)) missingFields.push('Document Date');
+    if (!normalizeDate(item.expenseType)) missingFields.push('Expense Type');
+    if (!normalizeDate(item.reference)) missingFields.push('Reference');
+    if (getItemAmount(item) <= 0) missingFields.push('Amount (> 0)');
+    if (!normalizeDate(item.remarks)) missingFields.push('Remarks');
+
+    return Swal.fire({
+      icon: 'warning',
+      title: 'Incomplete item',
+      html: `Row <strong>${missingIndex + 1}</strong> is missing: <strong>${escapeHtml(missingFields.join(', '))}</strong>.`,
+    }), null;
+  }
   if (state.totalAmount <= 0)
     return swal('warning', 'Invalid total', 'Total must be greater than 0.'), null;
   if (statusCode === 'LQ_SUBMITTED' && !draftCanEdit)
@@ -346,11 +386,11 @@ const sendLiquidation = (statusCode) => {
     fd.append('ExpenseRangeFrom', state.dateFrom);
     fd.append('ExpenseRangeTo', state.dateTo);
     fd.append('Expenses', JSON.stringify(expenseItems.map((it) => ({
-      DocumentDate: it.documentDate, ExpenseCategory: Number(it.expenseType), InvoiceReceiptNo: it.reference,
+      DocumentDate: it.documentDate, ExpenseCategory: it.expenseType, InvoiceReceiptNo: it.reference,
       ActualAmount: getItemAmount(it), IsVatable: Boolean(it.isVattable), Description: it.remarks,
       Attachment: getAttachmentNamesCsv(it), VendorName: it.vendorName || '', VendorAddress: it.vendorAddress || '', VendorTin: it.vendorTin || ''
     }))));
-    expenseItems.forEach((it, i) => { (it.attachments || []).forEach((f) => fd.append(`attachments[${index}][]`, f)); });
+    expenseItems.forEach((it, i) => { (it.attachments || []).forEach((f) => fd.append(`attachments[${i}][]`, f)); });
 
     ajax_loader_formdata_loading('transactions/liquidation/api/save', fd)
       .done((r) => {
@@ -359,8 +399,14 @@ const sendLiquidation = (statusCode) => {
         const gid = res.data && res.data.id ? normalizeDate(res.data.id) : '';
         if (gid) { currentLiquidationId = gid; if (domAdd.liquidationRef) domAdd.liquidationRef.value = gid; }
         const isDraft = statusCode === 'LQ_DRAFT';
-        swal('success', isDraft ? 'Draft Saved' : 'Submitted', `${isDraft ? 'Draft saved' : 'Liquidation submitted'} successfully.<br><strong>${escapeHtml(gid || currentLiquidationId)}</strong>`, { html: true })
-          .then(() => goToPath('transactions/liquidation'));
+        const displayId = normalizeDate(gid || currentLiquidationId || '');
+        const actionText = isDraft ? 'Draft saved' : 'Liquidation submitted';
+
+        Swal.fire({
+          icon: 'success',
+          title: isDraft ? 'Draft Saved' : 'Submitted',
+          html: `${escapeHtml(actionText)} successfully.<br><strong>${escapeHtml(displayId || 'ID not available')}</strong>`,
+        }).then(() => goToPath('transactions/liquidation'));
       })
       .fail(() => swal('error', 'Request Failed', 'Could not connect to the server.'));
   };
@@ -432,7 +478,7 @@ const loadDraftForEdit = () => {
 
       expenseItems = details.map((d) => ({
         id: ++expenseItemCounter, documentDate: normalizeDate(d.document_date).slice(0, 10),
-        expenseType: normalizeDate(d.expense_category || d.expense_category_id || ''),
+        expenseType: normalizeDate(d.expense_code || d.expense_category || d.expense_category_id || ''),
         reference: normalizeDate(d.invoice_receipt_no), amount: normalizeDate(d.actual_amount),
         isVattable: Boolean(Number(d.is_vatable || 0)),
         existingAttachments: normalizeDate(d.attachment).split(',').map((n) => n.trim()).filter(Boolean),
@@ -454,16 +500,28 @@ const onInput = (e) => {
   if (!item) return;
   if (field === 'isVattable') { item.isVattable = Boolean(t.checked); return; }
   item[field] = t.value;
-  if (field === 'expenseType') t.title = normalizeDate((getExpenseTypeById(t.value) || {}).description);
+  if (field === 'expenseType') t.title = normalizeDate((getExpenseTypeByCode(t.value) || {}).description);
   if (field === 'amount') { updateTotal(); return; }
   if (field === 'documentDate') syncDateRange();
 };
 
 const onChange = async (e) => {
-  const t = e.target, itemId = Number(t.getAttribute('data-item-id')), fileMode = t.getAttribute('data-item-file');
-  if (!itemId || !fileMode) return;
+  const t = e.target, itemId = Number(t.getAttribute('data-item-id')), fileMode = t.getAttribute('data-item-file'), field = t.getAttribute('data-item-field');
+  if (!itemId) return;
   const item = findExpenseItem(itemId);
   if (!item) return;
+
+  // Select2 updates expense type via "change", so persist non-file field changes here.
+  if (field && !fileMode) {
+    if (field === 'isVattable') { item.isVattable = Boolean(t.checked); return; }
+    item[field] = t.value;
+    if (field === 'expenseType') t.title = normalizeDate((getExpenseTypeByCode(t.value) || {}).description);
+    if (field === 'amount') { updateTotal(); return; }
+    if (field === 'documentDate') syncDateRange();
+    return;
+  }
+
+  if (!fileMode) return;
   item.attachments = []; item.existingAttachments = [];
   if (liquidationReceiptOcr) liquidationReceiptOcr.cancelOcr(itemId);
   const accepted = await ocr.add(itemId, Array.from(t.files || []));
