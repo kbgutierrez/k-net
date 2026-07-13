@@ -635,7 +635,7 @@ class Liquidation extends MY_Controller
             if (!$authHeader || !preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
                 return $this->respondError("Unauthorized: Token missing", 401);
             }
-
+            $departmentId = $this->session->userdata('user_info')['department_id'];
             $token = $matches[1];
 
             $secureToken = "12345678";
@@ -643,8 +643,15 @@ class Liquidation extends MY_Controller
             if ($token !== $secureToken) {
                 return $this->respondError("Unauthorized: Invalid token.", 401);
             }
+            $params = array(
+                "departmentId" => $departmentId,
+            );
 
-            $result = $this->sp->fetchData('sp_fetch_expense_types');
+            $result = $this->sp->readData(
+                build_sp('sp_fetch_expense_types_by_department', count($params)),
+                $params,
+                'result'
+            );
 
             return $this->respondSuccess("success", $result);
         } catch (Exception $e) {
@@ -812,10 +819,10 @@ class Liquidation extends MY_Controller
 
             foreach ($data['Expenses'] as $index => $expense) {
                 $actualAmount = isset($expense['ActualAmount']) ? (float) $expense['ActualAmount'] : (isset($expense['amount']) ? (float) $expense['amount'] : 0);
-                $expenseCategory = isset($expense['ExpenseCategory']) ? (int) $expense['ExpenseCategory'] : (isset($expense['expenseType']) ? (int) $expense['expenseType'] : 0);
+                $expenseCategory = isset($expense['ExpenseCategory']) ? trim((string) $expense['ExpenseCategory']) : (isset($expense['expenseType']) ? trim((string) $expense['expenseType']) : '');
                 $isVatable = isset($expense['IsVatable']) ? (bool) $expense['IsVatable'] : (isset($expense['isVattable']) ? (bool) $expense['isVattable'] : false);
 
-                if ($actualAmount <= 0 || $expenseCategory <= 0) {
+                if ($actualAmount <= 0 || $expenseCategory === '') {
                     return $this->respondError("Invalid expense item at index {$index}");
                 }
 
@@ -1237,10 +1244,10 @@ class Liquidation extends MY_Controller
                 }
 
                 $actualAmount = isset($expense['ActualAmount']) ? (float) $expense['ActualAmount'] : 0;
-                $expenseCategory = isset($expense['ExpenseCategory']) ? (int) $expense['ExpenseCategory'] : 0;
+                $expenseCategory = isset($expense['ExpenseCategory']) ? trim((string) $expense['ExpenseCategory']) : '';
                 $isVatable = isset($expense['IsVatable']) ? (bool) $expense['IsVatable'] : false;
 
-                if ($actualAmount <= 0 || $expenseCategory <= 0) {
+                if ($actualAmount <= 0 || $expenseCategory === '') {
                     return $this->respondError('Invalid expense item at index ' . $index);
                 }
 

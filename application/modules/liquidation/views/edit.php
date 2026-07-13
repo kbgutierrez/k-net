@@ -227,12 +227,32 @@
 		flex-direction: column;
 		gap: 4px;
 	}
+	.kna-vendor-cell-caption {
+		font-size: 9px;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: .25px;
+		color: #6b7280;
+		margin-bottom: 2px;
+	}
 	.kna-vendor-cell .kna-edit-input {
 		width: 100%;
 		font-size: 12px;
 	}
 	.kna-vendor-cell .kna-edit-input:last-child {
 		color: #6b7280;
+	}
+	.kna-vendor-inline {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 6px;
+	}
+	.kna-vendor-inline .kna-edit-input {
+		font-size: 11px;
+		height: 30px;
+	}
+	.kna-vendor-inline .kna-edit-input::placeholder {
+		color: #9ca3af;
 	}
 
 	/* Attachment thumbnails */
@@ -448,6 +468,9 @@
 		gap: 10px;
 		margin-bottom: 10px;
 	}
+		.kna-vendor-inline {
+			grid-template-columns: 1fr;
+		}
 	.kna-exp-card-field {
 		display: flex;
 		flex-direction: column;
