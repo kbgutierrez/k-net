@@ -423,6 +423,7 @@ class Approvals extends MY_Controller
             $costCenterId = isset($data['cost_center_id']) ? trim((string) $data['cost_center_id']) : '';
             $payableTo    = isset($data['payable_to'])    ? trim((string) $data['payable_to'])    : '';
             $address      = isset($data['address'])      ? trim((string) $data['address'])      : '';
+            $io           = isset($data['io'])           ? trim((string) $data['io'])           : '';
 
             if ($referenceNo === '') {
                 throw new Exception('Missing required field: reference_no');
@@ -441,11 +442,29 @@ class Approvals extends MY_Controller
                 'UpdatedBy'    => $userId,
             );
 
-            $result = $this->sp->createData(
-                build_sp('sp_update_ca_header_fields', count($params)),
-                $params,
-                'result'
-            );
+            $result = false;
+            if ($io !== '') {
+                $paramsWithIo = $params;
+                $paramsWithIo['IO'] = $io;
+
+                try {
+                    $result = $this->sp->createData(
+                        build_sp('sp_update_ca_header_fields', count($paramsWithIo)),
+                        $paramsWithIo,
+                        'result'
+                    );
+                } catch (Throwable $e) {
+                    $result = false;
+                }
+            }
+
+            if ($result !== TRUE) {
+                $result = $this->sp->createData(
+                    build_sp('sp_update_ca_header_fields', count($params)),
+                    $params,
+                    'result'
+                );
+            }
 
             return $this->respondSuccess('Cash advance details updated successfully.');
         } catch (Throwable $e) {

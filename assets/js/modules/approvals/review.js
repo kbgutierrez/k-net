@@ -303,12 +303,13 @@ const initCaHeaderEditor = (referenceNo) => {
   const ccSelect = document.getElementById('reviewCostCenter');
   const payableInput = document.getElementById('reviewPayableTo');
   const addressInput = document.getElementById('reviewAddress');
+  const ioInput = document.getElementById('reviewIo');
 
   if (!btn) return;
 
   const checkDirty = () => {
     let isDirty = false;
-    [ccSelect, payableInput, addressInput].forEach(el => {
+    [ccSelect, payableInput, addressInput, ioInput].forEach(el => {
       if (!el) return;
       const original = el.getAttribute('data-original') || '';
       if (el.value !== original) isDirty = true;
@@ -334,6 +335,7 @@ const initCaHeaderEditor = (referenceNo) => {
   }
   if (payableInput) payableInput.addEventListener('input', checkDirty);
   if (addressInput) addressInput.addEventListener('input', checkDirty);
+  if (ioInput) ioInput.addEventListener('input', checkDirty);
 
   // Start hidden since nothing is modified yet
   btn.classList.add('d-none');
@@ -360,7 +362,8 @@ const initCaHeaderEditor = (referenceNo) => {
         reference_no: referenceNo,
         cost_center_id: ccSelect ? ccSelect.value : '',
         payable_to: payableInput ? payableInput.value.trim() : '',
-        address: addressInput ? addressInput.value.trim() : ''
+        address: addressInput ? addressInput.value.trim() : '',
+        io: ioInput ? ioInput.value.trim() : ''
       };
 
       $.ajax({
@@ -374,6 +377,7 @@ const initCaHeaderEditor = (referenceNo) => {
             if (ccSelect) ccSelect.setAttribute('data-original', ccSelect.value);
             if (payableInput) payableInput.setAttribute('data-original', payableInput.value);
             if (addressInput) addressInput.setAttribute('data-original', addressInput.value);
+            if (ioInput) ioInput.setAttribute('data-original', ioInput.value);
 
             btn.innerHTML = '<i class="fas fa-check mr-1"></i> Saved';
             btn.classList.remove('btn-primary');
@@ -436,6 +440,7 @@ const renderCashAdvance = (data, attachments = []) => {
 
   const approvalPdfUrl = resolveApprovalPdfUrl(h), hasApprovalPdf = Boolean(approvalPdfUrl), hasCaAttachments = attachments && attachments.length > 0;
   const currentCostCenterId = normalizeDate(h.cost_center_id || '');
+  const currentIo = normalizeDate(h.io || h.io_number || h.io_no || '');
   const costCenterOptions = getCostCenterOptions(currentCostCenterId);
 
   const overviewHtml = `<div class="kna-overview-wrapper">
@@ -478,6 +483,12 @@ const renderCashAdvance = (data, attachments = []) => {
         <div class="kna-overview-label">Address</div>
         <div class="kna-overview-value">
           <input type="text" class="form-control form-control-sm kna-ca-field-input" id="reviewAddress" data-field="address" data-original="${escapeHtml(h.address || '')}" value="${escapeHtml(h.address || '')}" placeholder="Enter address..." style="min-width:140px;">
+        </div>
+      </div>
+      <div class="kna-overview-cell">
+        <div class="kna-overview-label">IO</div>
+        <div class="kna-overview-value">
+          <input type="text" class="form-control form-control-sm kna-ca-field-input" id="reviewIo" data-field="io" data-original="${escapeHtml(currentIo)}" value="${escapeHtml(currentIo)}" placeholder="Enter IO..." style="min-width:140px;">
         </div>
       </div>
       <div class="kna-overview-cell wide">
@@ -560,7 +571,7 @@ const renderCashAdvance = (data, attachments = []) => {
   const caKey = 'ca_' + h.id, caAmount = Number(h.ca_amount) || 0;
   reviewState.decisions[caKey] = { decision: null, remark: '', amount: caAmount, actualAmount: caAmount, detail_id: null, approval_per_item_id: null, item_status: 'PENDING', isOwnDecision: true, isReadOnly: false };
 
-  const desktopHtml = `<div class="kna-review-desktop"><div class="kna-review-table-shell">
+  const desktopHtml = `<div class="kna-review-desktop kna-review-desktop-ca"><div class="kna-review-table-shell">
     <div class="kna-review-table-wrap-main"><table class="table table-sm kna-review-table-main"><thead><tr><th>Description</th><th class="text-right">Amount</th></tr></thead><tbody><tr data-item-key="${caKey}"><td>${escapeHtml(h.description || '-')}</td><td class="text-right kna-amount-main">${formatPHP(h.ca_amount || 0)}</td></tr></tbody></table></div>
     <div class="kna-review-table-wrap-action"><table class="table table-sm kna-review-table-action"><thead><tr><th>Action</th></tr></thead><tbody><tr data-item-key="${caKey}"><td class="kna-col-action"><div class="kna-item-decision"><div class="kna-toggle-group"><button type="button" class="kna-toggle-btn is-approve" data-decision="approve" data-key="${caKey}" title="Approve"><i class="fas fa-check"></i></button><button type="button" class="kna-toggle-btn is-reject" data-decision="reject" data-key="${caKey}" title="Reject"><i class="fas fa-times"></i></button></div><textarea class="kna-item-remark d-none" data-key="${caKey}" placeholder="Remarks are required for rejection..."></textarea><button type="button" class="kna-cancel-reject d-none" data-cancel-reject data-key="${caKey}" title="Cancel rejection"><i class="fas fa-undo"></i> Cancel</button></div></td></tr></tbody></table></div>
   </div><div class="kna-review-footer"><div class="kna-review-footer-main"><span class="kna-review-footer-label">Total Requested</span><div class="kna-review-footer-amount kna-amount-main">${formatPHP(h.ca_amount || 0)}</div></div></div></div>`;
@@ -583,6 +594,7 @@ const renderLiquidation = (data, attachments = []) => {
    const hasCaAttachments = attachments && attachments.length > 0;
   const approvalPdfUrl = resolveApprovalPdfUrl(first), hasApprovalPdf = Boolean(approvalPdfUrl);
 
+  const liquidationIo = normalizeDate(first.io || first.io_number || first.io_no || '');
   const overviewHtml = `<div class="kna-overview-compact">
     <div class="kna-overview-cell">
       <div class="kna-overview-label">Requester</div>
@@ -623,6 +635,10 @@ const renderLiquidation = (data, attachments = []) => {
     <div class="kna-overview-cell wide">
       <div class="kna-overview-label">Address</div>
       <div class="kna-overview-value kna-address">${escapeHtml(first.address || '-')}</div>
+    </div>
+    <div class="kna-overview-cell">
+      <div class="kna-overview-label">IO</div>
+      <div class="kna-overview-value">${escapeHtml(liquidationIo || '-')}</div>
     </div>
   </div>
   ${hasApprovalPdf ? `<div class="kna-doc-bar" data-toggle-doc-viewer data-target="ca-doc-viewer" aria-expanded="false">
@@ -771,7 +787,7 @@ const renderLiquidation = (data, attachments = []) => {
     }
   });
 
-  const desktopHtml = `<div class="kna-review-desktop"><div class="kna-review-table-shell">
+  const desktopHtml = `<div class="kna-review-desktop kna-review-desktop-liquidation"><div class="kna-review-table-shell">
     <div class="kna-review-table-wrap-main"><table class="table table-sm kna-review-table-main"><thead><tr><th>#</th><th>Description</th><th>Expense Type</th><th>Invoice/Receipt</th><th>Doc. Date</th><th class="text-right">Gross</th><th>VAT</th><th class="text-right">Net</th><th class="text-right">VAT Amt</th><th>Attachment</th><th>Vendor</th></tr></thead><tbody>${mainRows}</tbody></table></div>
     <div class="kna-review-table-wrap-action"><table class="table table-sm kna-review-table-action"><thead><tr><th>Action</th></tr></thead><tbody>${actionRows}</tbody></table></div>
   </div><div class="kna-review-footer"><div class="kna-review-footer-main"><span class="kna-review-footer-label">Total Liquidated Amount</span><div class="kna-review-footer-amount kna-amount-main">${formatPHP(totalLiquidated)}</div></div></div></div>`;

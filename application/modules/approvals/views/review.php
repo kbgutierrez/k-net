@@ -306,10 +306,13 @@
     .kna-review-table-shell { display: flex; width: 100%; border-bottom: 1px solid #e5ecf3; }
     .kna-review-table-wrap-main { flex: 1 1 auto; overflow-x: auto; overflow-y: hidden; }
     .kna-review-table-main {
-        min-width: 1540px; width: 100%; margin-bottom: 0; font-size: 12px;
+        width: 100%; margin-bottom: 0; font-size: 12px;
         border-collapse: separate; border-spacing: 0;
     }
-    .kna-review-table-main th:nth-child(2), .kna-review-table-main td.kna-col-description {
+    .kna-review-desktop-liquidation .kna-review-table-main {
+        min-width: 1540px;
+    }
+    .kna-review-desktop-liquidation .kna-review-table-main th:nth-child(2), .kna-review-desktop-liquidation .kna-review-table-main td.kna-col-description {
         min-width: 340px;
         width: 340px;
     }
@@ -317,29 +320,45 @@
         padding: 5px 6px; vertical-align: middle; border-bottom: 1px solid #f1f5f9;
         border-right: 1px solid #f1f5f9; color: #1f2937; box-sizing: border-box;
     }
-    .kna-review-table-main th:nth-child(3), .kna-review-table-main td.kna-col-category {
+    .kna-review-desktop-liquidation .kna-review-table-main th:nth-child(3), .kna-review-desktop-liquidation .kna-review-table-main td.kna-col-category {
         min-width: 240px;
         width: 240px;
     }
-    .kna-review-table-main th:nth-child(4) {
+    .kna-review-desktop-liquidation .kna-review-table-main th:nth-child(4) {
         min-width: 170px;
         width: 170px;
     }
-    .kna-review-table-main th:nth-child(5) {
+    .kna-review-desktop-liquidation .kna-review-table-main th:nth-child(5) {
         min-width: 150px;
         width: 150px;
     }
-    .kna-review-table-main th:nth-child(6) {
+    .kna-review-desktop-liquidation .kna-review-table-main th:nth-child(6) {
         min-width: 150px;
         width: 150px;
     }
-    .kna-review-table-main th:nth-child(8), .kna-review-table-main th:nth-child(9) {
+    .kna-review-desktop-liquidation .kna-review-table-main th:nth-child(8), .kna-review-desktop-liquidation .kna-review-table-main th:nth-child(9) {
         min-width: 130px;
         width: 130px;
     }
-    .kna-review-table-main th:nth-child(11), .kna-review-table-main td.kna-col-vendor {
+    .kna-review-desktop-liquidation .kna-review-table-main th:nth-child(11), .kna-review-desktop-liquidation .kna-review-table-main td.kna-col-vendor {
         min-width: 420px;
         width: 420px;
+    }
+    .kna-review-desktop-ca .kna-review-table-wrap-main {
+        overflow-x: hidden;
+    }
+    .kna-review-desktop-ca .kna-review-table-main {
+        min-width: 0;
+        table-layout: fixed;
+    }
+    .kna-review-desktop-ca .kna-review-table-main th:nth-child(1),
+    .kna-review-desktop-ca .kna-review-table-main td:nth-child(1) {
+        width: auto;
+    }
+    .kna-review-desktop-ca .kna-review-table-main th:nth-child(2),
+    .kna-review-desktop-ca .kna-review-table-main td:nth-child(2) {
+        width: 220px;
+        min-width: 220px;
     }
     .kna-review-table-main th {
         background: #f8fbff; font-size: 11px; font-weight: 700; color: #475569;
@@ -602,7 +621,7 @@
         grid-template-columns: 1fr;
         gap: 4px;
     }
-    .kna-review-table-main td.kna-col-vendor .kna-vendor-edit-wrap {
+    .kna-review-desktop-liquidation .kna-review-table-main td.kna-col-vendor .kna-vendor-edit-wrap {
         grid-template-columns: 1.1fr 1.3fr 0.8fr;
         align-items: center;
         gap: 6px;
