@@ -2,6 +2,7 @@ const domDetail = {
 	cashAdvanceRef: null,
 	viewRefNo: null,
 	viewAmount: null,
+	viewApprovedAmount: null,
 	viewRequestedDate: null,
 	viewNeededDate: null,
 	viewStatus: null,
@@ -653,6 +654,7 @@ const cacheDetailDom = () => {
 	domDetail.cashAdvanceRef = document.getElementById('cashAdvanceRef');
 	domDetail.viewRefNo = document.getElementById('viewRefNo');
 	domDetail.viewAmount = document.getElementById('viewAmount');
+	domDetail.viewApprovedAmount = document.getElementById('viewApprovedAmount');
 	domDetail.viewRequestedDate = document.getElementById('viewRequestedDate');
 	domDetail.viewNeededDate = document.getElementById('viewNeededDate');
 	domDetail.viewStatus = document.getElementById('viewStatus');
@@ -671,7 +673,6 @@ const cacheDetailDom = () => {
 	domDetail.serverKflowUrl = document.getElementById('serverKflowUrl');
 
 	applyEmbeddedKflowChrome();
-	bindEmbeddedWorkflowEvents();
 };
 
 const loadDetailData = (loadTimeline = true) => {
@@ -696,6 +697,9 @@ const loadDetailData = (loadTimeline = true) => {
 		}
 		if (domDetail.viewAmount) {
 			domDetail.viewAmount.textContent = formatPHP(Number(record.amount || 0));
+		}
+		if (domDetail.viewApprovedAmount) {
+			domDetail.viewApprovedAmount.textContent = formatPHP(Number(record.approved_amount || 0));
 		}
 		if (domDetail.viewRequestedDate) {
 			domDetail.viewRequestedDate.textContent = normalizeDate(record.created_date || '').slice(0, 10);

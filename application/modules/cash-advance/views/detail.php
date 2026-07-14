@@ -444,6 +444,12 @@
   .kna-preview-modal-close:hover {
     background: rgba(255,255,255,0.3);
   }
+  @media (max-width: 768px) {
+  .kna-info-row-3,
+  .kna-info-row-4 {
+    grid-template-columns: 1fr;
+  }
+}
 </style>
 
 <div class="page-inner kna-page">
@@ -466,21 +472,25 @@
         Cash Advance Information
       </div>
 
-      <!-- Row 1: Identifiers & Status -->
-      <div class="kna-info-row kna-info-row-3">
-        <div class="form-group">
-          <label class="kna-form-label">Cash Advance No</label>
-          <div class="kna-readonly" id="viewRefNo">-</div>
-        </div>
-        <div class="form-group">
-          <label class="kna-form-label">Status</label>
-          <div class="kna-readonly" id="viewStatus" style="background:transparent;border-color:transparent;padding-left:0;">-</div>
-        </div>
-        <div class="form-group">
-          <label class="kna-form-label">Amount</label>
-          <div class="kna-readonly" id="viewAmount">-</div>
-        </div>
-      </div>
+  <!-- Row 1: Identifiers & Status -->
+  <div class="kna-info-row" style="grid-template-columns: repeat(4, 1fr);">
+    <div class="form-group">
+      <label class="kna-form-label">Cash Advance No</label>
+      <div class="kna-readonly" id="viewRefNo">-</div>
+    </div>
+    <div class="form-group">
+      <label class="kna-form-label">Status</label>
+      <div class="kna-readonly" id="viewStatus" style="background:transparent;border-color:transparent;padding-left:0;">-</div>
+    </div>
+    <div class="form-group">
+      <label class="kna-form-label">Amount</label>
+      <div class="kna-readonly" id="viewAmount">-</div>
+    </div>
+    <div class="form-group">
+      <label class="kna-form-label">Approved Amount</label>
+      <div class="kna-readonly" id="viewApprovedAmount">-</div>
+    </div>
+  </div>
 
       <!-- Row 2: Dates & Cost Center -->
       <div class="kna-info-row kna-info-row-3">

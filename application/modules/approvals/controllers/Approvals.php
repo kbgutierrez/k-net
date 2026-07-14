@@ -189,6 +189,13 @@ class Approvals extends MY_Controller
                 foreach ($result as &$row) {
                     if (!is_array($row)) {
                         continue;
+
+                        if (!isset($row['approved_amount'])) {
+                            $row['approved_amount'] = null;
+                        }
+                        if (!isset($row['approved_amount_in_words'])) {
+                            $row['approved_amount_in_words'] = '';
+                        }
                     }
 
                     $finalPath = isset($row['final_pdf_path']) ? $this->normalizeRelativeAssetPath($row['final_pdf_path']) : '';
@@ -212,7 +219,7 @@ class Approvals extends MY_Controller
                 $firstRow = $result[0];
                 $transactionType = isset($firstRow['transaction_type']) ? strtoupper(trim((string) $firstRow['transaction_type'])) : '';
 
-                 if ($transactionType === 'CASH_ADVANCE' || $transactionType === 'LIQUIDATION') {
+                if ($transactionType === 'CASH_ADVANCE' || $transactionType === 'LIQUIDATION') {
                     $caId = isset($firstRow['reference_no']) ? $firstRow['reference_no'] : 0;
                     if ($caId) {
                         $attachments = $this->fetchCaAttachments($caId);
@@ -278,6 +285,22 @@ class Approvals extends MY_Controller
         }
 
         $query = $this->sp->db->get_where('tbl_liquidation_details', array('id' => $detailId), 1);
+        if (!$query) {
+            return null;
+        }
+
+        $row = $query->row_array();
+        return is_array($row) ? $row : null;
+    }
+
+    private function getCashAdvanceByReferenceNo($referenceNo)
+    {
+        $referenceNo = trim((string) $referenceNo);
+        if ($referenceNo === '' || !$this->sp || !$this->sp->db) {
+            return null;
+        }
+
+        $query = $this->sp->db->get_where('tbl_cash_advance', array('cash_advance_id' => $referenceNo), 1);
         if (!$query) {
             return null;
         }
@@ -379,10 +402,47 @@ class Approvals extends MY_Controller
         }
     }
 
+    private function logCashAdvanceFieldChanges($referenceNo, $beforeRow, $afterValues)
+    {
+        if (!is_array($beforeRow) || !is_array($afterValues) || $referenceNo === '') {
+            return;
+        }
+
+        $fieldMap = array(
+            'description' => 'description',
+            'amount' => 'ca_amount',
+        );
+
+        foreach ($fieldMap as $auditField => $rowField) {
+            $oldValue = array_key_exists($rowField, $beforeRow) ? $this->normalizeAuditValue($beforeRow[$rowField]) : '';
+            $newValue = array_key_exists($auditField, $afterValues) ? $this->normalizeAuditValue($afterValues[$auditField]) : '';
+
+            if ($auditField === 'amount') {
+                $oldValue = $this->normalizeAuditDecimal($oldValue);
+                $newValue = $this->normalizeAuditDecimal($newValue);
+            }
+
+            if ($oldValue === $newValue) {
+                continue;
+            }
+
+            $this->logAuditTrail(
+                'CASH_ADVANCE',
+                $referenceNo,
+                'UPDATED_ITEM',
+                'HEADER',
+                $referenceNo,
+                $auditField,
+                $oldValue,
+                $newValue
+            );
+        }
+    }
+
     /**
      * Persist approver-side liquidation item edits during final review submission.
      */
-    private function updateLiquidationEditableFields($detailId, $description, $invoiceReceiptNo, $documentDate, $actualAmount, $expenseCategory, $isVatable, $netAmount, $vatAmount, $vendorName, $vendorAddress, $vendorTin)
+    private function updateLiquidationEditableFields($detailId, $description, $invoiceReceiptNo, $documentDate, $actualAmount, $expenseCategory, $isVatable, $netAmount, $vatAmount, $vendorName, $vendorAddress, $vendorTin, $approvedGrossAmount = null)
     {
         $detailId = (int) $detailId;
         if ($detailId <= 0) {
@@ -402,10 +462,40 @@ class Approvals extends MY_Controller
             'VendorName' => trim((string) $vendorName),
             'VendorAddress' => trim((string) $vendorAddress),
             'VendorTin' => trim((string) $vendorTin),
+            'ApprovedGrossAmount' => $approvedGrossAmount !== null ? (float) $approvedGrossAmount : (float) $actualAmount,
         );
 
         return $this->sp->createData(
             build_sp('sp_update_liquidation_detail_review', count($params)),
+            $params
+        ) === TRUE;
+    }
+
+    /**
+     * Persist approver-side cash advance editable fields during final review submission.
+     */
+    private function updateCashAdvanceEditableFields($referenceNo, $description, $amount, $updatedBy, $approvedAmount = null, $approvedAmountInWords = '')
+    {
+        $referenceNo = trim((string) $referenceNo);
+        if ($referenceNo === '') {
+            return false;
+        }
+
+        $params = array(
+            'ReferenceNo' => $referenceNo,
+            'Description' => trim((string) $description),
+            'Amount' => (float) $amount,
+            'UpdatedBy' => (int) $updatedBy,
+        );
+
+        // If approved amount is provided, update it too
+        if ($approvedAmount !== null) {
+            $params['ApprovedAmount'] = (float) $approvedAmount;
+            $params['ApprovedAmountInWords'] = trim((string) $approvedAmountInWords);
+        }
+
+        return $this->sp->createData(
+            build_sp('sp_update_ca_detail_review', count($params)),
             $params
         ) === TRUE;
     }
@@ -419,11 +509,11 @@ class Approvals extends MY_Controller
             $this->output->set_content_type('application/json');
             $data = $this->getRequestPayload();
 
-            $referenceNo  = isset($data['reference_no'])  ? trim((string) $data['reference_no'])  : '';
+            $referenceNo = isset($data['reference_no']) ? trim((string) $data['reference_no']) : '';
             $costCenterId = isset($data['cost_center_id']) ? trim((string) $data['cost_center_id']) : '';
-            $payableTo    = isset($data['payable_to'])    ? trim((string) $data['payable_to'])    : '';
-            $address      = isset($data['address'])      ? trim((string) $data['address'])      : '';
-            $io           = isset($data['io'])           ? trim((string) $data['io'])           : '';
+            $payableTo = isset($data['payable_to']) ? trim((string) $data['payable_to']) : '';
+            $address = isset($data['address']) ? trim((string) $data['address']) : '';
+            $io = isset($data['io']) ? trim((string) $data['io']) : '';
 
             if ($referenceNo === '') {
                 throw new Exception('Missing required field: reference_no');
@@ -435,11 +525,11 @@ class Approvals extends MY_Controller
             }
 
             $params = array(
-                'ReferenceNo'  => $referenceNo,
+                'ReferenceNo' => $referenceNo,
                 'CostCenterId' => $costCenterId,
-                'PayableTo'    => $payableTo,
-                'Address'      => $address,
-                'UpdatedBy'    => $userId,
+                'PayableTo' => $payableTo,
+                'Address' => $address,
+                'UpdatedBy' => $userId,
             );
 
             $result = false;
@@ -593,7 +683,8 @@ class Approvals extends MY_Controller
 
                     if ($detailId > 0) {
                         $beforeRow = $this->getLiquidationDetailById($detailId);
-                        $updated = $this->updateLiquidationEditableFields($detailId, $description, $invoiceReceiptNo, $documentDate, $actualAmount, $expenseCategory, $isVatable, $netAmount, $vatAmount, $vendorName, $vendorAddress, $vendorTin);
+                        $approvedGross = isset($d['approved_amount']) ? (float) $d['approved_amount'] : $actualAmount;
+                        $updated = $this->updateLiquidationEditableFields($detailId, $description, $invoiceReceiptNo, $documentDate, $actualAmount, $expenseCategory, $isVatable, $netAmount, $vatAmount, $vendorName, $vendorAddress, $vendorTin, $approvedGross);
                         if ($updated) {
                             $this->logLiquidationDetailFieldChanges($referenceNo, $detailId, $beforeRow, array(
                                 'description' => $description,
@@ -610,6 +701,29 @@ class Approvals extends MY_Controller
                             ));
                         }
                     }
+                }
+            } elseif ($transactionType === 'CASH_ADVANCE') {
+                $firstDecision = $decisions[0];
+                $description = isset($firstDecision['description']) ? (string) $firstDecision['description'] : '';
+                $amount = isset($firstDecision['amount']) ? (float) $firstDecision['amount'] : 0;
+                $originalAmount = isset($firstDecision['original_amount']) ? (float) $firstDecision['original_amount'] : $amount;
+                $approvedAmount = isset($firstDecision['approved_amount']) ? (float) $firstDecision['approved_amount'] : $amount;
+                $approvedAmountInWords = isset($firstDecision['approved_amount_in_words']) ? (string) $firstDecision['approved_amount_in_words'] : '';
+
+                // Generate words if not provided
+                if ($approvedAmountInWords === '' && $approvedAmount > 0) {
+                    $approvedAmountInWords = $this->amountToWords($approvedAmount);
+                }
+
+                $beforeRow = $this->getCashAdvanceByReferenceNo($referenceNo);
+                $updated = $this->updateCashAdvanceEditableFields($referenceNo, $description, $amount, $userId, $approvedAmount, $approvedAmountInWords);
+
+                if ($updated) {
+                    $this->logCashAdvanceFieldChanges($referenceNo, $beforeRow, array(
+                        'description' => $description,
+                        'amount' => $amount,
+                        'approved_amount' => $approvedAmount,
+                    ));
                 }
             }
 
@@ -759,5 +873,59 @@ class Approvals extends MY_Controller
             'response' => $message,
         ));
         return;
+    }
+        /**
+     * Convert number to words (PHP version of JS amountToWords)
+     */
+    /**
+     * Convert number to words (PHP version of JS amountToWords)
+     */
+    private function amountToWords($amount)
+    {
+        $num = (float) $amount;
+        if ($num <= 0) return '';
+        
+        $ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+        $tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+        
+        $convertLessThanOneThousand = function($n) use (&$ones, &$tens) {
+            $result = '';
+            if ($n >= 100) {
+                $result .= $ones[(int)($n / 100)] . ' Hundred';
+                $n %= 100;
+                if ($n > 0) $result .= ' ';
+            }
+            if ($n < 20) {
+                $result .= $ones[$n];
+            } else {
+                $result .= $tens[(int)($n / 10)];
+                if ($n % 10 !== 0) $result .= '-' . $ones[$n % 10];
+            }
+            return trim($result);
+        };
+        
+        // Use a class method or pass by reference to avoid closure self-reference issue
+        $convert = function($n) use (&$convertLessThanOneThousand, &$convert) {
+            if ($n == 0) return 'Zero';
+            $result = '';
+            $billion = (int)($n / 1000000000);
+            $million = (int)(($n % 1000000000) / 1000000);
+            $thousand = (int)(($n % 1000000) / 1000);
+            $remainder = $n % 1000;
+            if ($billion) $result .= $convert($billion) . ' Billion ';
+            if ($million) $result .= $convert($million) . ' Million ';
+            if ($thousand) $result .= $convert($thousand) . ' Thousand ';
+            if ($remainder) $result .= $convertLessThanOneThousand($remainder);
+            return trim($result);
+        };
+        
+        $pesos = (int)$num;
+        $centavos = (int)round(($num - $pesos) * 100);
+        $words = $convert($pesos) . ' Pesos';
+        if ($centavos > 0) {
+            $words .= ' and ' . $convert($centavos) . ' Centavos';
+        }
+        $words .= ' Only';
+        return $words;
     }
 }

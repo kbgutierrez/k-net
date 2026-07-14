@@ -59,3 +59,4 @@ application/logs/*
 /vendor/
 .env
 application/config/constants.php
+application/modules/approvals/sql/sp_update_ca_detail_review.sql

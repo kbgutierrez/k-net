@@ -13,6 +13,39 @@ let reviewState = {
   decisions: {}, totalItems: 0, reviewedCount: 0, approvedAmount: 0, rejectedAmount: 0
 };
 
+/* ─── AMOUNT TO WORDS (from add.js) ─── */
+const amountToWords = (amount) => {
+  const num = parseFloat(String(amount).replace(/,/g, ''));
+  if (!num || num < 0) return '';
+  const ones = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+  const tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+  const convertLessThanOneThousand = (n) => {
+    let result = '';
+    if (n >= 100) { result += ones[Math.floor(n / 100)] + ' hundred'; n %= 100; if (n > 0) result += ' '; }
+    if (n < 20) { result += ones[n]; } else { result += tens[Math.floor(n / 10)]; if (n % 10 !== 0) result += '-' + ones[n % 10]; }
+    return result.trim();
+  };
+  const convert = (n) => {
+    if (n === 0) return 'zero';
+    let result = '';
+    const billion = Math.floor(n / 1000000000);
+    const million = Math.floor((n % 1000000000) / 1000000);
+    const thousand = Math.floor((n % 1000000) / 1000);
+    const remainder = n % 1000;
+    if (billion) result += convert(billion) + ' billion ';
+    if (million) result += convert(million) + ' million ';
+    if (thousand) result += convert(thousand) + ' thousand ';
+    if (remainder) result += convertLessThanOneThousand(remainder);
+    return result.trim();
+  };
+  const pesos = Math.floor(num);
+  const centavos = Math.round((num - pesos) * 100);
+  let words = convert(pesos) + ' pesos';
+  if (centavos > 0) words += ' and ' + convert(centavos) + ' centavos';
+  words += ' only';
+  return words.replace(/\b\w/g, (l) => l.toUpperCase());
+};
+
 /* ─── UTILITIES ─── */
 const formatPHP = n => {
   const num = Number(n) || 0;
@@ -462,8 +495,13 @@ const renderCashAdvance = (data, attachments = []) => {
         <div class="kna-overview-value">${normalizeDate(h.created_date).slice(0, 10) || '-'}</div>
       </div>
       <div class="kna-overview-cell">
-        <div class="kna-overview-label">Amount</div>
-        <div class="kna-overview-value kna-amount">${formatPHP(h.ca_amount || 0)}</div>
+        <div class="kna-overview-label">Requested Amount</div>
+        <div class="kna-overview-value kna-amount">${formatPHP(h.amount || h.ca_amount || 0)}</div>
+      </div>
+      <div class="kna-overview-cell">
+        <div class="kna-overview-label">Approved Amount</div>
+        <div class="kna-overview-value kna-amount-approved" id="caApprovedAmountDisplay">${formatPHP(h.approved_amount || h.amount || h.ca_amount || 0)}</div>
+        ${(h.approved_amount && Number(h.approved_amount) !== Number(h.amount || h.ca_amount)) ? `<div class="kna-amount-words" id="caApprovedAmountWords">${escapeHtml(h.approved_amount_in_words || amountToWords(h.approved_amount))}</div>` : ''}
       </div>
       <div class="kna-overview-cell">
         <div class="kna-overview-label">Payable To</div>
@@ -513,13 +551,13 @@ const renderCashAdvance = (data, attachments = []) => {
     <div class="kna-attach-strip-label"><i class="fas fa-paperclip"></i> Attachments</div>
     <div class="kna-attach-strip-list">
       ${attachments.map(att => {
-        const isImg = isImageFile(att.file_name);
-        const iconClass = isImg ? 'img' : (att.file_name.toLowerCase().endsWith('.pdf') ? 'pdf' : 'doc');
-        const icon = isImg ? 'fa-image' : (att.file_name.toLowerCase().endsWith('.pdf') ? 'fa-file-pdf' : 'fa-file');
-        return `<a href="${escapeHtml(att.view_url || '#')}" class="kna-attach-strip-item ${iconClass}" target="_blank" rel="noopener" title="${escapeHtml(att.original_name || att.file_name)}">
+    const isImg = isImageFile(att.file_name);
+    const iconClass = isImg ? 'img' : (att.file_name.toLowerCase().endsWith('.pdf') ? 'pdf' : 'doc');
+    const icon = isImg ? 'fa-image' : (att.file_name.toLowerCase().endsWith('.pdf') ? 'fa-file-pdf' : 'fa-file');
+    return `<a href="${escapeHtml(att.view_url || '#')}" class="kna-attach-strip-item ${iconClass}" target="_blank" rel="noopener" title="${escapeHtml(att.original_name || att.file_name)}">
           <i class="fas ${icon}"></i> ${escapeHtml(att.original_name || att.file_name)}
         </a>`;
-      }).join('')}
+  }).join('')}
     </div>
   </div>` : ''}`;
 
@@ -569,14 +607,38 @@ const renderCashAdvance = (data, attachments = []) => {
   }
 
   const caKey = 'ca_' + h.id, caAmount = Number(h.ca_amount) || 0;
-  reviewState.decisions[caKey] = { decision: null, remark: '', amount: caAmount, actualAmount: caAmount, detail_id: null, approval_per_item_id: null, item_status: 'PENDING', isOwnDecision: true, isReadOnly: false };
+  const caDescription = normalizeDate(h.description || '');
+  const originalAmount = Number(h.amount || h.ca_amount || 0);
+  const approvedAmount = Number(h.approved_amount || 0);
+  const displayAmount = approvedAmount > 0 ? approvedAmount : originalAmount;
+
+  reviewState.decisions[caKey] = {
+    decision: null,
+    remark: '',
+    amount: displayAmount,
+    originalAmount: originalAmount,
+    approvedAmount: approvedAmount,
+    actualAmount: displayAmount,
+    description: caDescription,
+    detail_id: null,
+    approval_per_item_id: null,
+    item_status: 'PENDING',
+    isOwnDecision: true,
+    isReadOnly: false
+  };
 
   const desktopHtml = `<div class="kna-review-desktop kna-review-desktop-ca"><div class="kna-review-table-shell">
-    <div class="kna-review-table-wrap-main"><table class="table table-sm kna-review-table-main"><thead><tr><th>Description</th><th class="text-right">Amount</th></tr></thead><tbody><tr data-item-key="${caKey}"><td>${escapeHtml(h.description || '-')}</td><td class="text-right kna-amount-main">${formatPHP(h.ca_amount || 0)}</td></tr></tbody></table></div>
+    <div class="kna-review-table-wrap-main"><table class="table table-sm kna-review-table-main"><thead><tr><th>Description</th><th class="text-right">Amount</th></tr></thead><tbody><tr data-item-key="${caKey}"><td><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-ca-description" data-key="${caKey}" value="${escapeHtml(caDescription)}" placeholder="Description"></td><td>
+  <div class="kna-amount-input-wrap">
+    ${approvedAmount > 0 && approvedAmount !== originalAmount ? `<div class="kna-original-amount-strike">${formatPHP(originalAmount)}</div>` : ''}
+    <input type="number" step="0.01" min="0" class="form-control form-control-sm kna-inline-edit-input kna-edit-ca-amount text-right" data-key="${caKey}" value="${escapeHtml(displayAmount)}" placeholder="0.00">
+  </div>
+</td>
+</tr></tbody></table></div>
     <div class="kna-review-table-wrap-action"><table class="table table-sm kna-review-table-action"><thead><tr><th>Action</th></tr></thead><tbody><tr data-item-key="${caKey}"><td class="kna-col-action"><div class="kna-item-decision"><div class="kna-toggle-group"><button type="button" class="kna-toggle-btn is-approve" data-decision="approve" data-key="${caKey}" title="Approve"><i class="fas fa-check"></i></button><button type="button" class="kna-toggle-btn is-reject" data-decision="reject" data-key="${caKey}" title="Reject"><i class="fas fa-times"></i></button></div><textarea class="kna-item-remark d-none" data-key="${caKey}" placeholder="Remarks are required for rejection..."></textarea><button type="button" class="kna-cancel-reject d-none" data-cancel-reject data-key="${caKey}" title="Cancel rejection"><i class="fas fa-undo"></i> Cancel</button></div></td></tr></tbody></table></div>
   </div><div class="kna-review-footer"><div class="kna-review-footer-main"><span class="kna-review-footer-label">Total Requested</span><div class="kna-review-footer-amount kna-amount-main">${formatPHP(h.ca_amount || 0)}</div></div></div></div>`;
 
-  const mobileHtml = `<div class="kna-exp-mobile"><div class="kna-exp-card" data-item-key="${caKey}"><div class="kna-exp-card-head"><div><div class="kna-exp-card-title">${escapeHtml(h.description || 'Cash Advance')}</div><div class="kna-exp-card-meta">Ref: ${escapeHtml(h.reference_no || '-')}</div></div><div class="kna-exp-card-amount"><div class="kna-amount-main">${formatPHP(h.ca_amount || 0)}</div></div></div><div class="kna-item-decision"><div class="kna-toggle-group"><button type="button" class="kna-toggle-btn is-approve" data-decision="approve" data-key="${caKey}"><i class="fas fa-check"></i> Approve</button><button type="button" class="kna-toggle-btn is-reject" data-decision="reject" data-key="${caKey}"><i class="fas fa-times"></i> Reject</button></div><textarea class="kna-item-remark d-none" data-key="${caKey}" placeholder="Remarks are required for rejection..."></textarea><button type="button" class="kna-cancel-reject d-none" data-cancel-reject data-key="${caKey}"><i class="fas fa-undo"></i> Cancel</button></div></div></div>`;
+  const mobileHtml = `<div class="kna-exp-mobile"><div class="kna-exp-card" data-item-key="${caKey}"><div class="kna-exp-card-head"><div><div class="kna-exp-card-title">${escapeHtml(h.description || 'Cash Advance')}</div><div class="kna-exp-card-meta">Ref: ${escapeHtml(h.reference_no || '-')}</div></div><div class="kna-exp-card-amount"><div class="kna-amount-main">${formatPHP(displayAmount)}</div>${approvedAmount > 0 && approvedAmount !== originalAmount ? `<div class="kna-amount-breakdown"><s>${formatPHP(originalAmount)}</s> original</div>` : ''}</div></div><div class="kna-exp-card-grid"><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Description</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-ca-description" data-key="${caKey}" value="${escapeHtml(caDescription)}" placeholder="Description"></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Amount</span><span class="kna-exp-card-value"><input type="number" step="0.01" min="0" class="form-control form-control-sm kna-inline-edit-input kna-edit-ca-amount text-right" data-key="${caKey}" value="${escapeHtml(displayAmount)}" placeholder="0.00"></span></div></div><div class="kna-item-decision"><div class="kna-toggle-group"><button type="button" class="kna-toggle-btn is-approve" data-decision="approve" data-key="${caKey}"><i class="fas fa-check"></i> Approve</button><button type="button" class="kna-toggle-btn is-reject" data-decision="reject" data-key="${caKey}"><i class="fas fa-times"></i> Reject</button></div><textarea class="kna-item-remark d-none" data-key="${caKey}" placeholder="Remarks are required for rejection..."></textarea><button type="button" class="kna-cancel-reject d-none" data-cancel-reject data-key="${caKey}"><i class="fas fa-undo"></i> Cancel</button></div></div></div>`;
 
   if (domReview.viewApprovalItems) domReview.viewApprovalItems.innerHTML = desktopHtml + mobileHtml;
   requestAnimationFrame(() => requestAnimationFrame(syncRowHeights));
@@ -591,7 +653,7 @@ const renderLiquidation = (data, attachments = []) => {
 
   const first = data[0], requesterName = first.user_name || '-', cashAdvanceAmount = Number(first.ca_amount) || 0;
   const totalLiquidated = data.reduce((s, item) => s + (Number(item.gross_amount ?? item.lq_amount) || 0), 0), varianceAmount = Number(first.variance) || 0;
-   const hasCaAttachments = attachments && attachments.length > 0;
+  const hasCaAttachments = attachments && attachments.length > 0;
   const approvalPdfUrl = resolveApprovalPdfUrl(first), hasApprovalPdf = Boolean(approvalPdfUrl);
 
   const liquidationIo = normalizeDate(first.io || first.io_number || first.io_no || '');
@@ -652,16 +714,16 @@ const renderLiquidation = (data, attachments = []) => {
     <div class="kna-attach-strip-label"><i class="fas fa-paperclip"></i> Attachments</div>
     <div class="kna-attach-strip-list">
       ${attachments.map(att => {
-        const isImg = isImageFile(att.file_name);
-        const iconClass = isImg ? 'img' : (att.file_name.toLowerCase().endsWith('.pdf') ? 'pdf' : 'doc');
-        const icon = isImg ? 'fa-image' : (att.file_name.toLowerCase().endsWith('.pdf') ? 'fa-file-pdf' : 'fa-file');
-        return `<a href="${escapeHtml(att.view_url || '#')}" class="kna-attach-strip-item ${iconClass}" target="_blank" rel="noopener" title="${escapeHtml(att.original_name || att.file_name)}">
+    const isImg = isImageFile(att.file_name);
+    const iconClass = isImg ? 'img' : (att.file_name.toLowerCase().endsWith('.pdf') ? 'pdf' : 'doc');
+    const icon = isImg ? 'fa-image' : (att.file_name.toLowerCase().endsWith('.pdf') ? 'fa-file-pdf' : 'fa-file');
+    return `<a href="${escapeHtml(att.view_url || '#')}" class="kna-attach-strip-item ${iconClass}" target="_blank" rel="noopener" title="${escapeHtml(att.original_name || att.file_name)}">
           <i class="fas ${icon}"></i> ${escapeHtml(att.original_name || att.file_name)}
         </a>`;
-      }).join('')}
+  }).join('')}
     </div>
   </div>` : ''}`;
-  
+
 
   if (domReview.reviewHeaderFields) domReview.reviewHeaderFields.innerHTML = overviewHtml;
 
@@ -699,9 +761,11 @@ const renderLiquidation = (data, attachments = []) => {
 
   data.forEach((item, idx) => {
     const key = item.liquidation_id + '_' + idx;
-    const amount = Number(item.gross_amount ?? item.lq_amount) || 0;
+       const originalAmount = Number(item.gross_amount ?? item.lq_amount) || 0;
+    const approvedGross = Number(item.approved_gross_amount || item.approved_amount || 0);
+    const displayAmount = approvedGross > 0 ? approvedGross : originalAmount;
     const originalIsVatable = Boolean(Number(item.is_vatable));
-    const vatCalc = calculateVat(amount, originalIsVatable);
+    const vatCalc = calculateVat(displayAmount, originalIsVatable);
     const detailId = item.id || 0;
     const approvalPerItemId = item.approval_per_item_id || 0;
     const itemStatus = item.item_status || 'PENDING';
@@ -724,13 +788,13 @@ const renderLiquidation = (data, attachments = []) => {
     reviewState.decisions[key] = {
       decision: null,
       remark: '',
-      amount,
+      amount: displayAmount,
       isVatable: originalIsVatable,
       originalIsVatable,
       netAmount: vatCalc.netAmount,
       vatAmount: vatCalc.vatAmount,
-      actualAmount: amount,
-      liquidatedAmount: amount,
+      actualAmount: displayAmount,
+      liquidatedAmount: displayAmount,
       detail_id: detailId,
       approval_per_item_id: approvalPerItemId,
       item_status: itemStatus,
@@ -763,7 +827,11 @@ const renderLiquidation = (data, attachments = []) => {
     const categoryInputHtml = `<select class="form-control form-control-sm kna-inline-edit-input kna-edit-category" data-key="${key}" ${disabledAttr}>${categoryOptionsHtml}</select>`;
     const invoiceInputHtml = `<input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-invoice" data-key="${key}" value="${escapeHtml(initialInvoice)}" placeholder="Invoice/Receipt" ${disabledAttr}>`;
     const docDateInputHtml = `<input type="date" class="form-control form-control-sm kna-inline-edit-input kna-edit-docdate" data-key="${key}" value="${escapeHtml(initialDocDate)}" ${disabledAttr}>`;
-    const grossInputHtml = `<input type="number" step="0.01" min="0" class="form-control form-control-sm kna-inline-edit-input kna-edit-gross" data-key="${key}" value="${escapeHtml(amount)}" ${disabledAttr}>`;
+    const grossInputHtml = `
+      <div class="kna-amount-input-wrap">
+        ${approvedGross > 0 && approvedGross !== originalAmount ? `<div class="kna-original-amount-strike">${formatPHP(originalAmount)}</div>` : ''}
+        <input type="number" step="0.01" min="0" class="form-control form-control-sm kna-inline-edit-input kna-edit-gross text-right" data-key="${key}" value="${escapeHtml(displayAmount)}" ${disabledAttr}>
+      </div>`;
     const vendorInputHtml = `<div class="kna-vendor-edit-wrap"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-name" data-key="${key}" value="${escapeHtml(initialVendorName)}" placeholder="Vendor name" ${disabledAttr}><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-address" data-key="${key}" value="${escapeHtml(initialVendorAddress)}" placeholder="Vendor address" ${disabledAttr}><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-tin" data-key="${key}" value="${escapeHtml(initialVendorTin)}" placeholder="TIN" ${disabledAttr}></div>`;
 
     mainRows += `<tr data-item-key="${key}" class="${rowClass}"><td class="text-center kna-rownum">${idx + 1}</td><td class="kna-col-description">${descriptionInputHtml}</td><td class="kna-col-category">${categoryInputHtml}</td><td>${invoiceInputHtml}</td><td>${docDateInputHtml}</td><td class="text-right kna-amount-main">${grossInputHtml}</td><td class="text-center kna-vat-cell"><label class="kna-vat-indicator"><input type="checkbox" class="kna-vat-check kna-vat-approver" data-key="${key}" ${originalIsVatable ? 'checked' : ''} ${disabledAttr}></label></td><td class="text-right kna-net-cell">${formatPHP(vatCalc.netAmount)}</td><td class="text-right kna-vat-amt-cell">${formatPHP(vatCalc.vatAmount)}</td><td>${attachHtml}</td><td class="kna-col-vendor">${vendorInputHtml}</td></tr>`;
@@ -961,6 +1029,33 @@ const bindDecisionEvents = () => {
     }
     const key = e.target.getAttribute('data-key');
     if (!key || !reviewState.decisions[key]) return;
+    if (e.target.classList.contains('kna-edit-ca-description')) {
+      reviewState.decisions[key].description = e.target.value;
+      syncEditableFieldInputs(key, 'kna-edit-ca-description', e.target.value, e.target);
+      return;
+    }
+    if (e.target.classList.contains('kna-edit-ca-amount')) {
+      const amount = Number(e.target.value);
+      const normalizedAmount = Number.isFinite(amount) && amount >= 0 ? amount : 0;
+      reviewState.decisions[key].amount = normalizedAmount;
+      reviewState.decisions[key].actualAmount = normalizedAmount;
+      reviewState.decisions[key].approvedAmount = normalizedAmount;
+      // Update amount in words
+      const words = amountToWords(normalizedAmount);
+      reviewState.decisions[key].approvedAmountInWords = words;
+      // Update display
+      const wordsEl = document.getElementById('caApprovedAmountWords');
+      if (wordsEl) wordsEl.textContent = words;
+      const displayEl = document.getElementById('caApprovedAmountDisplay');
+      if (displayEl) displayEl.textContent = formatPHP(normalizedAmount);
+      const footerEl = document.getElementById('caFooterApprovedAmount');
+      if (footerEl) footerEl.textContent = formatPHP(normalizedAmount);
+      const mobileEl = document.getElementById('caMobileApprovedAmount');
+      if (mobileEl) mobileEl.textContent = formatPHP(normalizedAmount);
+      syncEditableFieldInputs(key, 'kna-edit-ca-amount', e.target.value, e.target);
+      updateSummary();
+      return;
+    }
     if (e.target.classList.contains('kna-edit-category')) {
       reviewState.decisions[key].expenseCategory = e.target.value;
       syncEditableFieldInputs(key, 'kna-edit-category', e.target.value, e.target);
@@ -1061,7 +1156,7 @@ const handleSubmit = () => {
   const payload = {
     reference_no: reviewState.referenceNo, transaction_type: reviewState.transactionType,
     overall_remarks: domReview.reviewerRemarks ? domReview.reviewerRemarks.value : '',
-    decisions: keys.map(k => { const d = decisions[k]; return { item_key: k, decision: d.decision, remark: d.remark, amount: d.amount, is_vatable: d.isVatable, net_amount: d.netAmount, vat_amount: d.vatAmount, actual_amount: d.actualAmount, detail_id: d.detail_id || null, description: d.description || '', invoice_receipt_no: d.invoiceReceiptNo || '', document_date: d.documentDate || '', expense_category: d.expenseCategory || '', vendor_name: d.vendorName || '', vendor_address: d.vendorAddress || '', vendor_tin: d.vendorTin || '' }; }).filter(d => d.decision !== null)
+    decisions: keys.map(k => { const d = decisions[k]; return { item_key: k, decision: d.decision, remark: d.remark, amount: d.amount, original_amount: d.originalAmount || d.amount, approved_amount: d.approvedAmount || d.amount, approved_amount_in_words: d.approvedAmountInWords || '', is_vatable: d.isVatable, net_amount: d.netAmount, vat_amount: d.vatAmount, actual_amount: d.actualAmount, detail_id: d.detail_id || null, description: d.description || '', invoice_receipt_no: d.invoiceReceiptNo || '', document_date: d.documentDate || '', expense_category: d.expenseCategory || '', vendor_name: d.vendorName || '', vendor_address: d.vendorAddress || '', vendor_tin: d.vendorTin || '' }; }).filter(d => d.decision !== null)
   };
   const btn = domReview.btnSubmitDecision;
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Submitting...'; }
@@ -1073,7 +1168,7 @@ const handleSubmit = () => {
     },
     error(xhr) {
       let msg = 'Server error during submission.';
-      try { const resp = JSON.parse(xhr.responseText); if (resp.response) msg = resp.response; } catch (e) {}
+      try { const resp = JSON.parse(xhr.responseText); if (resp.response) msg = resp.response; } catch (e) { }
       Swal.fire({ icon: 'error', title: 'Server Error', text: msg, confirmButtonText: 'OK', confirmButtonColor: '#e03131' });
       if (btn) { btn.disabled = false; updateSubmitButtonState(); }
     }

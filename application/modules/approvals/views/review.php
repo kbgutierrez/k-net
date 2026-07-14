@@ -681,6 +681,26 @@
         border: 1px solid #fecaca; border-radius: 4px; padding: 6px 8px;
         text-align: left; line-height: 1.4; max-width: 160px; word-break: break-word;
     }
+    /* ─── Amount Comparison Styles ─── */
+.kna-amount-original { font-weight: 600; color: #6b7280; text-decoration: line-through; font-size: 12px; }
+.kna-amount-approved { font-weight: 700; color: #059669; font-size: 14px; }
+.kna-amount-input-wrap { display: flex; flex-direction: column; gap: 2px; }
+.kna-original-amount-strike { font-size: 10px; color: #9ca3af; text-decoration: line-through; margin-bottom: 2px; }
+.kna-amount-words { font-size: 10px; color: #6b7280; font-style: italic; margin-top: 2px; }
+.kna-amount-breakdown { font-size: 10px; color: #9ca3af; margin-top: 2px; }
+.kna-amount-breakdown s { color: #9ca3af; }
+
+/* Footer dual amount display */
+.kna-review-footer-main { display: flex; align-items: center; justify-content: flex-end; gap: 24px; }
+.kna-review-footer-original, .kna-review-footer-approved { text-align: right; }
+.kna-review-footer-original .kna-review-footer-amount { color: #6b7280; text-decoration: line-through; font-size: 13px; }
+.kna-review-footer-approved .kna-review-footer-amount { color: #0f766e; font-size: 16px; }
+
+/* Overview amount change notice */
+.kna-amount-change-notice { background: #f0fdf4; }
+.kna-amount-from { color: #6b7280; text-decoration: line-through; font-weight: 600; }
+.kna-amount-to { color: #059669; font-weight: 700; }
+.kna-amount-words { color: #6b7280; font-size: 11px; font-style: italic; margin-left: 8px; }
 </style>
 
 <div class="page-inner kna-page">
