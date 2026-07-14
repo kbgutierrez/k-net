@@ -7,6 +7,7 @@ const domAdd = {
 	newNeededDate: null,
 	newPurpose: null,
 	newCostCenter: null,
+	newIONumber: null,
 	newAttachments: null,
 	btnSaveNewCashAdvance: null,
 };
@@ -178,6 +179,7 @@ const handleSave = () => {
 		formData.append('Description', fields.purpose);
 		formData.append('NeededDate', fields.neededDate);
 		formData.append('CostCenterId', fields.costCenter);
+		formData.append('IONumber', domAdd.newIONumber ? domAdd.newIONumber.value.trim() : '');
 
 		const files = domAdd.newAttachments.files;
 		for (let i = 0; i < files.length; i++) {
@@ -225,6 +227,7 @@ const cacheAddDom = () => {
 	domAdd.newNeededDate = document.getElementById('newNeededDate');
 	domAdd.newPurpose = document.getElementById('newPurpose');
 	domAdd.newCostCenter = document.getElementById('newCostCenter');
+	domAdd.newIONumber = document.getElementById('newIONumber');
 	domAdd.newAttachments = document.getElementById('newAttachments');
 	domAdd.btnSaveNewCashAdvance = document.getElementById('btnSaveNewCashAdvance');
 };

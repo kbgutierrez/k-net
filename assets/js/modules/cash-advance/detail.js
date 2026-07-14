@@ -6,6 +6,8 @@ const domDetail = {
 	viewNeededDate: null,
 	viewStatus: null,
 	viewPurpose: null,
+	viewCostCenter: null,
+	viewIONumber: null,
 	viewTimeline: null,
 	viewPdfSection: null,
 	viewPdfState: null,
@@ -550,8 +552,6 @@ const renderAttachments = (attachments) => {
         const { icon, css } = getFileIconClass(fileName);
         const isImage = isImageFile(fileName);
 
- 
-
         const downloadBtn = downloadUrl
             ? `<a href="${escapeHtml(downloadUrl)}" class="btn btn-sm btn-outline-secondary" title="Download">
                  <i class="fas fa-download"></i>
@@ -586,7 +586,6 @@ const renderAttachments = (attachments) => {
                     </div>
                 </div>
                 <div class="kna-attachment-actions">
-               
                     ${downloadBtn}
                 </div>
             </div>
@@ -650,8 +649,6 @@ const loadAttachments = () => {
         });
 };
 
-
-
 const cacheDetailDom = () => {
 	domDetail.cashAdvanceRef = document.getElementById('cashAdvanceRef');
 	domDetail.viewRefNo = document.getElementById('viewRefNo');
@@ -660,6 +657,8 @@ const cacheDetailDom = () => {
 	domDetail.viewNeededDate = document.getElementById('viewNeededDate');
 	domDetail.viewStatus = document.getElementById('viewStatus');
 	domDetail.viewPurpose = document.getElementById('viewPurpose');
+	domDetail.viewCostCenter = document.getElementById('viewCostCenter');
+	domDetail.viewIONumber = document.getElementById('viewIONumber');
 	domDetail.viewTimeline = document.getElementById('viewTimeline');
 	domDetail.viewPdfSection = document.getElementById('viewPdfSection');
 	domDetail.viewPdfState = document.getElementById('viewPdfState');
@@ -709,6 +708,22 @@ const loadDetailData = (loadTimeline = true) => {
 		}
 		if (domDetail.viewPurpose) {
 			domDetail.viewPurpose.textContent = normalizeDate(record.description || '') || '-';
+		}
+		if (domDetail.viewCostCenter) {
+			const ccId = normalizeDate(record.cost_center_id || '');
+			const ccName = normalizeDate(record.cost_center_name || '');
+			let ccDisplay = '-';
+			if (ccId && ccName) {
+				ccDisplay = `${ccId} - ${ccName}`;
+			} else if (ccName) {
+				ccDisplay = ccName;
+			} else if (ccId) {
+				ccDisplay = ccId;
+			}
+			domDetail.viewCostCenter.textContent = ccDisplay;
+		}
+		if (domDetail.viewIONumber) {
+			domDetail.viewIONumber.textContent = normalizeDate(record.io_number || '') || '-';
 		}
 
 		renderDocumentPanels(record);

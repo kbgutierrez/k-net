@@ -482,7 +482,7 @@
         </div>
       </div>
 
-      <!-- Row 2: Dates -->
+      <!-- Row 2: Dates & Cost Center -->
       <div class="kna-info-row kna-info-row-3">
         <div class="form-group">
           <label class="kna-form-label">Requested Date</label>
@@ -492,6 +492,16 @@
           <label class="kna-form-label">Date Needed</label>
           <div class="kna-readonly" id="viewNeededDate">-</div>
         </div>
+        <div class="form-group">
+          <label class="kna-form-label">Cost Center</label>
+          <div class="kna-readonly" id="viewCostCenter">-</div>
+        </div>
+      </div>
+
+      <!-- IO Number -->
+      <div class="form-group col-4" style="margin-bottom:12px;">
+        <label class="kna-form-label">IO Number</label>
+        <div class="kna-readonly" id="viewIONumber">-</div>
       </div>
 
       <!-- Notes -->

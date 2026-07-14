@@ -183,7 +183,7 @@
           Cash Advance Information
         </div>
 
-        <!-- Row 1: Payable To + Date + ECA (ECA is generated, Date is auto) -->
+        <!-- Row 1: Payable To + Date + Cost Center -->
         <div class="kna-info-row kna-info-row-3">
           <div class="form-group">
             <label class="kna-form-label">Payable To <span class="text-danger">*</span></label>
@@ -211,7 +211,7 @@
             required></textarea>
         </div>
 
-        <!-- Row 3: Amount + Amount in Words -->
+        <!-- Row 3: Amount + Amount in Words + Date Needed -->
         <div class="kna-info-row kna-info-row-3">
           <div class="form-group">
             <label class="kna-form-label">Amount (PHP) <span class="text-danger">*</span></label>
@@ -227,6 +227,12 @@
             <label class="kna-form-label">Date Needed <span class="text-danger">*</span></label>
             <input type="date" class="form-control form-control-sm" id="newNeededDate" required>
           </div>
+        </div>
+
+        <!-- IO Number -->
+        <div class="form-group col-4" style="margin-bottom: 10px;">
+          <label class="kna-form-label">IO Number</label>
+          <input type="text" class="form-control form-control-sm" id="newIONumber" placeholder="Optional">
         </div>
 
         <!-- Row 4: Purpose -->

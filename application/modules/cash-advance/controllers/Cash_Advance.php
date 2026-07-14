@@ -420,7 +420,7 @@ class Cash_Advance extends MY_Controller
             $userFullName = $this->session->userdata('user_full_name') ?? 'Employee';
 
             // 1. Insert into DB (use your new SP that accepts extra fields)
-            $params = array(
+             $params = array(
                 "UserId" => $userId,
                 "Amount" => $data['Amount'],
                 "AmountInWords" => $data['AmountInWords'],
@@ -429,6 +429,7 @@ class Cash_Advance extends MY_Controller
                 "PayableTo" => $data['PayableTo'],
                 "Address" => $data['Address'],
                 "CostCenterId" => $data['CostCenterId'],
+                "IONumber" => isset($data['IONumber']) ? trim($data['IONumber']) : '',
             );
 
             $result = $this->sp->createReturnId(
