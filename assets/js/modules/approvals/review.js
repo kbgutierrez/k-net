@@ -65,6 +65,17 @@ const calculateVat = (grossAmount, isVatable) => {
   return { netAmount: Math.round(net * 100) / 100, vatAmount: Math.round(vat * 100) / 100, grossAmount: Number(grossAmount) };
 };
 
+const syncEditableFieldInputs = (key, fieldClass, value, sourceEl) => {
+  document.querySelectorAll(`.${fieldClass}[data-key="${key}"]`).forEach(el => {
+    if (el === sourceEl) return;
+    if (window.jQuery && $(el).hasClass('select2-hidden-accessible')) {
+      $(el).val(value).trigger('change.select2');
+      return;
+    }
+    el.value = value;
+  });
+};
+
 const resolveApprovalPdfUrl = row => {
   if (!row || typeof row !== 'object') return '';
   const candidates = [
@@ -233,6 +244,56 @@ const getCostCenterOptions = (selectedId) => {
   } catch (e) {
     return `<option value="">Error loading options</option>`;
   }
+};
+
+const getExpenseTypeOptions = selectedCode => {
+  const dataEl = document.getElementById('expenseTypesData');
+  if (!dataEl) return '<option value="">No expense types available</option>';
+
+  const selected = normalizeDate(selectedCode);
+  try {
+    const types = JSON.parse(dataEl.value);
+    if (!Array.isArray(types) || types.length === 0) {
+      return '<option value="">No expense types available</option>';
+    }
+
+    let hasSelected = false;
+    const options = types.map(et => {
+      const code = normalizeDate(et.expense_code || '');
+      const longText = normalizeDate(et.long_text || '');
+      if (!code) return '';
+      const label = `${code} - ${longText || code}`;
+      const isSelected = selected !== '' && code === selected;
+      if (isSelected) hasSelected = true;
+      return `<option value="${escapeHtml(code)}"${isSelected ? ' selected' : ''}>${escapeHtml(label)}</option>`;
+    }).filter(Boolean);
+
+    if (selected && !hasSelected) {
+      options.unshift(`<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)}</option>`);
+    }
+
+    options.unshift('<option value="">Select expense type</option>');
+    return options.join('');
+  } catch (e) {
+    return '<option value="">Error loading expense types</option>';
+  }
+};
+
+const initLiquidationCategorySelect2 = () => {
+  if (!(window.jQuery && $.fn.select2)) return;
+  $('.kna-edit-category').filter(function () {
+    return $(this).is(':visible') && $(this).closest('.d-none').length === 0;
+  }).each(function () {
+    const $el = $(this);
+    if ($el.hasClass('select2-hidden-accessible')) return;
+    const $dropdownParent = $el.closest('.page-inner').length ? $el.closest('.page-inner') : $(document.body);
+    $el.select2({
+      placeholder: 'Select expense type',
+      allowClear: false,
+      width: '100%',
+      dropdownParent: $dropdownParent
+    });
+  });
 };
 
 /* ─── CA HEADER EDITOR (Cost Center + Payable To + Address) ─── */
@@ -621,45 +682,104 @@ const renderLiquidation = (data, attachments = []) => {
   let mainRows = '', actionRows = '', mobileCards = '';
 
   data.forEach((item, idx) => {
-    const key = item.liquidation_id + '_' + idx, amount = Number(item.gross_amount ?? item.lq_amount) || 0, originalIsVatable = Boolean(Number(item.is_vatable));
-    const vatCalc = calculateVat(amount, originalIsVatable), detailId = item.id || 0, approvalPerItemId = item.approval_per_item_id || 0;
-    const itemStatus = item.item_status || 'PENDING', decidedBy = item.item_decided_by || null, decidedByName = item.decided_by_name || 'another approver';
-    const isMyItem = Number(item.is_my_item || 0) === 1, isOwnDecision = decidedBy ? Number(decidedBy) === currentUserId : false;
-    const isAlreadyDecided = itemStatus === 'APPROVED' || itemStatus === 'REJECTED', isReadOnly = (isAlreadyDecided && !isOwnDecision) || (!isMyItem && isAlreadyDecided);
+    const key = item.liquidation_id + '_' + idx;
+    const amount = Number(item.gross_amount ?? item.lq_amount) || 0;
+    const originalIsVatable = Boolean(Number(item.is_vatable));
+    const vatCalc = calculateVat(amount, originalIsVatable);
+    const detailId = item.id || 0;
+    const approvalPerItemId = item.approval_per_item_id || 0;
+    const itemStatus = item.item_status || 'PENDING';
+    const decidedBy = item.item_decided_by || null;
+    const decidedByName = item.decided_by_name || 'another approver';
+    const isMyItem = Number(item.is_my_item || 0) === 1;
+    const isOwnDecision = decidedBy ? Number(decidedBy) === currentUserId : false;
+    const isAlreadyDecided = itemStatus === 'APPROVED' || itemStatus === 'REJECTED';
+    const isReadOnly = (isAlreadyDecided && !isOwnDecision) || (!isMyItem && isAlreadyDecided);
 
-    reviewState.decisions[key] = { decision: null, remark: '', amount, isVatable: originalIsVatable, originalIsVatable, netAmount: vatCalc.netAmount, vatAmount: vatCalc.vatAmount, actualAmount: amount, liquidatedAmount: amount, detail_id: detailId, approval_per_item_id: approvalPerItemId, item_status: itemStatus, isOwnDecision, isReadOnly, isMyItem, decidedBy, decidedByName };
+    const initialDescription = normalizeDate(item.description || '');
+    const initialInvoice = normalizeDate(item.invoice_receipt_no || '');
+    const initialDocDate = normalizeDate(item.document_date || '').slice(0, 10);
+    const initialCategory = normalizeDate(item.expense_category || '');
+    const categoryOptionsHtml = getExpenseTypeOptions(initialCategory);
+    const initialVendorName = normalizeDate(item.vendor_name || '');
+    const initialVendorAddress = normalizeDate(item.vendor_address || '');
+    const initialVendorTin = normalizeDate(item.vendor_tin || '');
 
-    const hasAttachment = Boolean(item.attachment), attachHtml = hasAttachment ? renderAttachment(item.attachment) : '<span class="text-muted kna-small">—</span>', docDate = normalizeDate(item.document_date || '').slice(0, 10) || '—';
-    const vendorName = normalizeDate(item.vendor_name || ''), vendorAddress = normalizeDate(item.vendor_address || ''), vendorTin = normalizeDate(item.vendor_tin || '');
-    let vendorHtml = '<span class="text-muted kna-small">—</span>';
-    if (vendorName || vendorAddress || vendorTin) vendorHtml = `<div class="kna-vendor-display">${vendorName ? `<div>${escapeHtml(vendorName)}</div>` : ''}${vendorAddress ? `<div class="kna-vendor-sub">${escapeHtml(vendorAddress)}</div>` : ''}${vendorTin ? `<div class="kna-vendor-sub">TIN: ${escapeHtml(vendorTin)}</div>` : ''}</div>`;
+    reviewState.decisions[key] = {
+      decision: null,
+      remark: '',
+      amount,
+      isVatable: originalIsVatable,
+      originalIsVatable,
+      netAmount: vatCalc.netAmount,
+      vatAmount: vatCalc.vatAmount,
+      actualAmount: amount,
+      liquidatedAmount: amount,
+      detail_id: detailId,
+      approval_per_item_id: approvalPerItemId,
+      item_status: itemStatus,
+      isOwnDecision,
+      isReadOnly,
+      isMyItem,
+      decidedBy,
+      decidedByName,
+      description: initialDescription,
+      invoiceReceiptNo: initialInvoice,
+      documentDate: initialDocDate,
+      expenseCategory: initialCategory,
+      vendorName: initialVendorName,
+      vendorAddress: initialVendorAddress,
+      vendorTin: initialVendorTin
+    };
 
     const rowClass = itemStatus === 'APPROVED' ? 'is-approved' : (itemStatus === 'REJECTED' ? 'is-rejected' : '');
-    const preselectedApprove = itemStatus === 'APPROVED' ? 'is-active' : '', preselectedReject = itemStatus === 'REJECTED' ? 'is-active' : '', remarkVisible = itemStatus === 'REJECTED' ? '' : 'd-none';
-    const disabledAttr = isReadOnly ? 'disabled' : '', readonlyAttr = isReadOnly ? 'readonly' : '';
+    const preselectedApprove = itemStatus === 'APPROVED' ? 'is-active' : '';
+    const preselectedReject = itemStatus === 'REJECTED' ? 'is-active' : '';
+    const remarkVisible = itemStatus === 'REJECTED' ? '' : 'd-none';
+    const disabledAttr = isReadOnly ? 'disabled' : '';
+    const readonlyAttr = isReadOnly ? 'readonly' : '';
 
-    mainRows += `<tr data-item-key="${key}" class="${rowClass}"><td class="text-center kna-rownum">${idx + 1}</td><td>${escapeHtml(item.description || '-')}</td><td>${escapeHtml(item.category_name || '-')}</td><td>${escapeHtml(item.invoice_receipt_no || '-')}</td><td>${docDate}</td><td class="text-right kna-amount-main">${formatPHP(amount)}</td><td class="text-center kna-vat-cell"><label class="kna-vat-indicator"><input type="checkbox" class="kna-vat-check kna-vat-approver" data-key="${key}" ${originalIsVatable ? 'checked' : ''} ${disabledAttr}></label></td><td class="text-right kna-net-cell">${formatPHP(vatCalc.netAmount)}</td><td class="text-right kna-vat-amt-cell">${formatPHP(vatCalc.vatAmount)}</td><td>${attachHtml}</td><td>${vendorHtml}</td></tr>`;
+    const hasAttachment = Boolean(item.attachment);
+    const attachHtml = hasAttachment ? renderAttachment(item.attachment) : '<span class="text-muted kna-small">—</span>';
+    const attachNames = (item.attachment || '').split(',').map(s => s.trim()).filter(Boolean);
 
-    const actionCellHtml = isReadOnly ? renderReadOnlyAction(itemStatus, decidedByName, item.item_remarks) : `<div class="kna-item-decision"><div class="kna-toggle-group"><button type="button" class="kna-toggle-btn is-approve ${preselectedApprove}" data-decision="approve" data-key="${key}" ${disabledAttr}><i class="fas fa-check"></i></button><button type="button" class="kna-toggle-btn is-reject ${preselectedReject}" data-decision="reject" data-key="${key}" ${disabledAttr}><i class="fas fa-times"></i></button></div><textarea class="kna-item-remark ${remarkVisible}" data-key="${key}" ${readonlyAttr} placeholder="Remarks are required for rejection...">${escapeHtml(item.item_remarks || '')}</textarea><button type="button" class="kna-cancel-reject ${remarkVisible === '' ? '' : 'd-none'}" data-cancel-reject data-key="${key}" title="Cancel rejection"><i class="fas fa-undo"></i> Cancel</button></div>`;
+    const descriptionInputHtml = `<input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-description" data-key="${key}" value="${escapeHtml(initialDescription)}" placeholder="Description" ${disabledAttr}>`;
+    const categoryInputHtml = `<select class="form-control form-control-sm kna-inline-edit-input kna-edit-category" data-key="${key}" ${disabledAttr}>${categoryOptionsHtml}</select>`;
+    const invoiceInputHtml = `<input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-invoice" data-key="${key}" value="${escapeHtml(initialInvoice)}" placeholder="Invoice/Receipt" ${disabledAttr}>`;
+    const docDateInputHtml = `<input type="date" class="form-control form-control-sm kna-inline-edit-input kna-edit-docdate" data-key="${key}" value="${escapeHtml(initialDocDate)}" ${disabledAttr}>`;
+    const grossInputHtml = `<input type="number" step="0.01" min="0" class="form-control form-control-sm kna-inline-edit-input kna-edit-gross" data-key="${key}" value="${escapeHtml(amount)}" ${disabledAttr}>`;
+    const vendorInputHtml = `<div class="kna-vendor-edit-wrap"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-name" data-key="${key}" value="${escapeHtml(initialVendorName)}" placeholder="Vendor name" ${disabledAttr}><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-address" data-key="${key}" value="${escapeHtml(initialVendorAddress)}" placeholder="Vendor address" ${disabledAttr}><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-tin" data-key="${key}" value="${escapeHtml(initialVendorTin)}" placeholder="TIN" ${disabledAttr}></div>`;
+
+    mainRows += `<tr data-item-key="${key}" class="${rowClass}"><td class="text-center kna-rownum">${idx + 1}</td><td class="kna-col-description">${descriptionInputHtml}</td><td class="kna-col-category">${categoryInputHtml}</td><td>${invoiceInputHtml}</td><td>${docDateInputHtml}</td><td class="text-right kna-amount-main">${grossInputHtml}</td><td class="text-center kna-vat-cell"><label class="kna-vat-indicator"><input type="checkbox" class="kna-vat-check kna-vat-approver" data-key="${key}" ${originalIsVatable ? 'checked' : ''} ${disabledAttr}></label></td><td class="text-right kna-net-cell">${formatPHP(vatCalc.netAmount)}</td><td class="text-right kna-vat-amt-cell">${formatPHP(vatCalc.vatAmount)}</td><td>${attachHtml}</td><td class="kna-col-vendor">${vendorInputHtml}</td></tr>`;
+
+    const actionCellHtml = isReadOnly
+      ? renderReadOnlyAction(itemStatus, decidedByName, item.item_remarks)
+      : `<div class="kna-item-decision"><div class="kna-toggle-group"><button type="button" class="kna-toggle-btn is-approve ${preselectedApprove}" data-decision="approve" data-key="${key}" ${disabledAttr}><i class="fas fa-check"></i></button><button type="button" class="kna-toggle-btn is-reject ${preselectedReject}" data-decision="reject" data-key="${key}" ${disabledAttr}><i class="fas fa-times"></i></button></div><textarea class="kna-item-remark ${remarkVisible}" data-key="${key}" ${readonlyAttr} placeholder="Remarks are required for rejection...">${escapeHtml(item.item_remarks || '')}</textarea><button type="button" class="kna-cancel-reject ${remarkVisible === '' ? '' : 'd-none'}" data-cancel-reject data-key="${key}" title="Cancel rejection"><i class="fas fa-undo"></i> Cancel</button></div>`;
     actionRows += `<tr data-item-key="${key}" class="${rowClass}"><td class="kna-col-action">${actionCellHtml}</td></tr>`;
 
-    const attachNames = (item.attachment || '').split(',').map(s => s.trim()).filter(Boolean);
-    const mobileDecisionHtml = isReadOnly ? `<div class="kna-item-decision mt-2"><div class="kna-readonly-status"><i class="fas ${itemStatus === 'APPROVED' ? 'fa-check-circle' : 'fa-times-circle'}" style="color:${itemStatus === 'APPROVED' ? '#17663a' : '#e03131'};font-size:14px;"></i><span class="kna-badge ${itemStatus === 'APPROVED' ? 'kna-badge-approved' : 'kna-badge-rejected'}">${itemStatus}</span></div><div class="kna-readonly-by">by ${escapeHtml(decidedByName)}</div>${item.item_remarks ? `<div class="kna-readonly-remark">${escapeHtml(item.item_remarks)}</div>` : ''}</div>` : `<div class="kna-item-decision mt-2"><div class="kna-toggle-group"><button type="button" class="kna-toggle-btn is-approve ${preselectedApprove}" data-decision="approve" data-key="${key}" ${disabledAttr}><i class="fas fa-check"></i> Approve</button><button type="button" class="kna-toggle-btn is-reject ${preselectedReject}" data-decision="reject" data-key="${key}" ${disabledAttr}><i class="fas fa-times"></i> Reject</button></div><textarea class="kna-item-remark ${remarkVisible}" data-key="${key}" ${readonlyAttr} placeholder="Remarks are required for rejection...">${escapeHtml(item.item_remarks || '')}</textarea><button type="button" class="kna-cancel-reject ${remarkVisible === '' ? '' : 'd-none'}" data-cancel-reject data-key="${key}"><i class="fas fa-undo"></i> Cancel</button></div>`;
+    const mobileDecisionHtml = isReadOnly
+      ? `<div class="kna-item-decision mt-2"><div class="kna-readonly-status"><i class="fas ${itemStatus === 'APPROVED' ? 'fa-check-circle' : 'fa-times-circle'}" style="color:${itemStatus === 'APPROVED' ? '#17663a' : '#e03131'};font-size:14px;"></i><span class="kna-badge ${itemStatus === 'APPROVED' ? 'kna-badge-approved' : 'kna-badge-rejected'}">${itemStatus}</span></div><div class="kna-readonly-by">by ${escapeHtml(decidedByName)}</div>${item.item_remarks ? `<div class="kna-readonly-remark">${escapeHtml(item.item_remarks)}</div>` : ''}</div>`
+      : `<div class="kna-item-decision mt-2"><div class="kna-toggle-group"><button type="button" class="kna-toggle-btn is-approve ${preselectedApprove}" data-decision="approve" data-key="${key}" ${disabledAttr}><i class="fas fa-check"></i> Approve</button><button type="button" class="kna-toggle-btn is-reject ${preselectedReject}" data-decision="reject" data-key="${key}" ${disabledAttr}><i class="fas fa-times"></i> Reject</button></div><textarea class="kna-item-remark ${remarkVisible}" data-key="${key}" ${readonlyAttr} placeholder="Remarks are required for rejection...">${escapeHtml(item.item_remarks || '')}</textarea><button type="button" class="kna-cancel-reject ${remarkVisible === '' ? '' : 'd-none'}" data-cancel-reject data-key="${key}"><i class="fas fa-undo"></i> Cancel</button></div>`;
 
-    mobileCards += `<div class="kna-exp-card ${rowClass}" data-item-key="${key}"><div class="kna-exp-card-head"><div><div class="kna-exp-card-title">${escapeHtml(item.description || '-')}</div><div class="kna-exp-card-sub">${escapeHtml(item.category_name || '-')}</div><div class="kna-exp-card-meta">Inv#: ${escapeHtml(item.invoice_receipt_no || '-')} \u2022 ${docDate}</div></div><div class="kna-exp-card-amount"><div class="kna-amount-main">${formatPHP(amount)}</div></div></div><div class="kna-exp-card-grid"><div class="kna-exp-card-field"><span class="kna-exp-card-label">VAT</span><span class="kna-exp-card-value"><input type="checkbox" class="kna-vat-check kna-vat-approver" data-key="${key}" ${originalIsVatable ? 'checked' : ''} ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Net / VAT</span><span class="kna-exp-card-value">${formatPHP(vatCalc.netAmount)} / ${formatPHP(vatCalc.vatAmount)}</span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Attachment</span><span class="kna-exp-card-value">${attachNames.length ? attachNames.map(renderAttachment).join('') : '<span class="text-muted">—</span>'}</span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Vendor Name</span><span class="kna-exp-card-value">${escapeHtml(vendorName || '—')}</span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Vendor Address</span><span class="kna-exp-card-value">${escapeHtml(vendorAddress || '—')}</span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Vendor TIN</span><span class="kna-exp-card-value">${escapeHtml(vendorTin || '—')}</span></div></div>${mobileDecisionHtml}</div>`;
+    mobileCards += `<div class="kna-exp-card ${rowClass}" data-item-key="${key}"><div class="kna-exp-card-head"><div><div class="kna-exp-card-title">${escapeHtml(initialDescription || '-')}</div><div class="kna-exp-card-sub">${escapeHtml(item.category_name || '-')}</div><div class="kna-exp-card-meta">Inv#: ${escapeHtml(initialInvoice || '-')} \u2022 ${escapeHtml(initialDocDate || '—')}</div></div><div class="kna-exp-card-amount"><div class="kna-amount-main">${formatPHP(amount)}</div></div></div><div class="kna-exp-card-grid"><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Description</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-description" data-key="${key}" value="${escapeHtml(initialDescription)}" placeholder="Description" ${disabledAttr}></span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Expense Type</span><span class="kna-exp-card-value"><select class="form-control form-control-sm kna-inline-edit-input kna-edit-category" data-key="${key}" ${disabledAttr}>${categoryOptionsHtml}</select></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Invoice/Receipt</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-invoice" data-key="${key}" value="${escapeHtml(initialInvoice)}" placeholder="Invoice/Receipt" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Doc Date</span><span class="kna-exp-card-value"><input type="date" class="form-control form-control-sm kna-inline-edit-input kna-edit-docdate" data-key="${key}" value="${escapeHtml(initialDocDate)}" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Gross</span><span class="kna-exp-card-value"><input type="number" step="0.01" min="0" class="form-control form-control-sm kna-inline-edit-input kna-edit-gross" data-key="${key}" value="${escapeHtml(amount)}" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">VAT</span><span class="kna-exp-card-value"><input type="checkbox" class="kna-vat-check kna-vat-approver" data-key="${key}" ${originalIsVatable ? 'checked' : ''} ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Net / VAT</span><span class="kna-exp-card-value"><span class="kna-net-value">${formatPHP(vatCalc.netAmount)}</span> / <span class="kna-vat-value">${formatPHP(vatCalc.vatAmount)}</span></span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Attachment</span><span class="kna-exp-card-value">${attachNames.length ? attachNames.map(renderAttachment).join('') : '<span class="text-muted">—</span>'}</span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Vendor Name</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-name" data-key="${key}" value="${escapeHtml(initialVendorName)}" placeholder="Vendor name" ${disabledAttr}></span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Vendor Address</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-address" data-key="${key}" value="${escapeHtml(initialVendorAddress)}" placeholder="Vendor address" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Vendor TIN</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-tin" data-key="${key}" value="${escapeHtml(initialVendorTin)}" placeholder="TIN" ${disabledAttr}></span></div></div>${mobileDecisionHtml}</div>`;
 
-    if (itemStatus === 'APPROVED') { reviewState.decisions[key].decision = 'approve'; }
-    else if (itemStatus === 'REJECTED') { reviewState.decisions[key].decision = 'reject'; reviewState.decisions[key].remark = item.item_remarks || ''; }
+    if (itemStatus === 'APPROVED') {
+      reviewState.decisions[key].decision = 'approve';
+    } else if (itemStatus === 'REJECTED') {
+      reviewState.decisions[key].decision = 'reject';
+      reviewState.decisions[key].remark = item.item_remarks || '';
+    }
   });
 
   const desktopHtml = `<div class="kna-review-desktop"><div class="kna-review-table-shell">
-    <div class="kna-review-table-wrap-main"><table class="table table-sm kna-review-table-main"><thead><tr><th>#</th><th>Description</th><th>Category</th><th>Invoice/Receipt</th><th>Doc. Date</th><th class="text-right">Gross</th><th>VAT</th><th class="text-right">Net</th><th class="text-right">VAT Amt</th><th>Attachment</th><th>Vendor</th></tr></thead><tbody>${mainRows}</tbody></table></div>
+    <div class="kna-review-table-wrap-main"><table class="table table-sm kna-review-table-main"><thead><tr><th>#</th><th>Description</th><th>Expense Type</th><th>Invoice/Receipt</th><th>Doc. Date</th><th class="text-right">Gross</th><th>VAT</th><th class="text-right">Net</th><th class="text-right">VAT Amt</th><th>Attachment</th><th>Vendor</th></tr></thead><tbody>${mainRows}</tbody></table></div>
     <div class="kna-review-table-wrap-action"><table class="table table-sm kna-review-table-action"><thead><tr><th>Action</th></tr></thead><tbody>${actionRows}</tbody></table></div>
   </div><div class="kna-review-footer"><div class="kna-review-footer-main"><span class="kna-review-footer-label">Total Liquidated Amount</span><div class="kna-review-footer-amount kna-amount-main">${formatPHP(totalLiquidated)}</div></div></div></div>`;
 
   const mobileHtml = `<div class="kna-exp-mobile">${mobileCards}</div>`;
 
   if (domReview.viewApprovalItems) domReview.viewApprovalItems.innerHTML = desktopHtml + mobileHtml;
+  initLiquidationCategorySelect2();
   requestAnimationFrame(() => requestAnimationFrame(syncRowHeights));
 };
 
@@ -816,8 +936,80 @@ const bindDecisionEvents = () => {
       if (decision === 'reject') { if (remark) { remark.classList.remove('d-none'); remark.focus(); } toggleCancelButton(key, true); setRejectButtonIcon(btn, true); return; }
     }
   });
-  domReview.viewApprovalItems.addEventListener('input', e => { if (e.target.classList.contains('kna-item-remark')) { const key = e.target.getAttribute('data-key'); if (reviewState.decisions[key]) reviewState.decisions[key].remark = e.target.value; e.target.classList.remove('kna-remark-required'); } });
-  domReview.viewApprovalItems.addEventListener('change', e => { if (e.target.classList.contains('kna-vat-approver')) updateVatDisplay(e.target.getAttribute('data-key'), e.target.checked); });
+  domReview.viewApprovalItems.addEventListener('input', e => {
+    if (e.target.classList.contains('kna-item-remark')) {
+      const key = e.target.getAttribute('data-key');
+      if (reviewState.decisions[key]) reviewState.decisions[key].remark = e.target.value;
+      e.target.classList.remove('kna-remark-required');
+      return;
+    }
+    const key = e.target.getAttribute('data-key');
+    if (!key || !reviewState.decisions[key]) return;
+    if (e.target.classList.contains('kna-edit-category')) {
+      reviewState.decisions[key].expenseCategory = e.target.value;
+      syncEditableFieldInputs(key, 'kna-edit-category', e.target.value, e.target);
+      return;
+    }
+    if (e.target.classList.contains('kna-edit-description')) {
+      reviewState.decisions[key].description = e.target.value;
+      syncEditableFieldInputs(key, 'kna-edit-description', e.target.value, e.target);
+      return;
+    }
+    if (e.target.classList.contains('kna-edit-invoice')) {
+      reviewState.decisions[key].invoiceReceiptNo = e.target.value;
+      syncEditableFieldInputs(key, 'kna-edit-invoice', e.target.value, e.target);
+      return;
+    }
+    if (e.target.classList.contains('kna-edit-docdate')) {
+      reviewState.decisions[key].documentDate = e.target.value;
+      syncEditableFieldInputs(key, 'kna-edit-docdate', e.target.value, e.target);
+      return;
+    }
+    if (e.target.classList.contains('kna-edit-gross')) {
+      const gross = Number(e.target.value);
+      const normalizedGross = Number.isFinite(gross) && gross >= 0 ? gross : 0;
+      reviewState.decisions[key].actualAmount = normalizedGross;
+      reviewState.decisions[key].amount = normalizedGross;
+      reviewState.decisions[key].liquidatedAmount = normalizedGross;
+      syncEditableFieldInputs(key, 'kna-edit-gross', String(e.target.value), e.target);
+      updateVatDisplay(key, !!reviewState.decisions[key].isVatable);
+      updateSummary();
+      return;
+    }
+    if (e.target.classList.contains('kna-edit-vendor-name')) {
+      reviewState.decisions[key].vendorName = e.target.value;
+      syncEditableFieldInputs(key, 'kna-edit-vendor-name', e.target.value, e.target);
+      return;
+    }
+    if (e.target.classList.contains('kna-edit-vendor-address')) {
+      reviewState.decisions[key].vendorAddress = e.target.value;
+      syncEditableFieldInputs(key, 'kna-edit-vendor-address', e.target.value, e.target);
+      return;
+    }
+    if (e.target.classList.contains('kna-edit-vendor-tin')) {
+      reviewState.decisions[key].vendorTin = e.target.value;
+      syncEditableFieldInputs(key, 'kna-edit-vendor-tin', e.target.value, e.target);
+    }
+  });
+  domReview.viewApprovalItems.addEventListener('change', e => {
+    if (e.target.classList.contains('kna-vat-approver')) {
+      updateVatDisplay(e.target.getAttribute('data-key'), e.target.checked);
+      return;
+    }
+    if (e.target.classList.contains('kna-edit-category')) {
+      const key = e.target.getAttribute('data-key');
+      if (!key || !reviewState.decisions[key]) return;
+      reviewState.decisions[key].expenseCategory = e.target.value;
+      syncEditableFieldInputs(key, 'kna-edit-category', e.target.value, e.target);
+      return;
+    }
+    if (e.target.classList.contains('kna-edit-docdate')) {
+      const key = e.target.getAttribute('data-key');
+      if (!key || !reviewState.decisions[key]) return;
+      reviewState.decisions[key].documentDate = e.target.value;
+      syncEditableFieldInputs(key, 'kna-edit-docdate', e.target.value, e.target);
+    }
+  });
   domReview.viewApprovalItems.addEventListener('click', e => { const wrap = e.target.closest('[data-lightbox]'); if (wrap) openLightbox(wrap.getAttribute('data-lightbox')); });
 
   /* ─── FIX: Lightbox for CA attachments in header/overview ─── */
@@ -853,7 +1045,7 @@ const handleSubmit = () => {
   const payload = {
     reference_no: reviewState.referenceNo, transaction_type: reviewState.transactionType,
     overall_remarks: domReview.reviewerRemarks ? domReview.reviewerRemarks.value : '',
-    decisions: keys.map(k => { const d = decisions[k]; return { item_key: k, decision: d.decision, remark: d.remark, amount: d.amount, is_vatable: d.isVatable, net_amount: d.netAmount, vat_amount: d.vatAmount, actual_amount: d.actualAmount, detail_id: d.detail_id || null }; }).filter(d => d.decision !== null)
+    decisions: keys.map(k => { const d = decisions[k]; return { item_key: k, decision: d.decision, remark: d.remark, amount: d.amount, is_vatable: d.isVatable, net_amount: d.netAmount, vat_amount: d.vatAmount, actual_amount: d.actualAmount, detail_id: d.detail_id || null, description: d.description || '', invoice_receipt_no: d.invoiceReceiptNo || '', document_date: d.documentDate || '', expense_category: d.expenseCategory || '', vendor_name: d.vendorName || '', vendor_address: d.vendorAddress || '', vendor_tin: d.vendorTin || '' }; }).filter(d => d.decision !== null)
   };
   const btn = domReview.btnSubmitDecision;
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Submitting...'; }
@@ -900,5 +1092,10 @@ const cacheReviewDom = () => {
   if (domReview.btnSubmitDecision) domReview.btnSubmitDecision.addEventListener('click', submitDecisions);
 };
 
-const initReviewPage = () => { cacheReviewDom(); loadReviewData(); bindDecisionEvents(); window.addEventListener('resize', syncRowHeights); };
+const handleReviewResize = () => {
+  syncRowHeights();
+  if (reviewState.transactionType === 'LIQUIDATION') initLiquidationCategorySelect2();
+};
+
+const initReviewPage = () => { cacheReviewDom(); loadReviewData(); bindDecisionEvents(); window.addEventListener('resize', handleReviewResize); };
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initReviewPage); else initReviewPage();

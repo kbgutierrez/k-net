@@ -306,12 +306,40 @@
     .kna-review-table-shell { display: flex; width: 100%; border-bottom: 1px solid #e5ecf3; }
     .kna-review-table-wrap-main { flex: 1 1 auto; overflow-x: auto; overflow-y: hidden; }
     .kna-review-table-main {
-        min-width: 1100px; width: 100%; margin-bottom: 0; font-size: 12px;
+        min-width: 1540px; width: 100%; margin-bottom: 0; font-size: 12px;
         border-collapse: separate; border-spacing: 0;
     }
+    .kna-review-table-main th:nth-child(2), .kna-review-table-main td.kna-col-description {
+        min-width: 340px;
+        width: 340px;
+    }
     .kna-review-table-main th, .kna-review-table-main td {
-        padding: 10px; vertical-align: middle; border-bottom: 1px solid #f1f5f9;
+        padding: 5px 6px; vertical-align: middle; border-bottom: 1px solid #f1f5f9;
         border-right: 1px solid #f1f5f9; color: #1f2937; box-sizing: border-box;
+    }
+    .kna-review-table-main th:nth-child(3), .kna-review-table-main td.kna-col-category {
+        min-width: 240px;
+        width: 240px;
+    }
+    .kna-review-table-main th:nth-child(4) {
+        min-width: 170px;
+        width: 170px;
+    }
+    .kna-review-table-main th:nth-child(5) {
+        min-width: 150px;
+        width: 150px;
+    }
+    .kna-review-table-main th:nth-child(6) {
+        min-width: 150px;
+        width: 150px;
+    }
+    .kna-review-table-main th:nth-child(8), .kna-review-table-main th:nth-child(9) {
+        min-width: 130px;
+        width: 130px;
+    }
+    .kna-review-table-main th:nth-child(11), .kna-review-table-main td.kna-col-vendor {
+        min-width: 420px;
+        width: 420px;
     }
     .kna-review-table-main th {
         background: #f8fbff; font-size: 11px; font-weight: 700; color: #475569;
@@ -331,7 +359,7 @@
         border-collapse: separate; border-spacing: 0; border-left: 2px solid #e5ecf3;
     }
     .kna-review-table-action th, .kna-review-table-action td {
-        padding: 10px; vertical-align: middle; border-bottom: 1px solid #f1f5f9;
+        padding: 6px; vertical-align: middle; border-bottom: 1px solid #f1f5f9;
         text-align: center; background: #fff; box-sizing: border-box;
     }
     .kna-review-table-action th {
@@ -345,12 +373,12 @@
 
     .kna-col-action {
         width: 180px; min-width: 180px; max-width: 180px;
-        padding: 10px !important; text-align: center;
+        padding: 6px !important; text-align: center;
     }
 
     /* ─── Toggle Decision Buttons ─── */
     .kna-item-decision {
-        display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%;
+        display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%;
     }
     .kna-toggle-group {
         display: flex; width: 100%; border: 1.5px solid #d1d5db;
@@ -358,7 +386,7 @@
     }
     .kna-toggle-btn {
         flex: 1; border: none; background: #fff; font-size: 11px; font-weight: 700;
-        padding: 7px 4px; cursor: pointer; color: #6b7280; transition: all .15s ease;
+        padding: 5px 4px; cursor: pointer; color: #6b7280; transition: all .15s ease;
         line-height: 1.2; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
     }
     .kna-toggle-btn:first-child { border-right: 1.5px solid #d1d5db; }
@@ -544,6 +572,80 @@
     .kna-vendor-display { font-size: 12px; line-height: 1.4; }
     .kna-vendor-sub { font-size: 11px; color: #6b7280; margin-top: 2px; }
 
+    .kna-inline-edit-input {
+        font-size: 11px;
+        line-height: 1.2;
+        padding: 3px 7px !important;
+        height: 26px !important;
+        min-height: 26px !important;
+        border: 1px solid #d1d5db;
+        border-radius: 4px;
+        width: 100%;
+        background: #fff;
+        box-sizing: border-box;
+    }
+    .kna-review-items-body .form-control.form-control-sm.kna-inline-edit-input,
+    .kna-review-items-body input.kna-inline-edit-input,
+    .kna-review-items-body select.kna-inline-edit-input {
+        height: 26px !important;
+        min-height: 26px !important;
+        padding: 3px 7px !important;
+        font-size: 11px !important;
+        line-height: 1.2 !important;
+    }
+    .kna-inline-edit-input:focus {
+        border-color: #2f6eb4;
+        box-shadow: 0 0 0 2px rgba(47, 110, 180, 0.08);
+    }
+    .kna-vendor-edit-wrap {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 4px;
+    }
+    .kna-review-table-main td.kna-col-vendor .kna-vendor-edit-wrap {
+        grid-template-columns: 1.1fr 1.3fr 0.8fr;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .kna-review-items-body .select2-container {
+        width: 100% !important;
+    }
+    .kna-review-items-body .select2-container .select2-selection--single {
+        height: 26px !important;
+        min-height: 26px !important;
+        border-color: #d1d5db !important;
+        border-radius: 4px !important;
+        box-sizing: border-box;
+    }
+    .kna-review-items-body .select2-container .select2-selection__rendered {
+        line-height: 24px !important;
+        font-size: 11px;
+        padding-left: 7px !important;
+        padding-right: 24px !important;
+    }
+    .kna-review-items-body .select2-container .select2-selection__arrow {
+        height: 24px !important;
+    }
+    .kna-review-items-body .select2-container--open,
+    .kna-review-items-body .select2-dropdown {
+        z-index: 2100;
+    }
+
+    .kna-review-table-main td input[type="date"].kna-inline-edit-input {
+        padding-right: 26px;
+    }
+    .kna-review-items-body .select2-container--default .select2-selection--single:focus,
+    .kna-review-items-body .select2-container--default.select2-container--focus .select2-selection--single {
+        border-color: #2f6eb4 !important;
+        box-shadow: 0 0 0 2px rgba(47, 110, 180, 0.08);
+    }
+
+    .kna-review-table-main td .kna-inline-edit-input,
+    .kna-exp-card .kna-inline-edit-input {
+        margin: 0;
+    }
+
     .kna-cancel-reject {
         display: flex; align-items: center; justify-content: center; gap: 4px;
         width: 100%; padding: 5px 8px; margin-top: 6px; border: 1px solid #d1d5db;
@@ -575,8 +677,19 @@
             );
         }
     }
+
+    $expenseTypeData = array();
+    if (!empty($expense_types) && is_array($expense_types)) {
+        foreach ($expense_types as $et) {
+            $expenseTypeData[] = array(
+                'expense_code' => isset($et['expense_code']) ? $et['expense_code'] : '',
+                'long_text' => isset($et['long_text']) ? $et['long_text'] : '',
+            );
+        }
+    }
     ?>
     <input type="hidden" id="costCentersData" value="<?=html_escape(json_encode($ccData));?>">
+    <input type="hidden" id="expenseTypesData" value="<?=html_escape(json_encode($expenseTypeData));?>">
 
     <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap" style="gap: 8px;">
         <div>

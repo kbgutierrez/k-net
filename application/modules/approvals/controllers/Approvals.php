@@ -31,6 +31,11 @@ class Approvals extends MY_Controller
             $costCenters = array();
         }
 
+        $expenseTypes = $this->sp->fetchData('sp_fetch_expense_types');
+        if (!is_array($expenseTypes)) {
+            $expenseTypes = array();
+        }
+
         $data = array(
             'title' => 'Review Approval',
             'main_view' => '../modules/approvals/views/review',
@@ -38,6 +43,7 @@ class Approvals extends MY_Controller
             'module' => $this->module,
             'approval_id' => $approval_id,
             'cost_centers' => $costCenters,
+            'expense_types' => $expenseTypes,
             'scripts' => array('review.js'),
         );
         $this->load->view('main', $data);
@@ -264,6 +270,146 @@ class Approvals extends MY_Controller
         return base_url($relative);
     }
 
+    private function getLiquidationDetailById($detailId)
+    {
+        $detailId = (int) $detailId;
+        if ($detailId <= 0 || !$this->sp || !$this->sp->db) {
+            return null;
+        }
+
+        $query = $this->sp->db->get_where('tbl_liquidation_details', array('id' => $detailId), 1);
+        if (!$query) {
+            return null;
+        }
+
+        $row = $query->row_array();
+        return is_array($row) ? $row : null;
+    }
+
+    private function normalizeAuditValue($value)
+    {
+        if ($value === null) {
+            return '';
+        }
+
+        if (is_bool($value)) {
+            return $value ? '1' : '0';
+        }
+
+        if (is_numeric($value)) {
+            return (string) $value;
+        }
+
+        return trim((string) $value);
+    }
+
+    private function normalizeAuditDecimal($value, $scale = 2)
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        if (!is_numeric($value)) {
+            return $this->normalizeAuditValue($value);
+        }
+
+        return number_format((float) $value, $scale, '.', '');
+    }
+
+    private function logLiquidationDetailFieldChanges($referenceNo, $detailId, $beforeRow, $afterValues)
+    {
+        if (!is_array($beforeRow) || !is_array($afterValues) || $referenceNo === '' || (int) $detailId <= 0) {
+            return;
+        }
+
+        $actualChanged = $this->normalizeAuditDecimal($beforeRow['actual_amount'] ?? '') !== $this->normalizeAuditDecimal($afterValues['actual_amount'] ?? '');
+        $vatableChanged = $this->normalizeAuditValue($beforeRow['is_vatable'] ?? '') !== $this->normalizeAuditValue($afterValues['is_vatable'] ?? '');
+
+        $fieldMap = array(
+            'description' => 'description',
+            'invoice_receipt_no' => 'invoice_receipt_no',
+            'document_date' => 'document_date',
+            'actual_amount' => 'actual_amount',
+            'expense_category' => 'expense_category',
+            'is_vatable' => 'is_vatable',
+            'net_amount' => 'net_amount',
+            'vat_amount' => 'vat_amount',
+            'vendor_name' => 'vendor_name',
+            'vendor_address' => 'vendor_address',
+            'vendor_tin' => 'vendor_tin',
+        );
+
+        foreach ($fieldMap as $auditField => $rowField) {
+            $oldValue = array_key_exists($rowField, $beforeRow) ? $this->normalizeAuditValue($beforeRow[$rowField]) : '';
+            $newValue = array_key_exists($auditField, $afterValues) ? $this->normalizeAuditValue($afterValues[$auditField]) : '';
+
+            if (($auditField === 'net_amount' || $auditField === 'vat_amount') && !$actualChanged && !$vatableChanged) {
+                continue;
+            }
+
+            if ($auditField === 'document_date') {
+                $oldValue = $oldValue !== '' ? date('Y-m-d', strtotime($oldValue)) : '';
+                $newValue = $newValue !== '' ? date('Y-m-d', strtotime($newValue)) : '';
+            }
+
+            if ($auditField === 'actual_amount' || $auditField === 'net_amount' || $auditField === 'vat_amount') {
+                $oldValue = $this->normalizeAuditDecimal($oldValue);
+                $newValue = $this->normalizeAuditDecimal($newValue);
+            }
+
+            if ($auditField === 'is_vatable') {
+                $oldValue = $oldValue === '' ? '' : ((int) $oldValue === 1 ? '1' : '0');
+                $newValue = $newValue === '' ? '' : ((int) $newValue === 1 ? '1' : '0');
+            }
+
+            if ($oldValue === $newValue) {
+                continue;
+            }
+
+            $this->logAuditTrail(
+                'LIQUIDATION',
+                $referenceNo,
+                'UPDATED_ITEM',
+                'ITEM',
+                (int) $detailId,
+                $auditField,
+                $oldValue,
+                $newValue
+            );
+        }
+    }
+
+    /**
+     * Persist approver-side liquidation item edits during final review submission.
+     */
+    private function updateLiquidationEditableFields($detailId, $description, $invoiceReceiptNo, $documentDate, $actualAmount, $expenseCategory, $isVatable, $netAmount, $vatAmount, $vendorName, $vendorAddress, $vendorTin)
+    {
+        $detailId = (int) $detailId;
+        if ($detailId <= 0) {
+            return false;
+        }
+
+        $params = array(
+            'DetailId' => $detailId,
+            'Description' => trim((string) $description),
+            'InvoiceReceiptNo' => trim((string) $invoiceReceiptNo),
+            'ActualAmount' => (float) $actualAmount,
+            'DocumentDate' => trim((string) $documentDate),
+            'ExpenseCategory' => trim((string) $expenseCategory),
+            'IsVatable' => (int) (bool) $isVatable,
+            'NetAmount' => (float) $netAmount,
+            'VatAmount' => (float) $vatAmount,
+            'VendorName' => trim((string) $vendorName),
+            'VendorAddress' => trim((string) $vendorAddress),
+            'VendorTin' => trim((string) $vendorTin),
+        );
+
+        return $this->sp->createData(
+            build_sp('sp_update_liquidation_detail_review', count($params)),
+            $params
+        ) === TRUE;
+    }
+
     /**
      * Update CA header fields (cost_center, payable_to, address) in one batch
      */
@@ -415,16 +561,35 @@ class Approvals extends MY_Controller
                 foreach ($decisions as $d) {
                     $detailId = isset($d['detail_id']) ? (int) $d['detail_id'] : 0;
                     $isVatable = isset($d['is_vatable']) ? (int) (bool) $d['is_vatable'] : 0;
+                    $netAmount = isset($d['net_amount']) ? (float) $d['net_amount'] : 0;
+                    $vatAmount = isset($d['vat_amount']) ? (float) $d['vat_amount'] : 0;
+                    $description = isset($d['description']) ? (string) $d['description'] : '';
+                    $invoiceReceiptNo = isset($d['invoice_receipt_no']) ? (string) $d['invoice_receipt_no'] : '';
+                    $documentDate = isset($d['document_date']) ? (string) $d['document_date'] : '';
+                    $actualAmount = isset($d['actual_amount']) ? (float) $d['actual_amount'] : 0;
+                    $expenseCategory = isset($d['expense_category']) ? (string) $d['expense_category'] : '';
+                    $vendorName = isset($d['vendor_name']) ? (string) $d['vendor_name'] : '';
+                    $vendorAddress = isset($d['vendor_address']) ? (string) $d['vendor_address'] : '';
+                    $vendorTin = isset($d['vendor_tin']) ? (string) $d['vendor_tin'] : '';
 
                     if ($detailId > 0) {
-                        $vatParams = array(
-                            'DetailId' => $detailId,
-                            'IsVattable' => $isVatable,
-                        );
-                        $this->sp->createData(
-                            build_sp('sp_update_liquidation_detail_vat', count($vatParams)),
-                            $vatParams
-                        );
+                        $beforeRow = $this->getLiquidationDetailById($detailId);
+                        $updated = $this->updateLiquidationEditableFields($detailId, $description, $invoiceReceiptNo, $documentDate, $actualAmount, $expenseCategory, $isVatable, $netAmount, $vatAmount, $vendorName, $vendorAddress, $vendorTin);
+                        if ($updated) {
+                            $this->logLiquidationDetailFieldChanges($referenceNo, $detailId, $beforeRow, array(
+                                'description' => $description,
+                                'invoice_receipt_no' => $invoiceReceiptNo,
+                                'document_date' => $documentDate,
+                                'actual_amount' => $actualAmount,
+                                'expense_category' => $expenseCategory,
+                                'is_vatable' => $isVatable,
+                                'net_amount' => $netAmount,
+                                'vat_amount' => $vatAmount,
+                                'vendor_name' => $vendorName,
+                                'vendor_address' => $vendorAddress,
+                                'vendor_tin' => $vendorTin,
+                            ));
+                        }
                     }
                 }
             }
