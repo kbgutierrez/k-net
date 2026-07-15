@@ -68,6 +68,89 @@
 		gap: 6px;
 	}
 
+	.kna-section-title-row { justify-content: space-between; }
+	.kna-section-title-label { display: flex; align-items: center; gap: 6px; }
+
+	.kna-history-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		border-radius: 6px;
+		border: 1px solid #d9e0e7;
+		background: #fff;
+		color: #4b5563;
+		cursor: pointer;
+		font-size: 12px;
+		flex: 0 0 auto;
+		transition: background .15s, color .15s, border-color .15s;
+	}
+	.kna-history-btn:hover { background: #eef2ff; border-color: #6366f1; color: #4f46e5; }
+
+	.kna-history-btn-mobile {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 30px;
+		height: 30px;
+		border-radius: 6px;
+		border: 1px solid rgba(255, 255, 255, .35);
+		background: rgba(255, 255, 255, .12);
+		color: #fff;
+		cursor: pointer;
+		font-size: 13px;
+		flex: 0 0 auto;
+	}
+
+	.kna-history-modal-overlay {
+		position: fixed;
+		top: 0; left: 0; right: 0; bottom: 0;
+		background: rgba(15, 23, 42, .5);
+		z-index: 10000;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 20px;
+	}
+	.kna-history-modal-overlay.d-none { display: none !important; }
+	.kna-history-modal {
+		background: #fff;
+		border-radius: 8px;
+		width: 100%;
+		max-width: 480px;
+		max-height: 82vh;
+		display: flex;
+		flex-direction: column;
+		box-shadow: 0 12px 48px rgba(0, 0, 0, .25);
+	}
+	.kna-history-modal-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 12px 16px;
+		border-bottom: 1px solid #e5e7eb;
+	}
+	.kna-history-modal-title {
+		font-size: 14px;
+		font-weight: 700;
+		color: #1a202c;
+		display: flex;
+		align-items: center;
+		gap: 6px;
+	}
+	.kna-history-modal-close {
+		background: none;
+		border: none;
+		font-size: 16px;
+		color: #6b7280;
+		cursor: pointer;
+		line-height: 1;
+		padding: 4px;
+	}
+	.kna-history-modal-close:hover { color: #1f2937; }
+	.kna-history-modal-body { padding: 16px; overflow-y: auto; }
+
 	.form-group {
 		margin-bottom: 0;
 	}
@@ -918,9 +1001,11 @@
 
 			<!-- Desktop: Full Liquidation Information -->
 			<div class="kna-desktop-info">
-				<div class="kna-section-title">
-					<i class="fas fa-info-circle"></i>
-					Liquidation Information
+				<div class="kna-section-title kna-section-title-row">
+					<span class="kna-section-title-label"><i class="fas fa-info-circle"></i> Liquidation Information</span>
+					<button type="button" class="kna-history-btn" id="btnShowHistory" title="View History">
+						<i class="fas fa-history"></i>
+					</button>
 				</div>
 
 				<!-- Row 1: Identifiers & Status -->
@@ -1008,7 +1093,12 @@
 							<span>Liquidation No</span>
 							<span id="mobileLiquidationNo">-</span>
 						</div>
-						<div class="kna-mobile-hero-status" id="mobileStatus">-</div>
+						<div style="display:flex;align-items:center;gap:8px;">
+							<div class="kna-mobile-hero-status" id="mobileStatus">-</div>
+							<button type="button" class="kna-history-btn-mobile" id="btnShowHistoryMobile" title="View History">
+								<i class="fas fa-history"></i>
+							</button>
+						</div>
 					</div>
 					<div class="kna-mobile-hero-amounts">
 						<div class="kna-mobile-hero-amt">
@@ -1075,13 +1165,18 @@
 			</div>
 
 			<div id="viewExpenseItems"></div>
+		</div>
+	</div>
+</div>
 
-			<hr />
-
-			<div class="kna-section-title">
-				<i class="fas fa-history"></i>
-				History
-			</div>
+<!-- History Modal -->
+<div id="historyModalOverlay" class="kna-history-modal-overlay d-none">
+	<div class="kna-history-modal">
+		<div class="kna-history-modal-header">
+			<div class="kna-history-modal-title"><i class="fas fa-history"></i> History</div>
+			<button type="button" class="kna-history-modal-close" id="btnCloseHistory">&#x2715;</button>
+		</div>
+		<div class="kna-history-modal-body">
 			<ul class="kna-timeline" id="viewTimeline"></ul>
 		</div>
 	</div>

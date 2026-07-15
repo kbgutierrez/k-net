@@ -11,6 +11,71 @@
     .kna-badge-rejected { background: #fff5f5; color: #e03131; }
     .kna-badge-partial { background: #e9f3ff; color: #1b4f88; }
 
+    .kna-history-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 6px;
+        border: 1px solid #d9e0e7;
+        background: #fff;
+        color: #4b5563;
+        cursor: pointer;
+        font-size: 12px;
+        flex: 0 0 auto;
+        transition: background .15s, color .15s, border-color .15s;
+    }
+    .kna-history-btn:hover { background: #eef2ff; border-color: #6366f1; color: #4f46e5; }
+
+    .kna-history-modal-overlay {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(15, 23, 42, .5);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+    .kna-history-modal-overlay.d-none { display: none !important; }
+    .kna-history-modal {
+        background: #fff;
+        border-radius: 8px;
+        width: 100%;
+        max-width: 480px;
+        max-height: 82vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 12px 48px rgba(0, 0, 0, .25);
+    }
+    .kna-history-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    .kna-history-modal-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #1a202c;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .kna-history-modal-close {
+        background: none;
+        border: none;
+        font-size: 16px;
+        color: #6b7280;
+        cursor: pointer;
+        line-height: 1;
+        padding: 4px;
+    }
+    .kna-history-modal-close:hover { color: #1f2937; }
+    .kna-history-modal-body { padding: 16px; overflow-y: auto; }
+
     /* ─── Compact Overview Grid ─── */
     .kna-overview-wrapper {
         border: 1px solid #e5e7eb;
@@ -735,9 +800,14 @@
             <div class="kna-title" id="reviewTitle">Review Request</div>
             <span class="kna-badge kna-badge-pending mt-1" id="reviewStatusBadge">Awaiting Your Action</span>
         </div>
-        <a href="<?=base_url('transactions/approvals');?>" class="btn btn-outline-secondary btn-sm kna-small">
-            <i class="fas fa-arrow-left mr-1"></i> Back
-        </a>
+        <div class="d-flex align-items-center" style="gap: 8px;">
+            <button type="button" class="kna-history-btn" id="btnShowHistory" title="View History">
+                <i class="fas fa-history"></i>
+            </button>
+            <a href="<?=base_url('transactions/approvals');?>" class="btn btn-outline-secondary btn-sm kna-small">
+                <i class="fas fa-arrow-left mr-1"></i> Back
+            </a>
+        </div>
     </div>
 
     <div class="card kna-card mb-2">
@@ -785,12 +855,17 @@
         </div>
     </div>
 
-    <div class="kna-review-context-grid">
-        <div class="card kna-card mb-2">
-            <div class="card-body py-2">
-                <div class="kna-small font-weight-bold text-muted mb-2 text-uppercase">History</div>
-                <ul class="kna-timeline" id="reviewTimeline"></ul>
-            </div>
+</div>
+
+<!-- History Modal -->
+<div id="historyModalOverlay" class="kna-history-modal-overlay d-none">
+    <div class="kna-history-modal">
+        <div class="kna-history-modal-header">
+            <div class="kna-history-modal-title"><i class="fas fa-history"></i> History</div>
+            <button type="button" class="kna-history-modal-close" id="btnCloseHistory">&#x2715;</button>
+        </div>
+        <div class="kna-history-modal-body">
+            <ul class="kna-timeline" id="reviewTimeline"></ul>
         </div>
     </div>
 </div>

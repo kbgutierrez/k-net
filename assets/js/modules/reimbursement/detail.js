@@ -463,6 +463,21 @@ const loadAuditTrail = () => {
 	}).fail(() => renderHistoryTimeline([]));
 };
 
+/* ─── HISTORY MODAL TOGGLE ─── */
+const initHistoryModal = (triggerIds = ['btnShowHistory']) => {
+	const overlay = document.getElementById('historyModalOverlay');
+	const closeBtn = document.getElementById('btnCloseHistory');
+	if (!overlay) return;
+	const open = () => overlay.classList.remove('d-none');
+	const close = () => overlay.classList.add('d-none');
+	triggerIds.forEach((id) => {
+		const btn = document.getElementById(id);
+		if (btn) btn.addEventListener('click', open);
+	});
+	if (closeBtn) closeBtn.addEventListener('click', close);
+	overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+};
+
 /* ─── DETAIL PAGE INIT ─── */
 const cacheDetailDom = () => {
 	domDetail.reimbursementRef = document.getElementById('reimbursementRef');
@@ -470,6 +485,7 @@ const cacheDetailDom = () => {
 	domDetail.viewDescription = document.getElementById('viewDescription');
 	domDetail.viewExpenseDate = document.getElementById('viewExpenseDate');
 	domDetail.viewTotalAmount = document.getElementById('viewTotalAmount');
+	domDetail.viewApprovedAmount = document.getElementById('viewApprovedAmount');
 	domDetail.viewStatus = document.getElementById('viewStatus');
 	domDetail.viewSubmittedDate = document.getElementById('viewSubmittedDate');
 	domDetail.viewPayableTo = document.getElementById('viewPayableTo');
@@ -498,6 +514,8 @@ const cacheDetailDom = () => {
 			}
 		});
 	}
+
+	initHistoryModal();
 };
 
 const loadReimbursementDetail = () => {
@@ -527,6 +545,10 @@ const loadReimbursementDetail = () => {
 		if (domDetail.viewSubmittedDate) domDetail.viewSubmittedDate.textContent = normalizeDate(header.submitted_date || '').slice(0, 10) || '-';
 		if (domDetail.viewDescription) domDetail.viewDescription.textContent = normalizeDate(header.description || '') || '-';
 		if (domDetail.viewTotalAmount) domDetail.viewTotalAmount.textContent = formatPHP(Number(header.total_amount || 0));
+		if (domDetail.viewApprovedAmount) {
+			const approvedTotal = details.reduce((sum, e) => sum + Number(e.approved_amount || e.actual_amount || 0), 0);
+			domDetail.viewApprovedAmount.textContent = formatPHP(approvedTotal);
+		}
 		if (domDetail.viewPayableTo) domDetail.viewPayableTo.textContent = normalizeDate(header.payable_to || '') || '-';
 		if (domDetail.viewAddress) domDetail.viewAddress.textContent = normalizeDate(header.address || '') || '-';
 		if (domDetail.viewIoNumber) domDetail.viewIoNumber.textContent = normalizeDate(header.io_number || '') || '-';

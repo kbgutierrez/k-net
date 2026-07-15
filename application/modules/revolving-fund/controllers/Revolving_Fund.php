@@ -1,6 +1,4 @@
 <?php
-
-require 'vendor/autoload.php';
 (defined('BASEPATH')) or exit('No direct script access allowed');
 
 class Revolving_Fund extends MY_Controller
@@ -8,12 +6,14 @@ class Revolving_Fund extends MY_Controller
     public function __construct()
     {
         parent::__construct();
+        $this->load->model('SPModel', 'sp');
+        $this->sp->setDatabase('dbknet');
     }
 
     public function index()
     {
         $data = array(
-            'title' => 'Revolving Fund Management',
+            'title' => 'Revolving Fund',
             'main_view' => '../modules/revolving-fund/views/index',
             'module_group' => $this->module_group,
             'module' => $this->module,
@@ -23,5 +23,507 @@ class Revolving_Fund extends MY_Controller
         );
 
         $this->load->view('main', $data);
+    }
+
+    /* ------------------------------------------------------------
+       FUND (Setup tab)
+       ------------------------------------------------------------ */
+
+    public function api_get_funds()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+
+            $take = (int) $this->input->post('Take');
+            if ($take <= 0) {
+                $take = 20;
+            }
+
+            $cursorIdRaw = $this->input->post('CursorId');
+            $cursorId = ($cursorIdRaw !== null && $cursorIdRaw !== '') ? (int) $cursorIdRaw : null;
+
+            $params = array(
+                'CursorId' => $cursorId,
+                'Take' => $take,
+                'Keyword' => $this->input->post('Keyword'),
+                'ScopeType' => $this->input->post('ScopeType'),
+                'Status' => $this->input->post('Status'),
+            );
+
+            $result = $this->sp->readData(
+                build_sp('sp_fetch_revolving_fund_list', count($params)),
+                $params,
+                'result'
+            );
+
+            $this->respondList($result, $take);
+        } catch (Exception $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
+    public function api_get_active_funds()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+
+            $result = $this->sp->fetchData('sp_fetch_active_revolving_funds');
+
+            return $this->respondSuccess('OK', $result);
+        } catch (Exception $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
+    public function api_save_fund()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+
+            $data = $this->getRequestPayload();
+
+            $scopeType = isset($data['ScopeType']) ? trim((string) $data['ScopeType']) : '';
+            $scopeName = isset($data['ScopeName']) ? trim((string) $data['ScopeName']) : '';
+            $openingBalance = isset($data['OpeningBalance']) ? (float) $data['OpeningBalance'] : 0;
+
+            if (!in_array($scopeType, array('PERSON', 'DEPARTMENT', 'COMPANY'), true)) {
+                return $this->respondError('Scope type must be Person, Department, or Company');
+            }
+
+            if ($scopeName === '') {
+                return $this->respondError('Scope value is required');
+            }
+
+            if ($openingBalance < 0) {
+                return $this->respondError('Opening balance cannot be negative');
+            }
+
+            $status = isset($data['Status']) ? trim((string) $data['Status']) : 'RF_ACTIVE';
+            if (!in_array($status, array('RF_ACTIVE', 'RF_INACTIVE', 'RF_LOCKED'), true)) {
+                $status = 'RF_ACTIVE';
+            }
+
+            $params = array(
+                'ScopeType' => $scopeType,
+                'ScopeId' => isset($data['ScopeId']) && $data['ScopeId'] !== '' ? (int) $data['ScopeId'] : null,
+                'ScopeName' => $scopeName,
+                'OpeningBalance' => $openingBalance,
+                'AllowNegativeBalance' => !empty($data['AllowNegativeBalance']) ? 1 : 0,
+                'Status' => $status,
+                'Remarks' => isset($data['Remarks']) ? trim((string) $data['Remarks']) : null,
+                'CreatedBy' => (int) $this->session->userdata('user_id'),
+            );
+
+            $result = $this->sp->createReturnId(
+                build_sp('sp_insert_revolving_fund', count($params)),
+                $params
+            );
+
+            if (!$result || !isset($result['Id'])) {
+                return $this->respondError('Failed to create revolving fund');
+            }
+
+            $this->logAuditTrail('REVOLVING_FUND', $result['Id'], 'CREATE', 'FUND', $result['Id'], null, null, json_encode($params));
+
+            return $this->respondSuccess('Revolving fund created successfully', $result);
+        } catch (Exception $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
+    public function api_update_fund()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+
+            $data = $this->getRequestPayload();
+
+            $id = isset($data['Id']) ? (int) $data['Id'] : 0;
+            $scopeType = isset($data['ScopeType']) ? trim((string) $data['ScopeType']) : '';
+            $scopeName = isset($data['ScopeName']) ? trim((string) $data['ScopeName']) : '';
+
+            if ($id <= 0) {
+                return $this->respondError('Invalid revolving fund id');
+            }
+
+            if (!in_array($scopeType, array('PERSON', 'DEPARTMENT', 'COMPANY'), true)) {
+                return $this->respondError('Scope type must be Person, Department, or Company');
+            }
+
+            if ($scopeName === '') {
+                return $this->respondError('Scope value is required');
+            }
+
+            $status = isset($data['Status']) ? trim((string) $data['Status']) : 'RF_ACTIVE';
+            if (!in_array($status, array('RF_ACTIVE', 'RF_INACTIVE', 'RF_LOCKED'), true)) {
+                $status = 'RF_ACTIVE';
+            }
+
+            $params = array(
+                'Id' => $id,
+                'ScopeType' => $scopeType,
+                'ScopeId' => isset($data['ScopeId']) && $data['ScopeId'] !== '' ? (int) $data['ScopeId'] : null,
+                'ScopeName' => $scopeName,
+                'AllowNegativeBalance' => !empty($data['AllowNegativeBalance']) ? 1 : 0,
+                'Status' => $status,
+                'Remarks' => isset($data['Remarks']) ? trim((string) $data['Remarks']) : null,
+                'UpdatedBy' => (int) $this->session->userdata('user_id'),
+            );
+
+            $result = $this->sp->createData(
+                build_sp('sp_update_revolving_fund', count($params)),
+                $params
+            );
+
+            if ($result !== true) {
+                return $this->respondError(is_string($result) ? $result : 'Failed to update revolving fund');
+            }
+
+            $this->logAuditTrail('REVOLVING_FUND', $id, 'UPDATE', 'FUND', $id, null, null, json_encode($params));
+
+            return $this->respondSuccess('Revolving fund updated successfully');
+        } catch (Exception $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
+    /* ------------------------------------------------------------
+       ASSIGNMENT (User Assignment tab)
+       ------------------------------------------------------------ */
+
+    public function api_get_assignments()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+
+            $take = (int) $this->input->post('Take');
+            if ($take <= 0) {
+                $take = 20;
+            }
+
+            $cursorIdRaw = $this->input->post('CursorId');
+            $cursorId = ($cursorIdRaw !== null && $cursorIdRaw !== '') ? (int) $cursorIdRaw : null;
+            $fundIdRaw = $this->input->post('FundId');
+            $fundId = ($fundIdRaw !== null && $fundIdRaw !== '') ? (int) $fundIdRaw : null;
+
+            $params = array(
+                'CursorId' => $cursorId,
+                'Take' => $take,
+                'FundId' => $fundId,
+                'Keyword' => $this->input->post('Keyword'),
+                'Status' => $this->input->post('Status'),
+            );
+
+            $result = $this->sp->readData(
+                build_sp('sp_fetch_revolving_fund_assignment_list', count($params)),
+                $params,
+                'result'
+            );
+
+            $this->respondList($result, $take);
+        } catch (Exception $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
+    public function api_save_assignment()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+
+            $data = $this->getRequestPayload();
+
+            $fundId = isset($data['FundId']) ? (int) $data['FundId'] : 0;
+            $assigneeType = isset($data['AssigneeType']) ? trim((string) $data['AssigneeType']) : '';
+            $assigneeName = isset($data['AssigneeName']) ? trim((string) $data['AssigneeName']) : '';
+            $effectiveDate = isset($data['EffectiveDate']) ? trim((string) $data['EffectiveDate']) : '';
+
+            if ($fundId <= 0) {
+                return $this->respondError('Please select a revolving fund');
+            }
+
+            if (!in_array($assigneeType, array('PERSON', 'DEPARTMENT'), true)) {
+                return $this->respondError('Assignee type must be Person or Department');
+            }
+
+            if ($assigneeName === '') {
+                return $this->respondError('Assignee is required');
+            }
+
+            if ($effectiveDate === '') {
+                return $this->respondError('Effective date is required');
+            }
+
+            $status = isset($data['Status']) ? trim((string) $data['Status']) : 'RF_ASSIGN_ACTIVE';
+            if (!in_array($status, array('RF_ASSIGN_ACTIVE', 'RF_ASSIGN_INACTIVE'), true)) {
+                $status = 'RF_ASSIGN_ACTIVE';
+            }
+
+            $params = array(
+                'FundId' => $fundId,
+                'AssigneeType' => $assigneeType,
+                'AssigneeId' => isset($data['AssigneeId']) && $data['AssigneeId'] !== '' ? (int) $data['AssigneeId'] : null,
+                'AssigneeName' => $assigneeName,
+                'Status' => $status,
+                'EffectiveDate' => $effectiveDate,
+                'EndDate' => !empty($data['EndDate']) ? $data['EndDate'] : null,
+                'CreatedBy' => (int) $this->session->userdata('user_id'),
+            );
+
+            $result = $this->sp->createData(
+                build_sp('sp_insert_revolving_fund_assignment', count($params)),
+                $params
+            );
+
+            if ($result !== true) {
+                return $this->respondError(is_string($result) ? $result : 'Failed to create assignment');
+            }
+
+            $this->logAuditTrail('REVOLVING_FUND', $fundId, 'CREATE', 'ASSIGNMENT', $fundId, null, null, json_encode($params));
+
+            return $this->respondSuccess('Fund assignment created successfully');
+        } catch (Exception $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
+    public function api_update_assignment()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+
+            $data = $this->getRequestPayload();
+
+            $id = isset($data['Id']) ? (int) $data['Id'] : 0;
+            $effectiveDate = isset($data['EffectiveDate']) ? trim((string) $data['EffectiveDate']) : '';
+
+            if ($id <= 0) {
+                return $this->respondError('Invalid assignment id');
+            }
+
+            if ($effectiveDate === '') {
+                return $this->respondError('Effective date is required');
+            }
+
+            $status = isset($data['Status']) ? trim((string) $data['Status']) : 'RF_ASSIGN_ACTIVE';
+            if (!in_array($status, array('RF_ASSIGN_ACTIVE', 'RF_ASSIGN_INACTIVE'), true)) {
+                $status = 'RF_ASSIGN_ACTIVE';
+            }
+
+            $params = array(
+                'Id' => $id,
+                'Status' => $status,
+                'EffectiveDate' => $effectiveDate,
+                'EndDate' => !empty($data['EndDate']) ? $data['EndDate'] : null,
+                'UpdatedBy' => (int) $this->session->userdata('user_id'),
+            );
+
+            $result = $this->sp->createData(
+                build_sp('sp_update_revolving_fund_assignment', count($params)),
+                $params
+            );
+
+            if ($result !== true) {
+                return $this->respondError(is_string($result) ? $result : 'Failed to update assignment');
+            }
+
+            $this->logAuditTrail('REVOLVING_FUND', $id, 'UPDATE', 'ASSIGNMENT', $id, null, null, json_encode($params));
+
+            return $this->respondSuccess('Fund assignment updated successfully');
+        } catch (Exception $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
+    /* ------------------------------------------------------------
+       LEDGER (Top-up & Adjustment tab)
+       ------------------------------------------------------------ */
+
+    public function api_get_ledger()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+
+            $take = (int) $this->input->post('Take');
+            if ($take <= 0) {
+                $take = 20;
+            }
+
+            $cursorIdRaw = $this->input->post('CursorId');
+            $cursorId = ($cursorIdRaw !== null && $cursorIdRaw !== '') ? (int) $cursorIdRaw : null;
+            $fundIdRaw = $this->input->post('FundId');
+            $fundId = ($fundIdRaw !== null && $fundIdRaw !== '') ? (int) $fundIdRaw : null;
+
+            $params = array(
+                'CursorId' => $cursorId,
+                'Take' => $take,
+                'FundId' => $fundId,
+                'TrxType' => $this->input->post('TrxType'),
+                'DateFrom' => $this->input->post('DateFrom'),
+                'DateTo' => $this->input->post('DateTo'),
+            );
+
+            $result = $this->sp->readData(
+                build_sp('sp_fetch_revolving_fund_ledger_list', count($params)),
+                $params,
+                'result'
+            );
+
+            $this->respondList($result, $take);
+        } catch (Exception $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
+    public function api_save_ledger()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+
+            $data = $this->getRequestPayload();
+
+            $fundId = isset($data['FundId']) ? (int) $data['FundId'] : 0;
+            $trxType = isset($data['TrxType']) ? trim((string) $data['TrxType']) : '';
+            $trxDate = isset($data['TrxDate']) ? trim((string) $data['TrxDate']) : '';
+            $amount = isset($data['Amount']) ? (float) $data['Amount'] : 0;
+            $remarks = isset($data['Remarks']) ? trim((string) $data['Remarks']) : '';
+
+            if ($fundId <= 0) {
+                return $this->respondError('Please select a revolving fund');
+            }
+
+            if (!in_array($trxType, array('RF_TOPUP', 'RF_ADJUSTMENT'), true)) {
+                return $this->respondError('Transaction type must be Top-up or Adjustment');
+            }
+
+            if ($trxDate === '') {
+                return $this->respondError('Transaction date is required');
+            }
+
+            if ($amount == 0) {
+                return $this->respondError('Amount cannot be zero');
+            }
+
+            if ($trxType === 'RF_TOPUP' && $amount < 0) {
+                return $this->respondError('Top-up amount must be positive');
+            }
+
+            if ($remarks === '') {
+                return $this->respondError('Remarks are required');
+            }
+
+            $params = array(
+                'FundId' => $fundId,
+                'TrxDate' => $trxDate,
+                'TrxType' => $trxType,
+                'Amount' => $amount,
+                'Remarks' => $remarks,
+                'CreatedBy' => (int) $this->session->userdata('user_id'),
+            );
+
+            $result = $this->sp->createData(
+                build_sp('sp_insert_revolving_fund_ledger', count($params)),
+                $params
+            );
+
+            if ($result !== true) {
+                return $this->respondError(is_string($result) ? $result : 'Failed to post ledger entry');
+            }
+
+            $this->logAuditTrail('REVOLVING_FUND', $fundId, 'CREATE', 'LEDGER', $fundId, null, null, json_encode($params));
+
+            return $this->respondSuccess('Ledger entry posted successfully');
+        } catch (Exception $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
+    /* ------------------------------------------------------------
+       LOOKUPS
+       ------------------------------------------------------------ */
+
+    public function api_get_departments()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+
+            $result = $this->sp->fetchData('sp_fetch_department');
+
+            return $this->respondSuccess('OK', $result);
+        } catch (Exception $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
+    public function api_get_users()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+
+            $result = $this->sp->fetchData('sp_fetch_approvers');
+
+            return $this->respondSuccess('OK', $result);
+        } catch (Exception $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
+    /* ------------------------------------------------------------
+       HELPERS
+       ------------------------------------------------------------ */
+
+    private function respondList($result, $take)
+    {
+        $hasMore = count($result) > $take;
+        if ($hasMore) {
+            array_pop($result);
+        }
+
+        $nextCursorId = null;
+        if (!empty($result)) {
+            $lastRow = end($result);
+            $nextCursorId = isset($lastRow['id']) ? (int) $lastRow['id'] : null;
+        }
+
+        echo json_encode(array(
+            'status' => 'success',
+            'data' => $result,
+            'pagination' => array(
+                'take' => $take,
+                'hasMore' => $hasMore,
+                'nextCursorId' => $nextCursorId,
+            ),
+        ));
+    }
+
+    private function getRequestPayload()
+    {
+        $contentType = $this->input->server('CONTENT_TYPE');
+        if (is_string($contentType) && stripos($contentType, 'application/json') !== false) {
+            $data = json_decode($this->input->raw_input_stream, true);
+            return is_array($data) ? $data : array();
+        }
+
+        $postData = $this->input->post();
+        return is_array($postData) ? $postData : array();
+    }
+
+    private function respondSuccess($message, $data = array())
+    {
+        echo json_encode(array(
+            'status' => 'success',
+            'response' => $message,
+            'data' => $data,
+        ));
+        return;
+    }
+
+    private function respondError($message)
+    {
+        echo json_encode(array(
+            'status' => 'error',
+            'response' => $message,
+        ));
+        return;
     }
 }

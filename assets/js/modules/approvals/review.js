@@ -1533,6 +1533,22 @@ const cacheReviewDom = () => {
   const lb = document.getElementById('knaLightbox');
   if (lb) { lb.addEventListener('click', e => { if (e.target === lb || e.target.id === 'knaLightboxClose') { lb.classList.add('d-none'); const img = document.getElementById('knaLightboxImg'); if (img) img.src = ''; } }); }
   if (domReview.btnSubmitDecision) domReview.btnSubmitDecision.addEventListener('click', submitDecisions);
+  initHistoryModal();
+};
+
+/* ─── HISTORY MODAL TOGGLE ─── */
+const initHistoryModal = (triggerIds = ['btnShowHistory']) => {
+  const overlay = document.getElementById('historyModalOverlay');
+  const closeBtn = document.getElementById('btnCloseHistory');
+  if (!overlay) return;
+  const open = () => overlay.classList.remove('d-none');
+  const close = () => overlay.classList.add('d-none');
+  triggerIds.forEach((id) => {
+    const btn = document.getElementById(id);
+    if (btn) btn.addEventListener('click', open);
+  });
+  if (closeBtn) closeBtn.addEventListener('click', close);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
 };
 
 const handleReviewResize = () => {

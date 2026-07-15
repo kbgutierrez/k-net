@@ -662,6 +662,21 @@ const loadAttachments = () => {
         });
 };
 
+/* ─── HISTORY MODAL TOGGLE ─── */
+const initHistoryModal = (triggerIds = ['btnShowHistory']) => {
+	const overlay = document.getElementById('historyModalOverlay');
+	const closeBtn = document.getElementById('btnCloseHistory');
+	if (!overlay) return;
+	const open = () => overlay.classList.remove('d-none');
+	const close = () => overlay.classList.add('d-none');
+	triggerIds.forEach((id) => {
+		const btn = document.getElementById(id);
+		if (btn) btn.addEventListener('click', open);
+	});
+	if (closeBtn) closeBtn.addEventListener('click', close);
+	overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+};
+
 const cacheDetailDom = () => {
 	domDetail.cashAdvanceRef = document.getElementById('cashAdvanceRef');
 	domDetail.viewRefNo = document.getElementById('viewRefNo');
@@ -685,6 +700,7 @@ const cacheDetailDom = () => {
 	domDetail.serverKflowUrl = document.getElementById('serverKflowUrl');
 
 	applyEmbeddedKflowChrome();
+	initHistoryModal();
 };
 
 const loadDetailData = (loadTimeline = true) => {
