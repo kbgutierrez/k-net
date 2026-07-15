@@ -55,6 +55,18 @@ const expenseTypeOptionsMarkup = (selected) => {
   return `<option value="">Select type</option>${opts}`;
 };
 
+// jQuery's .trigger('change') on a <select> (select2's own mechanism) never reaches
+// native addEventListener('change', ...) listeners, so the expense type field must be
+// synced to item state via a jQuery-bound handler on the element itself, not the
+// delegated native `onChange` on the container (which only ever sees real native events).
+const applyExpenseTypeSelection = (selectEl) => {
+  const itemId = Number(selectEl.getAttribute('data-item-id'));
+  const item = findExpenseItem(itemId);
+  if (!item) return;
+  item.expenseType = selectEl.value;
+  selectEl.title = normalizeDate((getExpenseTypeByCode(selectEl.value) || {}).description);
+};
+
 const initExpenseTypeSelect2 = () => {
   if (!domAdd.expenseItemsContainer || typeof jQuery.fn?.select2 === 'undefined') return;
   jQuery(domAdd.expenseItemsContainer).find('select[data-item-field="expenseType"]').each(function () {
@@ -66,6 +78,7 @@ const initExpenseTypeSelect2 = () => {
     $c.find('.select2-selection__rendered').css({ lineHeight: '28px', paddingLeft: '8px', paddingRight: '20px', color: '#374151' });
     $c.find('.select2-selection__arrow').css({ height: '28px', width: '20px' });
     $c.find('.select2-selection__arrow b').css({ borderWidth: '3px 3px 0 3px', marginTop: '-2px' });
+    $s.on('change', function () { applyExpenseTypeSelection(this); });
     const cv = $s.attr('data-current-value') || $s.val();
     if (cv) $s.val(cv).trigger('change');
   });
@@ -246,7 +259,7 @@ const renderExpenseItems = () => {
             <div class="kna-item-attach-inline">
               <span class="kna-attachment-cell">${summary}</span>
               <button type="button" class="btn btn-outline-primary btn-sm kna-small" data-item-action="attach" data-item-id="${it.id}">${btnLabel}</button>
-              <input type="file" class="d-none" data-item-file="upload" data-item-id="${it.id}" accept="image/*" multiple>
+              <input type="file" class="d-none" data-item-file="upload" data-item-id="${it.id}" accept="image/*,application/pdf" multiple>
               <input type="file" class="d-none" data-item-file="camera" data-item-id="${it.id}" accept="image/*" capture="environment">
             </div>
             ${ocr.statusHtml(it.id)}
@@ -313,8 +326,9 @@ const sendLiquidation = (statusCode) => {
 
   const noAtt = expenseItems.find((it) => !getAllAttachments(it).length);
   const caAmt = safeNum(domAdd.newCaAmount?.value);
-  const refund = caAmt > state.totalAmount ? caAmt - state.totalAmount : 0;
-  const reimburse = state.totalAmount > caAmt ? state.totalAmount - caAmt : 0;
+  const approvedAmt = safeNum(domAdd.newApprovedAmount?.value);
+  const refund = approvedAmt > state.totalAmount ? approvedAmt - state.totalAmount : 0;
+  const reimburse = state.totalAmount > approvedAmt ? state.totalAmount - approvedAmt : 0;
 
   const post = () => {
     const fd = new FormData();

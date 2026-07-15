@@ -224,19 +224,61 @@
 			return new File([bestBlob], `${baseName}.jpg`, { type: 'image/jpeg', lastModified: Date.now() });
 		};
 
+		const PDF_RENDER_SCALE = 2;
+
+		const ensurePdfJsWorker = () => {
+			if (!window.pdfjsLib) {
+				throw new Error('PDF renderer failed to load.');
+			}
+			if (!window.pdfjsLib.GlobalWorkerOptions.workerSrc) {
+				window.pdfjsLib.GlobalWorkerOptions.workerSrc = `${baseUrl}assets/js/modules/shared/pdfjs/pdf.worker.min.js`;
+			}
+			return window.pdfjsLib;
+		};
+
+		const renderPdfFirstPageToJpegFile = async (file) => {
+			const pdfjsLib = ensurePdfJsWorker();
+			const arrayBuffer = await file.arrayBuffer();
+			const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+			const page = await pdf.getPage(1);
+			const viewport = page.getViewport({ scale: PDF_RENDER_SCALE });
+			const canvas = document.createElement('canvas');
+			canvas.width = viewport.width;
+			canvas.height = viewport.height;
+			const ctx = canvas.getContext('2d');
+			if (!ctx) {
+				throw new Error('Canvas unavailable for PDF rendering.');
+			}
+			await page.render({ canvasContext: ctx, viewport }).promise;
+			const blob = await canvasToBlob(canvas, 'image/jpeg', 0.92);
+			if (!blob) {
+				throw new Error('Failed to convert rendered PDF page to JPEG.');
+			}
+			const baseName = (file.name || 'receipt').replace(/\.[^.]+$/, '');
+			return new File([blob], `${baseName}.jpg`, { type: 'image/jpeg', lastModified: Date.now() });
+		};
+
 		const normalizeIncomingAttachments = async (files) => {
 			const acceptedFiles = [];
 			const rejectedFiles = [];
 
 			for (const file of files) {
-				if (!file || !file.type || !file.type.startsWith('image/')) {
-					rejectedFiles.push(`${file ? file.name : 'Unknown file'} (only images allowed)`);
+				const isImage = file && file.type && file.type.startsWith('image/');
+				const isPdf = file && file.type === 'application/pdf';
+
+				if (!file || (!isImage && !isPdf)) {
+					rejectedFiles.push(`${file ? file.name : 'Unknown file'} (only images or PDF allowed)`);
 					continue;
 				}
 
 				if (file.size <= maxAttachmentBytes) {
 					file._wasCompressed = false;
 					acceptedFiles.push(file);
+					continue;
+				}
+
+				if (isPdf) {
+					rejectedFiles.push(`${file.name} (PDF exceeds ${(maxAttachmentBytes / (1024 * 1024)).toFixed(1)}MB limit)`);
 					continue;
 				}
 
@@ -349,7 +391,9 @@
 
 		/* ─── Non-blocking OCR with timeout & manual override ─── */
 		const runOcrAutofillForItem = async (itemId, file) => {
-			if (!file || !file.type || !file.type.startsWith('image/')) {
+			const isImage = file && file.type && file.type.startsWith('image/');
+			const isPdf = file && file.type === 'application/pdf';
+			if (!file || (!isImage && !isPdf)) {
 				return;
 			}
 
@@ -363,8 +407,21 @@
 
 			setOcrState(itemId, { status: 'scanning', result: null, error: null, startedAt: Date.now() });
 
+			let ocrFile = file;
+			if (isPdf) {
+				try {
+					ocrFile = await renderPdfFirstPageToJpegFile(file);
+				} catch (err) {
+					const current = state.ocrByItem[itemId];
+					if (current && current.status === 'scanning') {
+						setOcrState(itemId, { status: 'error', error: 'Could not read PDF for OCR - enter details manually' });
+					}
+					return;
+				}
+			}
+
 			const formData = new FormData();
-			formData.append('image', file);
+			formData.append('image', ocrFile);
 
 			// Hard timeout via setTimeout in case jQuery timeout is unreliable
 			const timeoutId = setTimeout(() => {

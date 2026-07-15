@@ -222,7 +222,7 @@ const buildItemRow = (item, summary, index) => {
           <div class="kna-item-attach-inline">
             <span class="kna-attachment-cell">${att.attachHtml}${att.ocrLoadingIcon}${att.compressedIcon}</span>
             ${attachBtn}
-            <input type="file" class="d-none" data-edit-file="upload" data-edit-id="${item._editId}" accept="image/*">
+            <input type="file" class="d-none" data-edit-file="upload" data-edit-id="${item._editId}" accept="image/*,application/pdf">
             <input type="file" class="d-none" data-edit-file="camera" data-edit-id="${item._editId}" accept="image/*" capture="environment">
           </div>
           ${buildEditOcrStatusHtml(item._editId)}
@@ -290,10 +290,10 @@ const renderEditExpenseItems = () => {
 
 // ─── Variance ───
 const updateEditVariance = () => {
-  if (!domEdit.editVariance || !domEdit.editCaAmount) return;
-  const caAmount = safeNum(domEdit.editCaAmount.textContent.replace(/[^0-9.]/g, ''));
+  if (!domEdit.editVariance || !domEdit.editApprovedAmount) return;
+  const approvedAmount = safeNum(domEdit.editApprovedAmount.textContent.replace(/[^0-9.]/g, ''));
   const total = editExpenseItems.reduce((sum, e) => sum + Number(e.actual_amount || e.amount || 0), 0);
-  const variance = getVariancePresentation(caAmount > total ? caAmount - total : 0, total > caAmount ? total - caAmount : 0);
+  const variance = getVariancePresentation(approvedAmount > total ? approvedAmount - total : 0, total > approvedAmount ? total - approvedAmount : 0);
   domEdit.editVariance.innerHTML = variance.desktopHtml;
   if (domEdit.mobileVariance) domEdit.mobileVariance.textContent = variance.mobileText;
 };
@@ -433,12 +433,13 @@ const getEditFormPayload = () => {
   const caRef = normalizeDate(domEdit.editCaRef?.textContent);
   const totalAmount = editExpenseItems.reduce((sum, item) => sum + Number(item.actual_amount || item.amount || 0), 0);
   const caAmount = safeNum(domEdit.editCaAmount?.textContent.replace(/[^0-9.]/g, ''));
+  const approvedAmount = safeNum(domEdit.editApprovedAmount?.textContent.replace(/[^0-9.]/g, ''));
   const validDates = editExpenseItems.map((item) => normalizeDate(item.document_date || '').slice(0, 10)).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
 
   return {
     caRef, totalAmount, caAmount,
-    refundAmount: caAmount > totalAmount ? caAmount - totalAmount : 0,
-    reimburseAmount: totalAmount > caAmount ? totalAmount - caAmount : 0,
+    refundAmount: approvedAmount > totalAmount ? approvedAmount - totalAmount : 0,
+    reimburseAmount: totalAmount > approvedAmount ? totalAmount - approvedAmount : 0,
     dateFrom: validDates[0] || '', dateTo: validDates[validDates.length - 1] || '',
     purpose: normalizeDate(domEdit.editPurpose?.textContent),
   };

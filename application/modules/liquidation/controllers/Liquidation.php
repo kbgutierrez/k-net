@@ -41,6 +41,7 @@ class Liquidation extends MY_Controller
             'is_edit_mode' => $isEditMode,
             'draft_edit_window_days' => $this->draftEditWindowDays,
             'scripts' => array(
+                '../shared/pdfjs/pdf.min.js',
                 '../shared/receipt-ocr.js',
                 '../liquidation/index.js',
                 '../liquidation/add.js',
@@ -1003,9 +1004,10 @@ class Liquidation extends MY_Controller
             'module' => $this->module,
             'liquidation_no' => $ref,
             'scripts' => array(
+                '../shared/pdfjs/pdf.min.js',
                 '../shared/receipt-ocr.js',
                 '../liquidation/edit.js',
-            
+
             ),
         );
 

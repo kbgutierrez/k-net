@@ -567,7 +567,8 @@
             <i class="fas fa-info-circle"></i>
             Liquidation Information
           </div>
-          <div class="kna-info-row kna-info-row-4" style="grid-template-columns: repeat(4, 1fr);">
+          <!-- Row 1: Identifiers & Dates -->
+          <div class="kna-info-row kna-info-row-3">
             <div class="form-group">
               <label class="kna-form-label">Reference</label>
               <select class="form-control form-control-sm kna-small" id="newCaRef" required>
@@ -575,21 +576,17 @@
               </select>
             </div>
             <div class="form-group">
-              <label class="kna-form-label">CA Amount</label>
-              <input type="number" class="form-control form-control-sm kna-small" id="newCaAmount" min="0" step="0.01"
-                value="0" readonly style="background: #f0f4f8;">
-            </div>
-            <div class="form-group">
-              <label class="kna-form-label">Approved Amount</label>
-              <input type="number" class="form-control form-control-sm kna-small" id="newApprovedAmount" min="0"
-                step="0.01" value="0" readonly style="background: #f0f4f8;">
-            </div>
-            <div class="form-group">
               <label class="kna-form-label">CA Date</label>
               <input type="text" class="form-control form-control-sm kna-small" id="newCaDate" readonly
                 style="background: #f0f4f8;" placeholder="-">
             </div>
+            <div class="form-group kna-compact-field">
+              <label class="kna-form-label">Expense Range</label>
+              <input type="text" class="form-control form-control-sm kna-small" id="newDateRange"
+                placeholder="Auto based on document dates" required readonly style="background: #f0f4f8;">
+            </div>
           </div>
+          <!-- Row 2: Payable To, Address, Cost Center -->
           <div class="kna-info-row kna-info-row-3">
             <div class="form-group">
               <label class="kna-form-label">Payable To</label>
@@ -607,11 +604,17 @@
                 style="background: #f0f4f8;" placeholder="-">
             </div>
           </div>
-          <div class="kna-info-row kna-info-row-3">
-            <div class="form-group kna-compact-field">
-              <label class="kna-form-label">Expense Range</label>
-              <input type="text" class="form-control form-control-sm kna-small" id="newDateRange"
-                placeholder="Auto based on document dates" required readonly style="background: #f0f4f8;">
+          <!-- Row 3: Financial summary -->
+          <div class="kna-info-row kna-info-row-4" style="grid-template-columns: repeat(4, 1fr);">
+            <div class="form-group">
+              <label class="kna-form-label">CA Amount</label>
+              <input type="number" class="form-control form-control-sm kna-small" id="newCaAmount" min="0" step="0.01"
+                value="0" readonly style="background: #f0f4f8;">
+            </div>
+            <div class="form-group">
+              <label class="kna-form-label">Approved Amount</label>
+              <input type="number" class="form-control form-control-sm kna-small" id="newApprovedAmount" min="0"
+                step="0.01" value="0" readonly style="background: #f0f4f8;">
             </div>
             <div class="form-group kna-compact-field">
               <label class="kna-form-label">Total Amount</label>
