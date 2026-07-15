@@ -163,42 +163,94 @@
 	.kna-var-return    { background: #fef3c7; color: #92400e; }
 	.kna-var-reimburse { background: #dbeafe; color: #1e40af; }
 
-	/* ===== EXPENSE ITEM CARDS (matching add.php) ===== */
+	/* ===== COMPACT EXPENSE ITEM ROWS ===== */
 	.kna-exp-wrap { width: 100%; overflow-x: auto; }
-	.kna-exp-mobile { display: none; }
-	.kna-item-table-wrap {
-		width: 100%;
+	.kna-item-rows { display: flex; flex-direction: column; gap: 6px; }
+	.kna-item-row-wrap { display: flex; flex-direction: column; gap: 0; }
+	.kna-item-row {
 		display: flex;
-		flex-direction: column;
-		gap: 6px;
-		overflow-x: auto;
-	}
-	.kna-item-table {
-		display: grid;
-		grid-template-columns: 110px 1.4fr 1.1fr 100px 44px 1.2fr 140px 1.6fr 44px;
-		gap: 10px;
-		align-items: center;
+		align-items: flex-start;
+		gap: 8px;
 		background: #f8f9fc;
 		border: 1px solid #e5e7eb;
 		border-radius: 6px;
-		padding: 8px 10px;
-		min-width: 100%;
+		padding: 8px;
 	}
-	.kna-item-table-head {
-		background: #e5e7eb;
-		border-color: #d1d5db;
-		font-size: 12px;
+	.kna-item-row-index {
+		flex: 0 0 auto;
+		width: 20px;
+		padding-top: 6px;
+		font-size: 11px;
 		font-weight: 700;
-		color: #374151;
+		color: #9ca3af;
+		text-align: center;
 	}
-	.kna-item-table-row .form-control {
+	.kna-item-row-fields {
+		flex: 1 1 auto;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
 		min-width: 0;
-		font-size: 12px;
+	}
+	.kna-item-field {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		flex: 1 1 100px;
+		min-width: 90px;
+	}
+	.kna-item-field-label {
+		font-size: 9px;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: .2px;
+		color: #9ca3af;
+	}
+	.kna-f-type { flex: 2 1 180px; }
+	.kna-f-amount { flex: 1 1 90px; }
+	.kna-f-vat { flex: 0 0 auto; min-width: 40px; }
+	.kna-f-vendor { flex: 1 1 130px; }
+	.kna-f-tin { flex: 1 1 100px; }
+	.kna-f-attach { flex: 1 1 150px; }
+	.kna-f-remarks { flex: 1 1 150px; }
+	.kna-item-attach-inline {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		flex-wrap: wrap;
+	}
+	.kna-item-attach-inline .kna-attachment-cell { font-size: 11px; font-weight: 600; }
+	.kna-item-attach-inline .btn {
+		font-size: 11px;
+		padding: 3px 8px;
+		height: 24px;
+		line-height: 1;
+	}
+	.kna-item-row-remove, .kna-item-row-lock {
+		flex: 0 0 auto;
+		margin-top: 4px;
+		width: 26px; height: 26px;
+		border-radius: 6px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 11px;
+	}
+	.kna-item-row-remove {
+		border: 1px solid #fecaca;
+		background: #fef2f2;
+		color: #dc2626;
+		cursor: pointer;
+	}
+	.kna-item-row-remove:hover { background: #fee2e2; border-color: #ef4444; }
+	.kna-item-row-lock {
+		border: 1px solid #e5e7eb;
+		background: #f3f4f6;
+		color: #9ca3af;
 	}
 	.kna-attachment-cell {
 		font-size: 12px;
 		font-weight: 600;
-		margin-bottom: 4px;
 		white-space: normal;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -207,11 +259,8 @@
 	.kna-vat-wrap {
 		display: inline-flex;
 		align-items: center;
-		gap: 6px;
+		height: 28px;
 		margin: 0;
-		font-size: 12px;
-		color: #374151;
-		user-select: none;
 		cursor: pointer;
 	}
 	.kna-vat-input {
@@ -219,40 +268,6 @@
 		height: 14px;
 		margin: 0;
 		accent-color: #2563eb;
-	}
-
-	/* Vendor cell (desktop) */
-	.kna-vendor-cell {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-	}
-	.kna-vendor-cell-caption {
-		font-size: 9px;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: .25px;
-		color: #6b7280;
-		margin-bottom: 2px;
-	}
-	.kna-vendor-cell .kna-edit-input {
-		width: 100%;
-		font-size: 12px;
-	}
-	.kna-vendor-cell .kna-edit-input:last-child {
-		color: #6b7280;
-	}
-	.kna-vendor-inline {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: 6px;
-	}
-	.kna-vendor-inline .kna-edit-input {
-		font-size: 11px;
-		height: 30px;
-	}
-	.kna-vendor-inline .kna-edit-input::placeholder {
-		color: #9ca3af;
 	}
 
 	/* Attachment thumbnails */
@@ -323,11 +338,7 @@
 	}
 
 	/* ===== REJECTED ITEM STYLING ===== */
-	.kna-row-rejected {
-		background: #fef2f2 !important;
-		border-color: #fecaca !important;
-	}
-	.kna-row-rejected .kna-item-table {
+	.kna-item-row.kna-row-rejected {
 		background: #fef2f2;
 		border-color: #fecaca;
 	}
@@ -367,9 +378,9 @@
 	}
 
 	/* Locked row styling */
-	.kna-row-locked .kna-item-table {
-		background: #f3f4f6 !important;
-		border-color: #e5e7eb !important;
+	.kna-item-row.kna-row-locked {
+		background: #f3f4f6;
+		border-color: #e5e7eb;
 	}
 	.kna-lock-icon {
 		color: #9ca3af;
@@ -379,256 +390,9 @@
 	/* ===== MOBILE COMPACT OVERVIEW (Hidden on desktop) ===== */
 	.kna-mobile-overview { display: none; }
 
-	/* ===== MOBILE CARDS (matching add.php) ===== */
-	.kna-exp-card {
-		border: 1px solid #e5e7eb;
-		border-radius: 12px;
-		background: #fff;
-		padding: 0;
-		box-shadow: 0 2px 8px rgba(20, 30, 50, .06);
-		margin-bottom: 12px;
-		overflow: hidden;
-	}
-	.kna-exp-card-head {
-		display: flex;
-		justify-content: space-between;
-		gap: 10px;
-		align-items: flex-start;
-		padding: 10px 12px;
-		border-bottom: 1px solid #eef2f7;
-		background: #fafbfc;
-	}
-	.kna-exp-card-head-left {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-		min-width: 0;
-	}
-	.kna-exp-card-badge {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 22px;
-		height: 22px;
-		border-radius: 50%;
-		background: #6366f1;
-		color: #fff;
-		font-size: 10px;
-		font-weight: 700;
-		margin-bottom: 2px;
-	}
-	.kna-exp-card-title {
-		font-size: 12px;
-		font-weight: 700;
-		color: #111827;
-		line-height: 1.3;
-	}
-	.kna-exp-card-sub {
-		font-size: 10px;
-		font-weight: 600;
-		color: #6b7280;
-		margin-left: 4px;
-	}
-	.kna-exp-card-meta {
-		font-size: 10px;
-		color: #6b7280;
-	}
-	.kna-exp-card-actions {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		flex: 0 0 auto;
-		flex-wrap: wrap;
-		justify-content: flex-end;
-	}
-	.kna-exp-card-remove {
-		width: 32px;
-		height: 32px;
-		border-radius: 8px;
-		border: 1px solid #fecaca;
-		background: #fef2f2;
-		color: #dc2626;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		cursor: pointer;
-		font-size: 12px;
-		transition: all .15s;
-	}
-	.kna-exp-card-remove:hover {
-		background: #fee2e2;
-		border-color: #ef4444;
-	}
-	.kna-exp-card-body {
-		padding: 10px 12px;
-	}
-	.kna-exp-card-grid {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 10px;
-		margin-bottom: 10px;
-	}
-		.kna-vendor-inline {
-			grid-template-columns: 1fr;
-		}
-	.kna-exp-card-field {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-		min-width: 0;
-	}
-	.kna-exp-card-field-full { grid-column: 1 / -1; }
-	.kna-exp-card-label {
-		font-size: 10px;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: .3px;
-		color: #6b7280;
-	}
-	.kna-exp-card-value {
-		font-size: 12px;
-		color: #1f2937;
-	}
-	.kna-exp-card-attach {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 6px;
-	}
-	.kna-exp-card-field .form-control { min-width: 0; }
-
-	/* VAT Toggle */
-	.kna-vat-toggle-row { padding: 4px 0; }
-	.kna-vat-toggle {
-		display: inline-flex;
-		align-items: center;
-		gap: 10px;
-		cursor: pointer;
-		user-select: none;
-	}
-	.kna-vat-toggle input {
-		position: absolute;
-		opacity: 0;
-		width: 0;
-		height: 0;
-	}
-	.kna-vat-toggle-slider {
-		position: relative;
-		width: 40px;
-		height: 22px;
-		background: #d1d5db;
-		border-radius: 22px;
-		transition: background .2s;
-		flex-shrink: 0;
-	}
-	.kna-vat-toggle-slider::before {
-		content: '';
-		position: absolute;
-		left: 2px;
-		top: 2px;
-		width: 18px;
-		height: 18px;
-		background: #fff;
-		border-radius: 50%;
-		transition: transform .2s;
-		box-shadow: 0 1px 3px rgba(0,0,0,.15);
-	}
-	.kna-vat-toggle input:checked + .kna-vat-toggle-slider {
-		background: #6366f1;
-	}
-	.kna-vat-toggle input:checked + .kna-vat-toggle-slider::before {
-		transform: translateX(18px);
-	}
-	.kna-vat-toggle-label {
-		font-size: 11px;
-		font-weight: 600;
-		color: #374151;
-	}
-
-	/* Attachment Section */
-	.kna-attach-section {
-		border: 1.5px dashed #d1d5db;
-		border-radius: 8px;
-		padding: 10px 12px;
-		margin-bottom: 10px;
-		background: #f8fafc;
-		transition: border-color .15s, background .15s;
-	}
-	.kna-attach-section:hover {
-		border-color: #6366f1;
-		background: #f5f3ff;
-	}
-	.kna-attach-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 6px;
-	}
-	.kna-attach-status {
-		font-size: 10px;
-		color: #6b7280;
-		font-weight: 600;
-	}
-	.kna-attach-btn {
-		width: 100%;
-		min-height: 40px;
-		border-radius: 6px;
-		font-size: 11px;
-		font-weight: 600;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		gap: 6px;
-	}
-	.kna-remarks-section {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-	}
-
-	.kna-exp-card::before {
-		content: '';
-		position: absolute;
-		left: 0;
-		top: 0;
-		bottom: 0;
-		width: 3px;
-	}
-	.kna-exp-card[data-status="approved"]::before { background: #22c55e; }
-	.kna-exp-card[data-status="rejected"]::before { background: #ef4444; }
-	.kna-exp-card[data-status="pending"]::before  { background: #f59e0b; }
-
-	/* Mobile rejected card */
-	.kna-exp-card-rejected {
-		border-color: #fecaca;
-		background: #fef2f2;
-	}
-	.kna-exp-card-rejected .kna-exp-card-head {
-		border-bottom-color: #fecaca;
-	}
-	.kna-rejection-box-mobile {
-		background: #fff;
-		border: 1px solid #fecaca;
-		border-left: 3px solid #ef4444;
-		border-radius: 6px;
-		padding: 8px 10px;
-		margin: 8px 0 0 0;
-		font-size: 12px;
-	}
-	.kna-rejection-item {
-		color: #991b1b;
-		margin-bottom: 4px;
-		font-size: 11px;
-	}
-	.kna-rejection-item:last-child {
-		margin-bottom: 0;
-	}
-	.kna-rejection-item i {
-		margin-right: 4px;
-	}
-
-	/* Mobile summary */
+	/* Items total summary */
 	.kna-mobile-summary {
-		display: none;
+		display: block;
 		margin-top: 10px;
 		padding: 10px 12px;
 		border: 1px solid #d1fae5;
@@ -723,25 +487,6 @@
 		cursor: not-allowed;
 	}
 
-	/* Remove button */
-	.kna-remove-btn {
-		color: #b91c1c;
-		background: none;
-		border: none;
-		font-size: 14px;
-		cursor: pointer;
-		padding: 4px 8px;
-		border-radius: 4px;
-		transition: background 0.12s;
-	}
-	.kna-remove-btn:hover {
-		background: #fee2e2;
-	}
-	.kna-remove-btn:disabled {
-		color: #d1d5db;
-		cursor: not-allowed;
-	}
-
 	/* Warning banner for rejected items */
 	.kna-rejected-banner {
 		background: #fef2f2;
@@ -813,12 +558,10 @@
 		.kna-info-row-3 { grid-template-columns: 1fr; }
 		.kna-fin-value { font-size: 14px; }
 		.kna-exp-wrap { overflow: visible; }
-		.kna-exp-mobile { display: block; }
-		.kna-item-table-wrap { display: none !important; }
+		.kna-item-field { flex: 1 1 45%; }
 		.kna-thumb-wrap { max-width: 68px; margin-right: 4px; }
 		.kna-thumb { width: 52px; height: 46px; }
 		.kna-thumb-label { max-width: 68px; }
-		.kna-mobile-summary { display: block; }
 		.kna-edit-actions { display: none; }
 		.kna-mobile-sticky-actions {
 			display: flex;
@@ -845,9 +588,6 @@
 			padding: 10px 14px;
 		}
 		body { padding-bottom: 72px; }
-		.kna-exp-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-		.kna-exp-card-head { gap: 8px; }
-		.kna-exp-card-attach { flex-direction: row; }
 		.form-control, .form-control-sm {
 			min-height: 40px;
 			font-size: 12px;
@@ -895,7 +635,7 @@
 		}
 		.kna-mobile-hero-amounts {
 			display: grid;
-			grid-template-columns: 1fr 1fr 1fr;
+			grid-template-columns: 1fr 1fr;
 			gap: 8px;
 		}
 		.kna-mobile-hero-amt {
@@ -1071,10 +811,14 @@
 				</div>
 
 				<!-- Row 3: Financial summary -->
-				<div class="kna-info-row kna-info-row-3" style="margin-bottom:12px;">
+				<div class="kna-info-row kna-info-row-4" style="grid-template-columns: repeat(4, 1fr); margin-bottom:12px;">
 					<div class="form-group kna-compact-field">
 						<label class="kna-form-label">CA Amount</label>
 						<div class="kna-compact-value is-muted" id="editCaAmount">-</div>
+					</div>
+					<div class="form-group kna-compact-field">
+						<label class="kna-form-label">Approved Amount</label>
+						<div class="kna-compact-value is-muted" id="editApprovedAmount">-</div>
 					</div>
 					<div class="form-group kna-compact-field">
 						<label class="kna-form-label">Total Liquidated</label>
@@ -1107,6 +851,10 @@
 						<div class="kna-mobile-hero-amt">
 							<div class="kna-mobile-hero-amt-label">CA Amount</div>
 							<div class="kna-mobile-hero-amt-value" id="mobileCaAmount">-</div>
+						</div>
+						<div class="kna-mobile-hero-amt">
+							<div class="kna-mobile-hero-amt-label">Approved</div>
+							<div class="kna-mobile-hero-amt-value" id="mobileApprovedAmount">-</div>
 						</div>
 						<div class="kna-mobile-hero-amt">
 							<div class="kna-mobile-hero-amt-label">Total</div>

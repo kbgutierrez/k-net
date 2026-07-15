@@ -195,96 +195,45 @@ const buildAttachmentCell = (item, summary) => {
   return { attachHtml, hasAttachment, ocrLoadingIcon, compressedIcon };
 };
 
-// ─── Desktop Row Builder ───
-const buildDesktopRow = (item, summary) => {
+// ─── Item Row Builder (compact, one row per item, all fields inline) ───
+const editItemField = (label, cls, inputHtml) => `<div class="kna-item-field ${cls}"><span class="kna-item-field-label">${label}</span>${inputHtml}</div>`;
+
+const buildItemRow = (item, summary, index) => {
   const att = buildAttachmentCell(item, summary);
   const rejectionRibbon = summary.isRejected && summary.approval.rejections.length ? buildRejectionRibbon(summary.approval.rejections) : '';
   const attachBtn = !summary.isLocked ? `<button type="button" class="btn btn-outline-primary btn-sm kna-small" data-edit-action="attach" data-edit-id="${item._editId}">${att.hasAttachment ? 'Replace' : 'Attach'}</button>` : '';
+  const rowClasses = ['kna-item-row', summary.rowClass].filter(Boolean).join(' ');
 
   return `
-    <div class="kna-item-table kna-item-table-row ${summary.rowClass}" data-edit-item-id="${item._editId}">
-      <div><input type="date" class="kna-edit-input" data-edit-field="documentDate" data-edit-id="${item._editId}" value="${escapeHtml(summary.docDate)}" ${summary.disabledAttr}></div>
-      <div>${summary.lockIcon}<select class="kna-edit-select" data-edit-field="expenseCategory" data-edit-id="${item._editId}" title="${escapeHtml(summary.selectedExpenseTypeText)}" ${summary.disabledAttr}>${editExpenseTypeOptionsMarkup(summary.category)}</select></div>
-      <div><input type="text" class="kna-edit-input" data-edit-field="reference" data-edit-id="${item._editId}" value="${escapeHtml(summary.reference)}" placeholder="Invoice / OR no." ${summary.disabledAttr}></div>
-      <div><input type="number" min="0" step="0.01" class="kna-edit-input kna-edit-number" data-edit-field="amount" data-edit-id="${item._editId}" value="${escapeHtml(summary.amount)}" placeholder="0.00" ${summary.disabledAttr}></div>
-      <div class="text-center"><label class="kna-vat-wrap"><input type="checkbox" class="kna-edit-checkbox" data-edit-field="isVattable" data-edit-id="${item._editId}" ${summary.isVattable ? 'checked' : ''} ${summary.disabledAttr}></label></div>
-      <div class="kna-vendor-cell">
-        <div class="kna-vendor-cell-caption">Vendor details</div>
-        <input type="text" class="kna-edit-input" data-edit-field="vendorName" data-edit-id="${item._editId}" value="${escapeHtml(item.vendor_name || '')}" placeholder="Vendor name" ${summary.disabledAttr}>
-        <input type="text" class="kna-edit-input" data-edit-field="vendorAddress" data-edit-id="${item._editId}" value="${escapeHtml(item.vendor_address || '')}" placeholder="Address" ${summary.disabledAttr}>
-        <input type="text" class="kna-edit-input" data-edit-field="vendorTin" data-edit-id="${item._editId}" value="${escapeHtml(item.vendor_tin || '')}" placeholder="TIN" ${summary.disabledAttr}>
-      </div>
-      <div>
-        <div class="kna-attachment-cell">${att.attachHtml}${att.ocrLoadingIcon}${att.compressedIcon}</div>
-        ${buildEditOcrStatusHtml(item._editId)}
-        ${attachBtn}
-        <input type="file" class="d-none" data-edit-file="upload" data-edit-id="${item._editId}" accept="image/*">
-        <input type="file" class="d-none" data-edit-file="camera" data-edit-id="${item._editId}" accept="image/*" capture="environment">
-      </div>
-      <div>
-        <input type="text" class="kna-edit-input" data-edit-field="description" data-edit-id="${item._editId}" value="${escapeHtml(summary.description)}" placeholder="Remarks" ${summary.disabledAttr}>
-        ${rejectionRibbon}
-      </div>
-      <div class="text-center">${!summary.isLocked ? `<button type="button" class="kna-remove-btn" data-edit-action="remove" data-edit-id="${item._editId}" title="Remove item"><i class="fas fa-trash"></i></button>` : '<span class="kna-lock-icon"><i class="fas fa-lock"></i></span>'}</div>
-    </div>`;
-};
-
-// ─── Mobile Card Builder ───
-const buildMobileCard = (item, summary, index) => {
-  const att = buildAttachmentCell(item, summary);
-  const rejectionBlock = summary.isRejected && summary.approval.rejections.length ?
-    `<div class="kna-rejection-box-mobile">${summary.approval.rejections.map((rej) => {
-      const approver = escapeHtml(normalizeDate(rej.approver_name || rej.approver || 'Approver'));
-      const reason = escapeHtml(normalizeDate(rej.remarks || rej.rejection_reason || 'No reason provided'));
-      return `<div class="kna-rejection-item"><i class="fas fa-times-circle"></i> <strong>${approver}:</strong> "${reason}"</div>`;
-    }).join('')}</div>` : '';
-
-  const cardClass = summary.isRejected ? 'kna-exp-card kna-exp-card-rejected' : 'kna-exp-card';
-  const cardLockedClass = summary.isLocked ? ' kna-row-locked' : '';
-  const cardStatus = summary.isRejected ? 'rejected' : (summary.isLocked ? 'approved' : 'pending');
-  const btnLabel = att.hasAttachment ? 'Replace Receipt' : 'Attach Receipt';
-  const btnIcon = att.hasAttachment ? 'fa-sync-alt' : 'fa-camera';
-  const attachBtn = !summary.isLocked ? `<button type="button" class="btn btn-outline-primary btn-sm kna-attach-btn" data-edit-action="attach" data-edit-id="${item._editId}"><i class="fas ${btnIcon} mr-1"></i> ${btnLabel}</button>` : '';
-
-  return `
-    <div class="${cardClass}${cardLockedClass}" data-edit-item-id="${item._editId}" data-status="${cardStatus}">
-      <div class="kna-exp-card-head">
-        <div class="kna-exp-card-head-left">
-          <div class="kna-exp-card-badge">${index + 1}</div>
-          <div class="kna-exp-card-title">${summary.lockIcon}${escapeHtml(summary.selectedExpenseTypeText || 'Expense Item')}</div>
-          <div class="kna-exp-card-meta">${escapeHtml(summary.docDate)} • ${escapeHtml(summary.reference)}</div>
-          ${rejectionBlock}
-        </div>
-        <div class="kna-exp-card-actions">
-          ${!summary.isLocked ? `<button type="button" class="kna-exp-card-remove" data-edit-action="remove" data-edit-id="${item._editId}" title="Remove item"><i class="fas fa-trash"></i></button>` : ''}
-        </div>
-      </div>
-      <div class="kna-exp-card-body">
-        <div class="kna-exp-card-grid">
-          <div class="kna-exp-card-field"><span class="kna-exp-card-label">Document Date</span><input type="date" class="kna-edit-input" data-edit-field="documentDate" data-edit-id="${item._editId}" value="${escapeHtml(summary.docDate)}" ${summary.disabledAttr}></div>
-          <div class="kna-exp-card-field"><span class="kna-exp-card-label">Expense Type</span><select class="kna-edit-select" data-edit-field="expenseCategory" data-edit-id="${item._editId}" title="${escapeHtml(summary.selectedExpenseTypeText)}" ${summary.disabledAttr}>${editExpenseTypeOptionsMarkup(summary.category)}</select></div>
-          <div class="kna-exp-card-field"><span class="kna-exp-card-label">Reference</span><input type="text" class="kna-edit-input" data-edit-field="reference" data-edit-id="${item._editId}" value="${escapeHtml(summary.reference)}" placeholder="Invoice / OR no." ${summary.disabledAttr}></div>
-          <div class="kna-exp-card-field"><span class="kna-exp-card-label">Amount</span><input type="number" min="0" step="0.01" class="kna-edit-input kna-edit-number" data-edit-field="amount" data-edit-id="${item._editId}" value="${escapeHtml(summary.amount)}" placeholder="0.00" ${summary.disabledAttr}></div>
-          <div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Vendor Details</span>
-            <div class="kna-vendor-inline">
-              <input type="text" class="kna-edit-input" data-edit-field="vendorName" data-edit-id="${item._editId}" value="${escapeHtml(item.vendor_name || '')}" placeholder="Vendor name" ${summary.disabledAttr}>
-              <input type="text" class="kna-edit-input" data-edit-field="vendorAddress" data-edit-id="${item._editId}" value="${escapeHtml(item.vendor_address || '')}" placeholder="Address" ${summary.disabledAttr}>
-              <input type="text" class="kna-edit-input" data-edit-field="vendorTin" data-edit-id="${item._editId}" value="${escapeHtml(item.vendor_tin || '')}" placeholder="TIN" ${summary.disabledAttr}>
-            </div>
+    <div class="kna-item-row-wrap">
+    <div class="${rowClasses}" data-edit-item-id="${item._editId}">
+      <div class="kna-item-row-index">${index + 1}${summary.isLocked ? ` ${summary.lockIcon}` : ''}</div>
+      <div class="kna-item-row-fields">
+        ${editItemField('Doc Date', 'kna-f-date', `<input type="date" class="kna-edit-input" data-edit-field="documentDate" data-edit-id="${item._editId}" value="${escapeHtml(summary.docDate)}" ${summary.disabledAttr}>`)}
+        ${editItemField('Expense Type', 'kna-f-type', `<select class="kna-edit-select" data-edit-field="expenseCategory" data-edit-id="${item._editId}" title="${escapeHtml(summary.selectedExpenseTypeText)}" ${summary.disabledAttr}>${editExpenseTypeOptionsMarkup(summary.category)}</select>`)}
+        ${editItemField('Reference', 'kna-f-ref', `<input type="text" class="kna-edit-input" data-edit-field="reference" data-edit-id="${item._editId}" value="${escapeHtml(summary.reference)}" placeholder="Invoice / OR no." ${summary.disabledAttr}>`)}
+        ${editItemField('Amount', 'kna-f-amount', `<input type="number" min="0" step="0.01" class="kna-edit-input kna-edit-number" data-edit-field="amount" data-edit-id="${item._editId}" value="${escapeHtml(summary.amount)}" placeholder="0.00" ${summary.disabledAttr}>`)}
+        ${editItemField('VAT', 'kna-f-vat', `<label class="kna-vat-wrap"><input type="checkbox" class="kna-edit-checkbox" data-edit-field="isVattable" data-edit-id="${item._editId}" ${summary.isVattable ? 'checked' : ''} ${summary.disabledAttr}></label>`)}
+        ${editItemField('Vendor Name', 'kna-f-vendor', `<input type="text" class="kna-edit-input" data-edit-field="vendorName" data-edit-id="${item._editId}" value="${escapeHtml(item.vendor_name || '')}" placeholder="Vendor name" ${summary.disabledAttr}>`)}
+        ${editItemField('Vendor Address', 'kna-f-vendor', `<input type="text" class="kna-edit-input" data-edit-field="vendorAddress" data-edit-id="${item._editId}" value="${escapeHtml(item.vendor_address || '')}" placeholder="Address" ${summary.disabledAttr}>`)}
+        ${editItemField('TIN', 'kna-f-tin', `<input type="text" class="kna-edit-input" data-edit-field="vendorTin" data-edit-id="${item._editId}" value="${escapeHtml(item.vendor_tin || '')}" placeholder="TIN" ${summary.disabledAttr}>`)}
+        <div class="kna-item-field kna-f-attach">
+          <span class="kna-item-field-label">Attachment</span>
+          <div class="kna-item-attach-inline">
+            <span class="kna-attachment-cell">${att.attachHtml}${att.ocrLoadingIcon}${att.compressedIcon}</span>
+            ${attachBtn}
+            <input type="file" class="d-none" data-edit-file="upload" data-edit-id="${item._editId}" accept="image/*">
+            <input type="file" class="d-none" data-edit-file="camera" data-edit-id="${item._editId}" accept="image/*" capture="environment">
           </div>
-          <div class="kna-exp-card-field kna-exp-card-field-full kna-vat-toggle-row">
-            <label class="kna-vat-toggle"><input type="checkbox" class="kna-edit-checkbox" data-edit-field="isVattable" data-edit-id="${item._editId}" ${summary.isVattable ? 'checked' : ''} ${summary.disabledAttr}><span class="kna-vat-toggle-slider"></span><span class="kna-vat-toggle-label">VAT Inclusive</span></label>
-          </div>
-        </div>
-        <div class="kna-attach-section">
-          <div class="kna-attach-header"><span class="kna-exp-card-label">Receipt / Attachment</span><span class="kna-attach-status">${att.attachHtml}${att.ocrLoadingIcon}${att.compressedIcon}</span></div>
           ${buildEditOcrStatusHtml(item._editId)}
-          ${attachBtn}
-          <input type="file" class="d-none" data-edit-file="upload" data-edit-id="${item._editId}" accept="image/*">
-          <input type="file" class="d-none" data-edit-file="camera" data-edit-id="${item._editId}" accept="image/*" capture="environment">
         </div>
-        <div class="kna-remarks-section"><span class="kna-exp-card-label">Remarks</span><input type="text" class="kna-edit-input" data-edit-field="description" data-edit-id="${item._editId}" value="${escapeHtml(summary.description)}" placeholder="Enter remarks..." ${summary.disabledAttr}></div>
+        ${editItemField('Remarks', 'kna-f-remarks', `<input type="text" class="kna-edit-input" data-edit-field="description" data-edit-id="${item._editId}" value="${escapeHtml(summary.description)}" placeholder="Remarks" ${summary.disabledAttr}>`)}
       </div>
+      ${!summary.isLocked
+        ? `<button type="button" class="kna-item-row-remove" data-edit-action="remove" data-edit-id="${item._editId}" title="Remove item"><i class="fas fa-trash"></i></button>`
+        : '<span class="kna-item-row-lock" title="Approved — cannot edit"><i class="fas fa-lock"></i></span>'}
+    </div>
+    ${rejectionRibbon}
     </div>`;
 };
 
@@ -304,34 +253,22 @@ const renderEditExpenseItems = () => {
   }
 
   let rejectedCount = 0;
-  const desktopRowsHtml = editExpenseItems.map((item) => {
+  const rowsHtml = editExpenseItems.map((item, i) => {
     const summary = getEditExpenseItemSummary(item);
     if (summary.isRejected) rejectedCount++;
-    return buildDesktopRow(item, summary);
+    return buildItemRow(item, summary, i);
   }).join('');
-
-  const mobileCardsHtml = editExpenseItems.map((item, i) => buildMobileCard(item, getEditExpenseItemSummary(item), i)).join('');
 
   const total = editExpenseItems.reduce((sum, e) => sum + Number(e.actual_amount || e.amount || 0), 0);
   const totalNet = editExpenseItems.reduce((sum, e) => sum + Number(e.net_amount || 0), 0);
   const totalVat = editExpenseItems.reduce((sum, e) => sum + Number(e.vat_amount || 0), 0);
 
   container.innerHTML = `
-    <div class="kna-exp-summary">
-      <div class="kna-item-table-wrap">
-        <div class="kna-item-table kna-item-table-head">
-          <div>Document date</div><div>Expense Type</div><div>Reference</div><div>Amount</div><div>Vattable</div><div>Vendor</div><div>Attachment</div><div>Remarks</div><div></div>
-        </div>
-        ${desktopRowsHtml}
-      </div>
-    </div>
-    <div class="kna-exp-mobile">
-      ${mobileCardsHtml}
-      <div class="kna-mobile-summary">
-        <div class="kna-fin-label">Total</div>
-        <div class="kna-fin-value">${formatPHP(total)}</div>
-        <div style="font-size:10px;color:#9ca3af;margin-top:2px;">Net ${formatPHP(totalNet)} • VAT ${formatPHP(totalVat)}</div>
-      </div>
+    <div class="kna-item-rows">${rowsHtml}</div>
+    <div class="kna-mobile-summary">
+      <div class="kna-fin-label">Total</div>
+      <div class="kna-fin-value">${formatPHP(total)}</div>
+      <div style="font-size:10px;color:#9ca3af;margin-top:2px;">Net ${formatPHP(totalNet)} • VAT ${formatPHP(totalVat)}</div>
     </div>`;
 
   // Update UI state
@@ -433,6 +370,8 @@ const loadEditData = () => {
     setText(domEdit.mobileCaRef, normalizeDate(record.cash_advance_id) || '-');
     setText(domEdit.editCaAmount, formatPHP(Number(record.ca_amount || 0)));
     setText(domEdit.mobileCaAmount, formatPHP(Number(record.ca_amount || 0)));
+    setText(domEdit.editApprovedAmount, formatPHP(Number(record.approved_amount || 0)));
+    setText(domEdit.mobileApprovedAmount, formatPHP(Number(record.approved_amount || 0)));
     setText(domEdit.editCaDate, submittedDate);
     setText(domEdit.mobileCaDate, submittedDate);
     setHtml(domEdit.editStatus, getStatusBadge(normalizeDate(record.status_name)));
@@ -594,13 +533,13 @@ const promptEditAttachmentSource = (editId) => {
 // ─── DOM Cache ───
 const cacheEditDom = () => {
   const ids = [
-    'liquidationRef', 'cashAdvanceId', 'editLiquidationNo', 'editCaRef', 'editCaAmount', 'editCaDate',
+    'liquidationRef', 'cashAdvanceId', 'editLiquidationNo', 'editCaRef', 'editCaAmount', 'editApprovedAmount', 'editCaDate',
     'editExpenseDate', 'editLiquidatedAmount', 'editVariance', 'editPurpose', 'editPayableTo',
     'editAddress', 'editCostCenter', 'editStatus', 'editSubmittedDate', 'editExpenseItems',
     'editItemCount', 'rejectedBanner', 'rejectedCount', 'btnAddNewItem', 'btnSaveEdit',
     'btnSaveAsDraft', 'btnSaveEditMobile', 'btnSaveAsDraftMobile', 'mobileLiquidationNo',
     'mobileStatus', 'mobileCaAmount', 'mobileTotal', 'mobileVariance', 'mobileCaRef',
-    'mobileCaDate', 'mobileSubmittedDate', 'mobileExpenseDate', 'mobilePayableTo',
+    'mobileCaDate', 'mobileSubmittedDate', 'mobileExpenseDate', 'mobileApprovedAmount', 'mobilePayableTo',
     'mobileCostCenter', 'mobileAddress', 'mobilePurpose',
   ];
   ids.forEach((id) => { domEdit[id] = document.getElementById(id); });

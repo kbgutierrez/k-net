@@ -3,6 +3,7 @@ const domDetail = {
 	viewLiquidationNo: null,
 	viewCaRef: null,
 	viewCaAmount: null,
+	viewApprovedAmount: null,
 	viewCaDate: null,
 	viewExpenseDate: null,
 	viewLiquidatedAmount: null,
@@ -19,6 +20,7 @@ const domDetail = {
 	mobileLiquidationNo: null,
 	mobileStatus: null,
 	mobileCaAmount: null,
+	mobileApprovedAmount: null,
 	mobileTotal: null,
 	mobileVariance: null,
 	mobileCaRef: null,
@@ -514,6 +516,7 @@ const cacheDetailDom = () => {
 	domDetail.viewLiquidationNo = document.getElementById('viewLiquidationNo');
 	domDetail.viewCaRef = document.getElementById('viewCaRef');
 	domDetail.viewCaAmount = document.getElementById('viewCaAmount');
+	domDetail.viewApprovedAmount = document.getElementById('viewApprovedAmount');
 	domDetail.viewCaDate = document.getElementById('viewCaDate');
 	domDetail.viewExpenseDate = document.getElementById('viewExpenseDate');
 	domDetail.viewLiquidatedAmount = document.getElementById('viewLiquidatedAmount');
@@ -530,6 +533,7 @@ const cacheDetailDom = () => {
 	domDetail.mobileLiquidationNo = document.getElementById('mobileLiquidationNo');
 	domDetail.mobileStatus = document.getElementById('mobileStatus');
 	domDetail.mobileCaAmount = document.getElementById('mobileCaAmount');
+	domDetail.mobileApprovedAmount = document.getElementById('mobileApprovedAmount');
 	domDetail.mobileTotal = document.getElementById('mobileTotal');
 	domDetail.mobileVariance = document.getElementById('mobileVariance');
 	domDetail.mobileCaRef = document.getElementById('mobileCaRef');
@@ -605,6 +609,12 @@ const initDetailPage = () => {
 		}
 		if (domDetail.mobileCaAmount) {
 			domDetail.mobileCaAmount.textContent = formatPHP(Number(record.ca_amount || 0));
+		}
+		if (domDetail.viewApprovedAmount) {
+			domDetail.viewApprovedAmount.textContent = formatPHP(Number(record.approved_amount || 0));
+		}
+		if (domDetail.mobileApprovedAmount) {
+			domDetail.mobileApprovedAmount.textContent = formatPHP(Number(record.approved_amount || 0));
 		}
 		const submittedDate = normalizeDate(record.submitted_date || '').slice(0, 10) || '-';
 		if (domDetail.viewCaDate) {

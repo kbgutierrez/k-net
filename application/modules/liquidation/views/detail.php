@@ -739,7 +739,7 @@
 		}
 		.kna-mobile-hero-amounts {
 			display: grid;
-			grid-template-columns: 1fr 1fr 1fr;
+			grid-template-columns: 1fr 1fr;
 			gap: 8px;
 		}
 		.kna-mobile-hero-amt {
@@ -973,10 +973,14 @@
 				</div>
 
 				<!-- Row 3: Financial summary -->
-				<div class="kna-info-row kna-info-row-3" style="margin-bottom:12px;">
+				<div class="kna-info-row kna-info-row-4" style="grid-template-columns: repeat(4, 1fr); margin-bottom:12px;">
 					<div class="form-group kna-compact-field">
 						<label class="kna-form-label">CA Amount</label>
 						<div class="kna-compact-value is-muted" id="viewCaAmount">-</div>
+					</div>
+					<div class="form-group kna-compact-field">
+						<label class="kna-form-label">Approved Amount</label>
+						<div class="kna-compact-value is-muted" id="viewApprovedAmount">-</div>
 					</div>
 					<div class="form-group kna-compact-field">
 						<label class="kna-form-label">Total Liquidated</label>
@@ -1010,6 +1014,10 @@
 						<div class="kna-mobile-hero-amt">
 							<div class="kna-mobile-hero-amt-label">CA Amount</div>
 							<div class="kna-mobile-hero-amt-value" id="mobileCaAmount">-</div>
+						</div>
+						<div class="kna-mobile-hero-amt">
+							<div class="kna-mobile-hero-amt-label">Approved</div>
+							<div class="kna-mobile-hero-amt-value" id="mobileApprovedAmount">-</div>
 						</div>
 						<div class="kna-mobile-hero-amt">
 							<div class="kna-mobile-hero-amt-label">Total</div>

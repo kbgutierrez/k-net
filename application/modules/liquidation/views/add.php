@@ -19,152 +19,91 @@
     background: #fff; padding: 8px;
   }
 
-  /* ===== DESKTOP TABLE ===== */
-  .kna-item-table-wrap {
-    width: 100%;
+  /* ===== COMPACT EXPENSE ITEM ROWS ===== */
+  .kna-item-rows { display: flex; flex-direction: column; gap: 6px; }
+  .kna-item-row {
     display: flex;
-    flex-direction: column;
-    gap: 0;
-    overflow-x: auto;
-  }
-  .kna-item-row-wrapper {
-    margin-bottom: 6px;
+    align-items: flex-start;
+    gap: 8px;
     background: #f8f9fc;
     border: 1px solid #e5e7eb;
     border-radius: 6px;
-    overflow: hidden;
+    padding: 8px;
   }
-  .kna-item-table {
-    display: grid;
-    grid-template-columns: 32px 100px minmax(200px, 1.6fr) 110px 100px 44px 120px minmax(140px, 1.4fr) 80px;
-    gap: 10px;
-    align-items: center;
-    background: transparent;
-    border: 0;
-    border-radius: 0;
-    padding: 10px 12px;
-    min-width: 100%;
-  }
-  .kna-item-table-head {
-    background: #e5e7eb;
-    border-color: #d1d5db;
+  .kna-item-row-index {
+    flex: 0 0 auto;
+    width: 18px;
+    padding-top: 6px;
     font-size: 10px;
-    font-weight: 700;
-    color: #374151;
-    align-items: center;
-    padding: 8px 12px;
-    min-height: 36px;
-    margin-bottom: 6px;
-  }
-  .kna-item-table-head>div {
-    line-height: 1.2;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .kna-item-table-row .form-control {
-    min-width: 0;
-    font-size: 10px;
-    padding: 5px 8px;
-    height: 30px;
-  }
-  .kna-cell-index {
-    font-size: 11px;
     font-weight: 700;
     color: #9ca3af;
     text-align: center;
   }
-  .kna-cell-remarks .form-control {
-    width: 100%;
-    font-size: 10px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .kna-cell-actions {
+  .kna-item-row-fields {
+    flex: 1 1 auto;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 0;
   }
-  .kna-cell-actions .btn {
-    width: 28px; height: 28px;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-  }
-  .kna-attach-cell {
+  .kna-item-field {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    overflow: hidden;
+    gap: 2px;
+    flex: 1 1 100px;
+    min-width: 90px;
   }
-  .kna-attach-cell .kna-attachment-cell {
-    font-size: 10px;
-    font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    word-break: keep-all;
-    line-height: 1.3;
-  }
-  .kna-attachment-cell, .kna-attachment-cell * {
-    white-space: nowrap !important;
-    word-break: keep-all !important;
-    overflow-wrap: normal !important;
-    word-wrap: normal !important;
-  }
-  .kna-attach-cell .btn {
-    align-self: flex-start;
-    white-space: nowrap;
-    font-size: 10px;
-    padding: 4px 10px;
-    height: 28px;
-  }
-
-  /* ===== VENDOR INLINE BLOCK ===== */
-  .kna-vendor-inline {
-    margin-top: 0;
-    padding: 8px 12px 10px;
-    border-top: 1px solid #eef2f7;
-    background: #fff;
-  }
-  .kna-vendor-inline-caption {
-    display: flex;
-    align-items: center;
-    font-size: 10px;
+  .kna-item-field-label {
+    font-size: 9px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: .3px;
-    color: #6b7280;
-    margin-bottom: 4px;
+    letter-spacing: .2px;
+    color: #9ca3af;
   }
-  .kna-vendor-inline-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px;
-  }
-  .kna-vendor-inline .form-control {
-    font-size: 10px;
-    padding: 4px 8px;
+  .kna-item-field .form-control { font-size: 10px; padding: 4px 8px; height: 28px; }
+  .kna-f-type { flex: 2 1 180px; }
+  .kna-f-amount { flex: 1 1 90px; }
+  .kna-f-vat { flex: 0 0 auto; min-width: 40px; }
+  .kna-f-vendor { flex: 1 1 130px; }
+  .kna-f-tin { flex: 1 1 100px; }
+  .kna-f-attach { flex: 1 1 150px; }
+  .kna-f-remarks { flex: 1 1 150px; }
+  .kna-vat-wrap {
+    display: inline-flex;
+    align-items: center;
     height: 28px;
-    border-color: #e5e7eb;
-    background: #fff;
-    color: #1f2937;
+    margin: 0;
+    cursor: pointer;
   }
-  .kna-vendor-inline .form-control:focus {
-    border-color: #6366f1;
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.08);
+  .kna-vat-input { width: 14px; height: 14px; margin: 0; accent-color: #2563eb; }
+  .kna-item-attach-inline {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
   }
-  .kna-vendor-inline.is-mobile {
-    margin-top: 0;
-    padding: 6px 10px 10px;
+  .kna-item-attach-inline .kna-attachment-cell { font-size: 10px; font-weight: 600; }
+  .kna-item-attach-inline .btn {
+    font-size: 10px;
+    padding: 3px 8px;
+    height: 24px;
+    line-height: 1;
   }
-  .kna-vendor-inline.is-mobile .kna-vendor-inline-grid {
-    grid-template-columns: 1fr;
+  .kna-item-row-remove {
+    flex: 0 0 auto;
+    margin-top: 4px;
+    width: 26px; height: 26px;
+    border-radius: 6px;
+    border: 1px solid #fecaca;
+    background: #fef2f2;
+    color: #dc2626;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 11px;
   }
+  .kna-item-row-remove:hover { background: #fee2e2; border-color: #ef4444; }
 
   .kna-ocr-status {
     font-size: 10px;
@@ -383,199 +322,12 @@
   .kna-var-balanced { background: #d1fae5; color: #065f46; }
   .kna-var-return { background: #fef3c7; color: #92400e; }
   .kna-var-reimburse { background: #dbeafe; color: #1e40af; }
-  .kna-exp-summary { display: block; margin-bottom: 10px; }
   .kna-summary-note { display: none; margin-top: 10px; padding: 10px 12px; border: 1px solid #d1fae5; border-radius: 8px; background: #f0fdf4; }
   .kna-summary-note .kna-fin-label { margin-bottom: 2px; }
-  .kna-exp-mobile { display: none; }
 
   /* ===== MOBILE COMPACT OVERVIEW (Hidden on desktop) ===== */
   .kna-mobile-overview { display: none; }
 
-  /* ===== MOBILE CARDS ===== */
-  .kna-exp-card {
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    background: #fff;
-    padding: 0;
-    box-shadow: 0 2px 8px rgba(20, 30, 50, .06);
-    margin-bottom: 12px;
-    overflow: hidden;
-  }
-  .kna-exp-card-head {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    align-items: flex-start;
-    padding: 10px 12px;
-    border-bottom: 1px solid #eef2f7;
-    background: #fafbfc;
-  }
-  .kna-exp-card-head-left {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-  }
-  .kna-exp-card-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px; height: 22px;
-    border-radius: 50%;
-    background: #6366f1;
-    color: #fff;
-    font-size: 10px;
-    font-weight: 700;
-    margin-bottom: 2px;
-  }
-  .kna-exp-card-title {
-    font-size: 12px;
-    font-weight: 700;
-    color: #111827;
-    line-height: 1.3;
-  }
-  .kna-exp-card-sub {
-    font-size: 10px;
-    font-weight: 600;
-    color: #6b7280;
-    margin-left: 4px;
-  }
-  .kna-exp-card-meta { font-size: 10px; color: #6b7280; }
-  .kna-exp-card-actions {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex: 0 0 auto;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
-  .kna-exp-card-remove {
-    width: 32px; height: 32px;
-    border-radius: 8px;
-    border: 1px solid #fecaca;
-    background: #fef2f2;
-    color: #dc2626;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    font-size: 12px;
-    transition: all .15s;
-  }
-  .kna-exp-card-remove:hover { background: #fee2e2; border-color: #ef4444; }
-  .kna-exp-card-body { padding: 10px 12px; }
-  .kna-exp-card-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-    margin-bottom: 10px;
-  }
-  .kna-exp-card-field {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-  }
-  .kna-exp-card-field-full { grid-column: 1 / -1; }
-  .kna-exp-card-label {
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .3px;
-    color: #6b7280;
-  }
-  .kna-exp-card-value { font-size: 10px; color: #1f2937; }
-  .kna-exp-card-attach {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-  .kna-exp-card-field .form-control { min-width: 0; }
-  .kna-vat-toggle-row { padding: 4px 0; }
-  .kna-vat-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
-    user-select: none;
-  }
-  .kna-vat-toggle input {
-    position: absolute;
-    opacity: 0;
-    width: 0; height: 0;
-  }
-  .kna-vat-toggle-slider {
-    position: relative;
-    width: 40px; height: 22px;
-    background: #d1d5db;
-    border-radius: 22px;
-    transition: background .2s;
-    flex-shrink: 0;
-  }
-  .kna-vat-toggle-slider::before {
-    content: '';
-    position: absolute;
-    left: 2px; top: 2px;
-    width: 18px; height: 18px;
-    background: #fff;
-    border-radius: 50%;
-    transition: transform .2s;
-    box-shadow: 0 1px 3px rgba(0,0,0,.15);
-  }
-  .kna-vat-toggle input:checked + .kna-vat-toggle-slider { background: #6366f1; }
-  .kna-vat-toggle input:checked + .kna-vat-toggle-slider::before { transform: translateX(18px); }
-  .kna-vat-toggle-label { font-size: 11px; font-weight: 600; color: #374151; }
-  .kna-attach-section {
-    border: 1.5px dashed #d1d5db;
-    border-radius: 8px;
-    padding: 10px 12px;
-    margin-bottom: 10px;
-    background: #f8fafc;
-    transition: border-color .15s, background .15s;
-  }
-  .kna-attach-section:hover { border-color: #6366f1; background: #f5f3ff; }
-  .kna-attach-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 6px;
-  }
-  .kna-attach-status {
-    font-size: 10px;
-    color: #6b7280;
-    font-weight: 600;
-  }
-  .kna-attach-btn {
-    width: 100%;
-    min-height: 40px;
-    border-radius: 6px;
-    font-size: 11px;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-  }
-  .kna-remarks-section {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .kna-vat-input {
-    width: 14px; height: 14px;
-    margin: 0;
-    accent-color: #2563eb;
-  }
-  .kna-vat-wrap {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin: 0;
-    font-size: 10px;
-    color: #374151;
-    user-select: none;
-    cursor: pointer;
-  }
   .kna-mobile-add-item { display: none; width: 100%; margin-top: 10px; }
 
   /* ===== MOBILE VENDOR SECTION ===== */
@@ -731,12 +483,8 @@
     .kna-actions { display: none; }
     .kna-actions .btn { width: 100%; }
     .kna-info-row-3 { grid-template-columns: 1fr; }
-    .kna-exp-mobile { display: block; }
-    .kna-item-table-wrap { display: none !important; }
     .kna-summary-note { display: block; }
-    .kna-exp-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-    .kna-exp-card-head { gap: 8px; }
-    .kna-exp-card-attach { flex-direction: row; }
+    .kna-item-field { flex: 1 1 45%; }
     .kna-mobile-add-item { display: block; }
     .kna-mobile-sticky-actions {
       display: flex;
@@ -782,11 +530,16 @@
     .kna-info-grid-mobile { grid-template-columns: 1fr; gap: 6px; }
     .kna-info-item-mobile { padding: 8px 10px; }
     .kna-info-value-mobile { font-size: 12px; }
-    .kna-exp-card-grid { gap: 8px; }
-    .kna-exp-card-body { padding: 8px; }
+    .kna-item-field { flex: 1 1 100%; }
     .kna-mobile-hero-amounts { grid-template-columns: 1fr 1fr; }
     .kna-mobile-hero-amt:nth-child(3) { grid-column: 1 / -1; }
   }
+    @media (max-width: 768px) {
+  .kna-info-row-3,
+  .kna-info-row-4 {
+    grid-template-columns: 1fr;
+  }
+}
 </style>
 <div class="page-inner kna-page">
   <input type="hidden" id="liquidationRef"
@@ -814,7 +567,7 @@
             <i class="fas fa-info-circle"></i>
             Liquidation Information
           </div>
-          <div class="kna-info-row kna-info-row-3">
+          <div class="kna-info-row kna-info-row-4" style="grid-template-columns: repeat(4, 1fr);">
             <div class="form-group">
               <label class="kna-form-label">Reference</label>
               <select class="form-control form-control-sm kna-small" id="newCaRef" required>
@@ -825,6 +578,11 @@
               <label class="kna-form-label">CA Amount</label>
               <input type="number" class="form-control form-control-sm kna-small" id="newCaAmount" min="0" step="0.01"
                 value="0" readonly style="background: #f0f4f8;">
+            </div>
+            <div class="form-group">
+              <label class="kna-form-label">Approved Amount</label>
+              <input type="number" class="form-control form-control-sm kna-small" id="newApprovedAmount" min="0"
+                step="0.01" value="0" readonly style="background: #f0f4f8;">
             </div>
             <div class="form-group">
               <label class="kna-form-label">CA Date</label>
@@ -885,6 +643,10 @@
               <div class="kna-mobile-hero-amt">
                 <div class="kna-mobile-hero-amt-label">CA Amount</div>
                 <div class="kna-mobile-hero-amt-value" id="mobileCaAmount">-</div>
+              </div>
+              <div class="kna-mobile-hero-amt">
+                <div class="kna-mobile-hero-amt-label">Approved</div>
+                <div class="kna-mobile-hero-amt-value" id="mobileApprovedAmount">-</div>
               </div>
               <div class="kna-mobile-hero-amt">
                 <div class="kna-mobile-hero-amt-label">Total</div>

@@ -40,15 +40,7 @@ const getAllAttachments = (it) => (it.existingAttachments || []).map((n) => ({ n
 const getAttachmentNamesCsv = (it) => (it.existingAttachments || []).map(normalizeDate).filter(Boolean).join(',');
 const hasVendorData = (it) => !!(it.vendorName || it.vendorAddress || it.vendorTin);
 const createExpenseItem = () => ({ id: ++expenseItemCounter, documentDate: '', expenseType: '', reference: '', amount: '', isVattable: false, existingAttachments: [], attachments: [], remarks: '', vendorName: '', vendorAddress: '', vendorTin: '', _vendorExpanded: false });
-const renderVendorFields = (it, isMobile = false) => `
-  <div class="kna-vendor-inline ${isMobile ? 'is-mobile' : ''}">
-    <div class="kna-vendor-inline-caption">Vendor details</div>
-    <div class="kna-vendor-inline-grid">
-      <input type="text" class="form-control form-control-sm" data-item-field="vendorName" data-item-id="${it.id}" value="${escapeHtml(it.vendorName)}" placeholder="Vendor name" aria-label="Vendor name">
-      <input type="text" class="form-control form-control-sm" data-item-field="vendorAddress" data-item-id="${it.id}" value="${escapeHtml(it.vendorAddress)}" placeholder="Address" aria-label="Vendor address">
-      <input type="text" class="form-control form-control-sm" data-item-field="vendorTin" data-item-id="${it.id}" value="${escapeHtml(it.vendorTin)}" placeholder="TIN" aria-label="Vendor TIN">
-    </div>
-  </div>`;
+const itemField = (label, cls, inputHtml) => `<div class="kna-item-field ${cls}"><span class="kna-item-field-label">${label}</span>${inputHtml}</div>`;
 
 const swal = (icon, title, text, opts = {}) => Swal.fire({ icon, title, text, ...opts });
 const parseRes = (r) => (typeof r === 'string' ? jQuery.parseJSON(r) : r);
@@ -91,7 +83,7 @@ const updateTotal = () => {
 
 const updateVariance = () => {
   if (!domAdd.newVariance) return;
-  const ca = safeNum(domAdd.newCaAmount?.value), total = getTotal();
+  const ca = safeNum(domAdd.newApprovedAmount?.value), total = getTotal();
   const refund = ca > total ? ca - total : 0, reimburse = total > ca ? total - ca : 0;
   let html = '<span class="text-muted">-</span>', mob = '-';
   if (total > 0 && refund > 0) {
@@ -123,15 +115,16 @@ const syncDateRange = () => {
 
 // ─── DOM Cache ───
 const cacheAddDom = () => {
-  const ids = ['liquidationRef','draftEditWindowDays','isEditMode','newCaRef','newCaAmount','newCaDate','newDateRange','newLiquidatedAmount','newVariance','newPurpose','newPayableTo','newAddress','newCostCenter','btnAddExpenseItem','expenseItemsContainer','btnSaveDraftLiquidation','btnSaveNewLiquidation','btnSaveDraftLiquidationMobile','btnSaveNewLiquidationMobile','mobileCaRef','mobileCaAmount','mobileTotal','mobileVariance','mobileCaDate','mobileDateRange','mobilePayableTo','mobileCostCenter','mobileAddress','mobilePurpose'];
+  const ids = ['liquidationRef','draftEditWindowDays','isEditMode','newCaRef','newCaAmount','newApprovedAmount','newCaDate','newDateRange','newLiquidatedAmount','newVariance','newPurpose','newPayableTo','newAddress','newCostCenter','btnAddExpenseItem','expenseItemsContainer','btnSaveDraftLiquidation','btnSaveNewLiquidation','btnSaveDraftLiquidationMobile','btnSaveNewLiquidationMobile','mobileCaRef','mobileCaAmount','mobileApprovedAmount','mobileTotal','mobileVariance','mobileCaDate','mobileDateRange','mobilePayableTo','mobileCostCenter','mobileAddress','mobilePurpose'];
   ids.forEach((id) => { domAdd[id] = document.getElementById(id); });
 };
 
 // ─── Cash Advance Sync ───
 const resetCADetails = () => {
   domAdd.newCaAmount.value = '0.00';
+  domAdd.newApprovedAmount.value = '0.00';
   ['newCaDate','newPurpose','newPayableTo','newAddress','newCostCenter'].forEach((k) => { if (domAdd[k]) domAdd[k].value = ''; });
-  ['mobileCaAmount','mobileCaDate','mobilePayableTo','mobileCostCenter','mobileAddress','mobilePurpose','mobileCaRef','mobileDateRange','mobileTotal','mobileVariance'].forEach((k) => { if (domAdd[k]) domAdd[k].textContent = '-'; });
+  ['mobileCaAmount','mobileApprovedAmount','mobileCaDate','mobilePayableTo','mobileCostCenter','mobileAddress','mobilePurpose','mobileCaRef','mobileDateRange','mobileTotal','mobileVariance'].forEach((k) => { if (domAdd[k]) domAdd[k].textContent = '-'; });
   updateVariance();
 };
 
@@ -144,6 +137,7 @@ const syncCADetails = () => {
       if (res.status !== 'success' || !res.data) { resetCADetails(); return swal('error', 'Load Failed', res.response || 'Could not load cash advance details.'); }
       const d = res.data;
       domAdd.newCaAmount.value = safeNum(d.amount).toFixed(2);
+      domAdd.newApprovedAmount.value = safeNum(d.approved_amount).toFixed(2);
       domAdd.newCaDate.value = normalizeDate(d.created_date).slice(0, 10);
       domAdd.newPurpose.value = normalizeDate(d.description);
       if (domAdd.newPayableTo) domAdd.newPayableTo.value = normalizeDate(d.payable_to || '');
@@ -154,6 +148,7 @@ const syncCADetails = () => {
       }
       if (domAdd.mobileCaRef) domAdd.mobileCaRef.textContent = ref || '-';
       if (domAdd.mobileCaAmount) domAdd.mobileCaAmount.textContent = formatPHP(safeNum(d.amount));
+      if (domAdd.mobileApprovedAmount) domAdd.mobileApprovedAmount.textContent = formatPHP(safeNum(d.approved_amount));
       if (domAdd.mobileCaDate) domAdd.mobileCaDate.textContent = normalizeDate(d.created_date).slice(0, 10) || '-';
       if (domAdd.mobilePayableTo) domAdd.mobilePayableTo.textContent = normalizeDate(d.payable_to || '') || '-';
       if (domAdd.mobileAddress) domAdd.mobileAddress.textContent = normalizeDate(d.address || '') || '-';
@@ -230,91 +225,39 @@ const renderExpenseItems = () => {
   if (!domAdd.expenseItemsContainer) return;
   if (!expenseItems.length) expenseItems = [createExpenseItem()];
 
-  const desktop = expenseItems.map((it, i) => {
-    const et = getExpenseTypeByCode(it.expenseType), desc = normalizeDate((et || {}).description);
-    const atts = getAllAttachments(it);
-	console.log(it);
-    return `
-      <div class="kna-item-row-wrapper" data-item-id="${it.id}">
-        <div class="kna-item-table kna-item-table-row" data-item-id="${it.id}">
-          <div class="kna-cell-index">${i + 1}</div>
-          <div><input type="date" class="form-control form-control-sm" data-item-field="documentDate" data-item-id="${it.id}" value="${escapeHtml(it.documentDate)}"></div>
-          <div><select class="form-control form-control-sm kna-expense-type-select" data-item-field="expenseType" data-item-id="${it.id}" data-current-value="${escapeHtml(it.expenseType)}" title="${escapeHtml(desc)}">${expenseTypeOptionsMarkup(it.expenseType)}</select></div>
-          <div><input type="text" class="form-control form-control-sm" data-item-field="reference" data-item-id="${it.id}" value="${escapeHtml(it.reference)}" placeholder="Invoice / OR no."></div>
-          <div><input type="number" min="0" step="0.01" class="form-control form-control-sm text-right" data-item-field="amount" data-item-id="${it.id}" value="${escapeHtml(it.amount)}" placeholder="0.00"></div>
-          <div class="text-center"><label class="kna-vat-wrap"><input type="checkbox" class="kna-vat-input" data-item-field="isVattable" data-item-id="${it.id}" ${it.isVattable ? 'checked' : ''}></label></div>
-          <div class="kna-attach-cell">
-            <div class="kna-attachment-cell">${ocr.label(atts, it.id)}</div>
-            ${ocr.statusHtml(it.id)}
-            <button type="button" class="btn btn-outline-primary btn-sm kna-small" data-item-action="attach" data-item-id="${it.id}">Attach</button>
-            <input type="file" class="d-none" data-item-file="upload" data-item-id="${it.id}" accept="image/*" multiple>
-            <input type="file" class="d-none" data-item-file="camera" data-item-id="${it.id}" accept="image/*" capture="environment">
-          </div>
-          <div class="kna-remarks-cell"><input type="text" class="form-control form-control-sm" data-item-field="remarks" data-item-id="${it.id}" value="${escapeHtml(it.remarks)}" placeholder="Remarks"></div>
-          <div class="kna-action-cell">
-            <button type="button" class="btn btn-outline-danger btn-sm kna-icon-btn" data-item-action="remove" data-item-id="${it.id}" title="Remove item"><i class="fas fa-trash"></i></button>
-          </div>
-        </div>
-        ${renderVendorFields(it)}
-      </div>`;
-  }).join('');
-
-  const mobile = expenseItems.map((it, i) => {
+  const rows = expenseItems.map((it, i) => {
     const et = getExpenseTypeByCode(it.expenseType), desc = normalizeDate((et || {}).description);
     const atts = getAllAttachments(it), summary = ocr.label(atts, it.id), hasAtt = atts.length > 0;
-    const btnLabel = hasAtt ? 'Replace Receipt' : 'Attach Receipt';
-    const btnClass = hasAtt ? 'btn btn-outline-primary btn-sm kna-attach-btn' : 'btn btn-primary btn-sm kna-attach-btn';
+    const btnLabel = hasAtt ? 'Replace' : 'Attach';
     return `
-      <div class="kna-exp-card" data-item-id="${it.id}">
-        <div class="kna-exp-card-head">
-          <div class="kna-exp-card-head-left">
-            <div class="kna-exp-card-badge">${i + 1}</div>
-            <div class="kna-exp-card-title">${escapeHtml(et ? getExpenseTypeDisplayText(et) : 'Expense Item')}</div>
-            <div class="kna-exp-card-meta">${escapeHtml(it.documentDate || 'No date')} • ${escapeHtml(it.reference || 'No reference')}</div>
-          </div>
-          <button type="button" class="kna-exp-card-remove" data-item-action="remove" data-item-id="${it.id}" title="Remove item"><i class="fas fa-trash"></i></button>
-        </div>
-        <div class="kna-exp-card-body">
-          <div class="kna-exp-card-grid">
-            <div class="kna-exp-card-field"><span class="kna-exp-card-label">Document Date</span><input type="date" class="form-control form-control-sm" data-item-field="documentDate" data-item-id="${it.id}" value="${escapeHtml(it.documentDate)}"></div>
-            <div class="kna-exp-card-field"><span class="kna-exp-card-label">Expense Type</span><select class="form-control form-control-sm kna-expense-type-select" data-item-field="expenseType" data-item-id="${it.id}" data-current-value="${escapeHtml(it.expenseType)}" title="${escapeHtml(desc)}">${expenseTypeOptionsMarkup(it.expenseType)}</select></div>
-            <div class="kna-exp-card-field"><span class="kna-exp-card-label">Reference</span><input type="text" class="form-control form-control-sm" data-item-field="reference" data-item-id="${it.id}" value="${escapeHtml(it.reference)}" placeholder="Invoice / OR no."></div>
-            <div class="kna-exp-card-field"><span class="kna-exp-card-label">Amount</span><input type="number" min="0" step="0.01" class="form-control form-control-sm text-right" data-item-field="amount" data-item-id="${it.id}" value="${escapeHtml(it.amount)}" placeholder="0.00"></div>
-            <div class="kna-exp-card-field kna-exp-card-field-full kna-vat-toggle-row">
-              <label class="kna-vat-toggle"><input type="checkbox" class="kna-vat-input" data-item-field="isVattable" data-item-id="${it.id}" ${it.isVattable ? 'checked' : ''}><span class="kna-vat-toggle-slider"></span><span class="kna-vat-toggle-label">VAT Inclusive</span></label>
+      <div class="kna-item-row" data-item-id="${it.id}">
+        <div class="kna-item-row-index">${i + 1}</div>
+        <div class="kna-item-row-fields">
+          ${itemField('Doc Date', 'kna-f-date', `<input type="date" class="form-control form-control-sm" data-item-field="documentDate" data-item-id="${it.id}" value="${escapeHtml(it.documentDate)}">`)}
+          ${itemField('Expense Type', 'kna-f-type', `<select class="form-control form-control-sm kna-expense-type-select" data-item-field="expenseType" data-item-id="${it.id}" data-current-value="${escapeHtml(it.expenseType)}" title="${escapeHtml(desc)}">${expenseTypeOptionsMarkup(it.expenseType)}</select>`)}
+          ${itemField('Reference', 'kna-f-ref', `<input type="text" class="form-control form-control-sm" data-item-field="reference" data-item-id="${it.id}" value="${escapeHtml(it.reference)}" placeholder="Invoice / OR no.">`)}
+          ${itemField('Amount', 'kna-f-amount', `<input type="number" min="0" step="0.01" class="form-control form-control-sm text-right" data-item-field="amount" data-item-id="${it.id}" value="${escapeHtml(it.amount)}" placeholder="0.00">`)}
+          ${itemField('VAT', 'kna-f-vat', `<label class="kna-vat-wrap"><input type="checkbox" class="kna-vat-input" data-item-field="isVattable" data-item-id="${it.id}" ${it.isVattable ? 'checked' : ''}></label>`)}
+          ${itemField('Vendor Name', 'kna-f-vendor', `<input type="text" class="form-control form-control-sm" data-item-field="vendorName" data-item-id="${it.id}" value="${escapeHtml(it.vendorName)}" placeholder="Vendor name">`)}
+          ${itemField('Vendor Address', 'kna-f-vendor', `<input type="text" class="form-control form-control-sm" data-item-field="vendorAddress" data-item-id="${it.id}" value="${escapeHtml(it.vendorAddress)}" placeholder="Address">`)}
+          ${itemField('TIN', 'kna-f-tin', `<input type="text" class="form-control form-control-sm" data-item-field="vendorTin" data-item-id="${it.id}" value="${escapeHtml(it.vendorTin)}" placeholder="TIN">`)}
+          <div class="kna-item-field kna-f-attach">
+            <span class="kna-item-field-label">Attachment</span>
+            <div class="kna-item-attach-inline">
+              <span class="kna-attachment-cell">${summary}</span>
+              <button type="button" class="btn btn-outline-primary btn-sm kna-small" data-item-action="attach" data-item-id="${it.id}">${btnLabel}</button>
+              <input type="file" class="d-none" data-item-file="upload" data-item-id="${it.id}" accept="image/*" multiple>
+              <input type="file" class="d-none" data-item-file="camera" data-item-id="${it.id}" accept="image/*" capture="environment">
             </div>
-          </div>
-          ${renderVendorFields(it, true)}
-          <div class="kna-attach-section">
-            <div class="kna-attach-header"><span class="kna-exp-card-label">Receipt / Attachment</span><span class="kna-attach-status">${summary}</span></div>
             ${ocr.statusHtml(it.id)}
-            <button type="button" class="${btnClass}" data-item-action="attach" data-item-id="${it.id}"><i class="fas ${hasAtt ? 'fa-sync-alt' : 'fa-camera'} mr-1"></i> ${btnLabel}</button>
-            <input type="file" class="d-none" data-item-file="upload" data-item-id="${it.id}" accept="image/*" multiple>
-            <input type="file" class="d-none" data-item-file="camera" data-item-id="${it.id}" accept="image/*" capture="environment">
           </div>
-          <div class="kna-remarks-section"><span class="kna-exp-card-label">Remarks</span><input type="text" class="form-control form-control-sm" data-item-field="remarks" data-item-id="${it.id}" value="${escapeHtml(it.remarks)}" placeholder="Enter remarks..."></div>
+          ${itemField('Remarks', 'kna-f-remarks', `<input type="text" class="form-control form-control-sm" data-item-field="remarks" data-item-id="${it.id}" value="${escapeHtml(it.remarks)}" placeholder="Remarks">`)}
         </div>
+        <button type="button" class="kna-item-row-remove" data-item-action="remove" data-item-id="${it.id}" title="Remove item"><i class="fas fa-trash"></i></button>
       </div>`;
   }).join('');
 
-  domAdd.expenseItemsContainer.innerHTML = `
-    <div class="kna-exp-summary">
-      <div class="kna-item-table-wrap">
-        <div class="kna-item-table kna-item-table-head">
-          <div style="width:32px">#</div>
-          <div style="width:110px">Doc Date</div>
-          <div style="min-width:200px;flex:1.6">Expense Type</div>
-          <div style="width:110px">Reference</div>
-          <div style="width:100px">Amount</div>
-          <div style="width:44px" class="text-center">VAT</div>
-          <div style="width:120px">Attachment</div>
-          <div style="min-width:140px;flex:1.4">Remarks</div>
-          <div style="width:80px"></div>
-        </div>
-        ${desktop}
-      </div>
-    </div>
-    <div class="kna-exp-mobile">${mobile}</div>`;
+  domAdd.expenseItemsContainer.innerHTML = `<div class="kna-item-rows">${rows}</div>`;
 
   initExpenseTypeSelect2();
   updateTotal();
@@ -467,6 +410,7 @@ const loadDraftForEdit = () => {
       }
       if (domAdd.mobileCaRef) domAdd.mobileCaRef.textContent = draftCaRef || '-';
       if (domAdd.mobileCaAmount) domAdd.mobileCaAmount.textContent = formatPHP(safeNum(header.ca_amount));
+      if (domAdd.mobileApprovedAmount) domAdd.mobileApprovedAmount.textContent = formatPHP(safeNum(header.approved_amount));
       if (domAdd.mobileCaDate) domAdd.mobileCaDate.textContent = normalizeDate(header.created_date).slice(0, 10) || '-';
       if (domAdd.mobilePayableTo) domAdd.mobilePayableTo.textContent = normalizeDate(header.payable_to || '') || '-';
       if (domAdd.mobileAddress) domAdd.mobileAddress.textContent = normalizeDate(header.address || '') || '-';
