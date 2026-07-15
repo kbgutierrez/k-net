@@ -345,14 +345,14 @@ class Approvals extends MY_Controller
             return;
         }
 
-        $actualChanged = $this->normalizeAuditDecimal($beforeRow['actual_amount'] ?? '') !== $this->normalizeAuditDecimal($afterValues['actual_amount'] ?? '');
+        $approvedChanged = $this->normalizeAuditDecimal($beforeRow['approved_amount'] ?? '') !== $this->normalizeAuditDecimal($afterValues['approved_amount'] ?? '');
         $vatableChanged = $this->normalizeAuditValue($beforeRow['is_vatable'] ?? '') !== $this->normalizeAuditValue($afterValues['is_vatable'] ?? '');
 
         $fieldMap = array(
             'description' => 'description',
             'invoice_receipt_no' => 'invoice_receipt_no',
             'document_date' => 'document_date',
-            'actual_amount' => 'actual_amount',
+            'approved_amount' => 'approved_amount',
             'expense_category' => 'expense_category',
             'is_vatable' => 'is_vatable',
             'net_amount' => 'net_amount',
@@ -366,7 +366,7 @@ class Approvals extends MY_Controller
             $oldValue = array_key_exists($rowField, $beforeRow) ? $this->normalizeAuditValue($beforeRow[$rowField]) : '';
             $newValue = array_key_exists($auditField, $afterValues) ? $this->normalizeAuditValue($afterValues[$auditField]) : '';
 
-            if (($auditField === 'net_amount' || $auditField === 'vat_amount') && !$actualChanged && !$vatableChanged) {
+            if (($auditField === 'net_amount' || $auditField === 'vat_amount') && !$approvedChanged && !$vatableChanged) {
                 continue;
             }
 
@@ -375,7 +375,7 @@ class Approvals extends MY_Controller
                 $newValue = $newValue !== '' ? date('Y-m-d', strtotime($newValue)) : '';
             }
 
-            if ($auditField === 'actual_amount' || $auditField === 'net_amount' || $auditField === 'vat_amount') {
+            if ($auditField === 'approved_amount' || $auditField === 'net_amount' || $auditField === 'vat_amount') {
                 $oldValue = $this->normalizeAuditDecimal($oldValue);
                 $newValue = $this->normalizeAuditDecimal($newValue);
             }
@@ -691,6 +691,7 @@ class Approvals extends MY_Controller
                                 'invoice_receipt_no' => $invoiceReceiptNo,
                                 'document_date' => $documentDate,
                                 'actual_amount' => $actualAmount,
+                                'approved_amount' => $approvedGross,
                                 'expense_category' => $expenseCategory,
                                 'is_vatable' => $isVatable,
                                 'net_amount' => $netAmount,

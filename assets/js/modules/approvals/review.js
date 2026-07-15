@@ -793,7 +793,9 @@ const renderLiquidation = (data, attachments = []) => {
       originalIsVatable,
       netAmount: vatCalc.netAmount,
       vatAmount: vatCalc.vatAmount,
-      actualAmount: displayAmount,
+      originalAmount: originalAmount,
+      actualAmount: originalAmount,
+      approvedAmount: displayAmount,
       liquidatedAmount: displayAmount,
       detail_id: detailId,
       approval_per_item_id: approvalPerItemId,
@@ -845,7 +847,7 @@ const renderLiquidation = (data, attachments = []) => {
       ? `<div class="kna-item-decision mt-2"><div class="kna-readonly-status"><i class="fas ${itemStatus === 'APPROVED' ? 'fa-check-circle' : 'fa-times-circle'}" style="color:${itemStatus === 'APPROVED' ? '#17663a' : '#e03131'};font-size:14px;"></i><span class="kna-badge ${itemStatus === 'APPROVED' ? 'kna-badge-approved' : 'kna-badge-rejected'}">${itemStatus}</span></div><div class="kna-readonly-by">by ${escapeHtml(decidedByName)}</div>${item.item_remarks ? `<div class="kna-readonly-remark">${escapeHtml(item.item_remarks)}</div>` : ''}</div>`
       : `<div class="kna-item-decision mt-2"><div class="kna-toggle-group"><button type="button" class="kna-toggle-btn is-approve ${preselectedApprove}" data-decision="approve" data-key="${key}" ${disabledAttr}><i class="fas fa-check"></i> Approve</button><button type="button" class="kna-toggle-btn is-reject ${preselectedReject}" data-decision="reject" data-key="${key}" ${disabledAttr}><i class="fas fa-times"></i> Reject</button></div><textarea class="kna-item-remark ${remarkVisible}" data-key="${key}" ${readonlyAttr} placeholder="Remarks are required for rejection...">${escapeHtml(item.item_remarks || '')}</textarea><button type="button" class="kna-cancel-reject ${remarkVisible === '' ? '' : 'd-none'}" data-cancel-reject data-key="${key}"><i class="fas fa-undo"></i> Cancel</button></div>`;
 
-    mobileCards += `<div class="kna-exp-card ${rowClass}" data-item-key="${key}"><div class="kna-exp-card-head"><div><div class="kna-exp-card-title">${escapeHtml(initialDescription || '-')}</div><div class="kna-exp-card-sub">${escapeHtml(item.category_name || '-')}</div><div class="kna-exp-card-meta">Inv#: ${escapeHtml(initialInvoice || '-')} \u2022 ${escapeHtml(initialDocDate || '—')}</div></div><div class="kna-exp-card-amount"><div class="kna-amount-main">${formatPHP(amount)}</div></div></div><div class="kna-exp-card-grid"><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Description</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-description" data-key="${key}" value="${escapeHtml(initialDescription)}" placeholder="Description" ${disabledAttr}></span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Expense Type</span><span class="kna-exp-card-value"><select class="form-control form-control-sm kna-inline-edit-input kna-edit-category" data-key="${key}" ${disabledAttr}>${categoryOptionsHtml}</select></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Invoice/Receipt</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-invoice" data-key="${key}" value="${escapeHtml(initialInvoice)}" placeholder="Invoice/Receipt" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Doc Date</span><span class="kna-exp-card-value"><input type="date" class="form-control form-control-sm kna-inline-edit-input kna-edit-docdate" data-key="${key}" value="${escapeHtml(initialDocDate)}" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Gross</span><span class="kna-exp-card-value"><input type="number" step="0.01" min="0" class="form-control form-control-sm kna-inline-edit-input kna-edit-gross" data-key="${key}" value="${escapeHtml(amount)}" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">VAT</span><span class="kna-exp-card-value"><input type="checkbox" class="kna-vat-check kna-vat-approver" data-key="${key}" ${originalIsVatable ? 'checked' : ''} ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Net / VAT</span><span class="kna-exp-card-value"><span class="kna-net-value">${formatPHP(vatCalc.netAmount)}</span> / <span class="kna-vat-value">${formatPHP(vatCalc.vatAmount)}</span></span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Attachment</span><span class="kna-exp-card-value">${attachNames.length ? attachNames.map(renderAttachment).join('') : '<span class="text-muted">—</span>'}</span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Vendor Name</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-name" data-key="${key}" value="${escapeHtml(initialVendorName)}" placeholder="Vendor name" ${disabledAttr}></span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Vendor Address</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-address" data-key="${key}" value="${escapeHtml(initialVendorAddress)}" placeholder="Vendor address" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Vendor TIN</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-tin" data-key="${key}" value="${escapeHtml(initialVendorTin)}" placeholder="TIN" ${disabledAttr}></span></div></div>${mobileDecisionHtml}</div>`;
+    mobileCards += `<div class="kna-exp-card ${rowClass}" data-item-key="${key}"><div class="kna-exp-card-head"><div><div class="kna-exp-card-title">${escapeHtml(initialDescription || '-')}</div><div class="kna-exp-card-sub">${escapeHtml(item.category_name || '-')}</div><div class="kna-exp-card-meta">Inv#: ${escapeHtml(initialInvoice || '-')} \u2022 ${escapeHtml(initialDocDate || '—')}</div></div><div class="kna-exp-card-amount"><div class="kna-amount-main">${formatPHP(displayAmount)}</div></div></div><div class="kna-exp-card-grid"><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Description</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-description" data-key="${key}" value="${escapeHtml(initialDescription)}" placeholder="Description" ${disabledAttr}></span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Expense Type</span><span class="kna-exp-card-value"><select class="form-control form-control-sm kna-inline-edit-input kna-edit-category" data-key="${key}" ${disabledAttr}>${categoryOptionsHtml}</select></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Invoice/Receipt</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-invoice" data-key="${key}" value="${escapeHtml(initialInvoice)}" placeholder="Invoice/Receipt" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Doc Date</span><span class="kna-exp-card-value"><input type="date" class="form-control form-control-sm kna-inline-edit-input kna-edit-docdate" data-key="${key}" value="${escapeHtml(initialDocDate)}" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Gross</span><span class="kna-exp-card-value"><input type="number" step="0.01" min="0" class="form-control form-control-sm kna-inline-edit-input kna-edit-gross" data-key="${key}" value="${escapeHtml(displayAmount)}" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">VAT</span><span class="kna-exp-card-value"><input type="checkbox" class="kna-vat-check kna-vat-approver" data-key="${key}" ${originalIsVatable ? 'checked' : ''} ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Net / VAT</span><span class="kna-exp-card-value"><span class="kna-net-value">${formatPHP(vatCalc.netAmount)}</span> / <span class="kna-vat-value">${formatPHP(vatCalc.vatAmount)}</span></span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Attachment</span><span class="kna-exp-card-value">${attachNames.length ? attachNames.map(renderAttachment).join('') : '<span class="text-muted">—</span>'}</span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Vendor Name</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-name" data-key="${key}" value="${escapeHtml(initialVendorName)}" placeholder="Vendor name" ${disabledAttr}></span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Vendor Address</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-address" data-key="${key}" value="${escapeHtml(initialVendorAddress)}" placeholder="Vendor address" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Vendor TIN</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-tin" data-key="${key}" value="${escapeHtml(initialVendorTin)}" placeholder="TIN" ${disabledAttr}></span></div></div>${mobileDecisionHtml}</div>`;
 
     if (itemStatus === 'APPROVED') {
       reviewState.decisions[key].decision = 'approve';
@@ -884,44 +886,112 @@ const updateVatDisplay = (key, isVatable) => {
 };
 
 /* ─── TIMELINE ─── */
+const AUDIT_FIELD_LABELS = {
+  description: 'Description', invoice_receipt_no: 'Invoice/Receipt No.', document_date: 'Document Date',
+  actual_amount: 'Gross Amount', approved_amount: 'Gross Amount', expense_category: 'Expense Type',
+  is_vatable: 'VAT Applicable', net_amount: 'Net Amount', vat_amount: 'VAT Amount',
+  vendor_name: 'Vendor Name', vendor_address: 'Vendor Address', vendor_tin: 'Vendor TIN',
+  amount: 'Amount', cost_center_id: 'Cost Center', payable_to: 'Payable To', address: 'Address', io: 'IO Number'
+};
+const AUDIT_CURRENCY_FIELDS = new Set(['actual_amount', 'approved_amount', 'net_amount', 'vat_amount', 'amount']);
+
+const formatAuditFieldLabel = field => AUDIT_FIELD_LABELS[field] || field.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+const formatAuditValue = (field, value) => {
+  const raw = normalizeDate(value);
+  if (raw === '') return '<span class="text-muted">—</span>';
+  if (AUDIT_CURRENCY_FIELDS.has(field)) { const num = Number(raw); return Number.isFinite(num) ? escapeHtml(formatPHP(num)) : escapeHtml(raw); }
+  if (field === 'is_vatable') return (raw === '1' || raw.toLowerCase() === 'true') ? 'Yes' : 'No';
+  if (field === 'document_date') { const d = raw.slice(0, 10); return escapeHtml(d || raw); }
+  return escapeHtml(raw);
+};
+
+const AUDIT_ACTION_VERBS = {
+  SUBMITTED: 'submitted', SAVED_DRAFT: 'saved a draft of', CREATED: 'created', APPROVED: 'approved',
+  REJECTED: 'rejected', UPDATED_DRAFT: 'updated', RESUBMITTED: 'resubmitted',
+  ADDED_ITEM: 'added an item to', UPDATED_ITEM: 'edited'
+};
+const auditActionVerb = action => AUDIT_ACTION_VERBS[action] || action.toLowerCase().replace(/_/g, ' ');
+const joinAuditVerbs = actions => {
+  const verbs = [...new Set(actions.map(auditActionVerb))];
+  if (verbs.length === 1) return verbs[0];
+  if (verbs.length === 2) return `${verbs[0]} and ${verbs[1]}`;
+  return `${verbs.slice(0, -1).join(', ')}, and ${verbs[verbs.length - 1]}`;
+};
+
 const groupAuditTrail = auditTrail => {
   if (!auditTrail || !auditTrail.length) return [];
   const sorted = [...auditTrail].sort((a, b) => new Date((a.created_date || '').replace(' ', 'T')) - new Date((b.created_date || '').replace(' ', 'T')));
   const entriesWithKey = sorted.map(entry => {
     const action = normalizeDate(entry.action || '').toUpperCase(), changedByName = normalizeDate(entry.changed_by_name || 'Unknown User');
     const transactionId = normalizeDate(entry.transaction_id || ''), entityType = normalizeDate(entry.entity_type || '').toUpperCase();
+    const entityId = normalizeDate(entry.entity_id || ''), fieldName = normalizeDate(entry.field_name || '');
     const description = normalizeDate(entry.description || ''), remarks = normalizeDate(entry.remarks || '');
     const dateStr = formatTimelineDate(entry.created_date), rawDate = normalizeDate(entry.created_date || ''), timeBucket = rawDate.length >= 16 ? rawDate.substring(0, 16) : rawDate;
-    return { ...entry, _action: action, _entityType: entityType, _changedByName: changedByName, _dateStr: dateStr, _timeBucket: timeBucket, _groupKey: `${changedByName}|${action}|${transactionId}|${timeBucket}`, _description: description, _remarks: remarks };
+    return {
+      ...entry, _action: action, _entityType: entityType, _entityId: entityId, _fieldName: fieldName,
+      _changedByName: changedByName, _dateStr: dateStr, _timeBucket: timeBucket,
+      _groupKey: `${changedByName}|${transactionId}|${timeBucket}`,
+      _description: description, _remarks: remarks, _oldValue: entry.old_value, _newValue: entry.new_value
+    };
   });
   const groupMap = new Map();
   entriesWithKey.forEach(entry => {
     const key = entry._groupKey;
-    if (!groupMap.has(key)) groupMap.set(key, { dateStr: entry._dateStr, changedByName: entry._changedByName, action: entry._action, transactionType: normalizeDate(entry.transaction_type || ''), remarks: '', description: '', items: [], hasHeader: false, hasItems: false });
+    if (!groupMap.has(key)) groupMap.set(key, { dateStr: entry._dateStr, changedByName: entry._changedByName, transactionType: normalizeDate(entry.transaction_type || ''), actions: [], headerRemarks: '', headerDescription: '', itemsByEntity: new Map(), hasHeader: false, hasItems: false });
     const group = groupMap.get(key);
-    if (entry._entityType === 'HEADER') { group.hasHeader = true; if (entry._remarks) group.remarks = entry._remarks; if (entry._description) group.description = entry._description; }
-    else if (entry._entityType === 'ITEM') { group.hasItems = true; if (entry._description) group.items.push({ description: entry._description, remarks: entry._remarks, actualAmount: entry.actual_amount, oldValue: entry.old_value, newValue: entry.new_value }); }
-    else { if (entry._description) group.description = entry._description; if (entry._remarks) group.remarks = entry._remarks; }
+    if (!group.actions.includes(entry._action)) group.actions.push(entry._action);
+    if (entry._entityType === 'HEADER') {
+      group.hasHeader = true;
+      if (entry._remarks) group.headerRemarks = entry._remarks;
+      if (entry._description) group.headerDescription = entry._description;
+    } else if (entry._entityType === 'ITEM') {
+      group.hasItems = true;
+      const entityKey = entry._entityId || entry._description || 'item';
+      if (!group.itemsByEntity.has(entityKey)) group.itemsByEntity.set(entityKey, { description: entry._description, remarks: '', changes: [], actions: [] });
+      const itemGroup = group.itemsByEntity.get(entityKey);
+      if (entry._description && !itemGroup.description) itemGroup.description = entry._description;
+      if (entry._remarks) itemGroup.remarks = entry._remarks;
+      if (!itemGroup.actions.includes(entry._action)) itemGroup.actions.push(entry._action);
+      const isSkippedField = entry._fieldName === 'status' || entry._fieldName === 'net_amount' || entry._fieldName === 'vat_amount';
+      if (entry._fieldName && !isSkippedField && normalizeDate(entry._oldValue) !== normalizeDate(entry._newValue)) {
+        itemGroup.changes.push({ field: entry._fieldName, oldValue: entry._oldValue, newValue: entry._newValue });
+      }
+    } else {
+      if (entry._description) group.headerDescription = entry._description;
+      if (entry._remarks) group.headerRemarks = entry._remarks;
+    }
   });
-  const groups = Array.from(groupMap.values());
+  const groups = Array.from(groupMap.values()).map(g => ({ ...g, items: Array.from(g.itemsByEntity.values()) }));
   groups.sort((a, b) => new Date((a.dateStr || '').replace(' ', 'T')) - new Date((b.dateStr || '').replace(' ', 'T')));
   return groups;
 };
 
 const buildTimelineText = group => {
-  const action = group.action, changedByName = group.changedByName, transactionType = group.transactionType.toLowerCase(), remarks = group.remarks, items = group.items;
-  let actionText = '';
-  switch (action) { case 'SUBMITTED': case 'SAVED_DRAFT': actionText = 'files'; break; case 'CREATED': actionText = 'creates'; break; case 'APPROVED': actionText = 'approves'; break; case 'REJECTED': actionText = 'rejects'; break; case 'UPDATED_DRAFT': case 'RESUBMITTED': actionText = 'updates'; break; case 'ADDED_ITEM': actionText = 'adds'; break; case 'UPDATED_ITEM': actionText = 'updates'; break; default: actionText = action.toLowerCase(); }
-  const entityDesc = transactionType === 'cash_advance' ? 'cash advance' : (transactionType === 'liquidation' ? 'liquidation' : 'request');
-  if (group.hasItems && items.length > 0) {
-    let mainLine = `${changedByName} ${actionText} ${entityDesc}`; if (remarks) mainLine += `: "${remarks}"`;
-    const subLines = items.map(item => item.description ? `${actionText} ${item.description}` : '').filter(Boolean);
-    return [mainLine, ...subLines].join('<br>');
-  }
-  if (group.hasHeader && !group.hasItems) {
-    let text = `${changedByName} ${actionText} ${entityDesc}`; if (group.description) text += ` — ${group.description}`; if (remarks) text += `: "${remarks}"`; return text;
-  }
-  let text = `${changedByName} ${actionText} ${entityDesc}`; if (group.description) text += ` — ${group.description}`; if (remarks) text += `: "${remarks}"`; return text;
+  const changedByName = escapeHtml(group.changedByName), transactionType = group.transactionType.toLowerCase(), items = group.items;
+  const entityDesc = transactionType === 'cash_advance' ? 'the cash advance' : (transactionType === 'liquidation' ? 'the liquidation' : 'the request');
+  const verbPhrase = joinAuditVerbs(group.actions);
+
+  let mainLine = `<strong>${changedByName}</strong> ${verbPhrase} ${entityDesc}`;
+  if (group.headerDescription) mainLine += ` &mdash; ${escapeHtml(group.headerDescription)}`;
+  if (group.headerRemarks) mainLine += `: "${escapeHtml(group.headerRemarks)}"`;
+
+  if (!group.hasItems || items.length === 0) return mainLine;
+
+  const subLines = items.map(item => {
+    const label = item.description ? `"${escapeHtml(item.description)}"` : 'an item';
+    const itemVerb = joinAuditVerbs(item.actions);
+    const itemVerbLabel = itemVerb.charAt(0).toUpperCase() + itemVerb.slice(1);
+    if (item.changes.length > 0) {
+      const changeParts = item.changes.map(c => `${escapeHtml(formatAuditFieldLabel(c.field))}: ${formatAuditValue(c.field, c.oldValue)} &rarr; ${formatAuditValue(c.field, c.newValue)}`).join(', ');
+      let line = `&nbsp;&nbsp;&bull; Changed ${label} &mdash; ${changeParts}`;
+      if (item.remarks) line += ` <em>("${escapeHtml(item.remarks)}")</em>`;
+      return line;
+    }
+    if (item.remarks) return `&nbsp;&nbsp;&bull; ${itemVerbLabel} ${label}: "${escapeHtml(item.remarks)}"`;
+    return `&nbsp;&nbsp;&bull; ${itemVerbLabel} ${label}`;
+  });
+  return [mainLine, ...subLines].join('<br>');
 };
 
 const renderHistoryTimeline = auditTrail => {
@@ -1079,7 +1149,7 @@ const bindDecisionEvents = () => {
     if (e.target.classList.contains('kna-edit-gross')) {
       const gross = Number(e.target.value);
       const normalizedGross = Number.isFinite(gross) && gross >= 0 ? gross : 0;
-      reviewState.decisions[key].actualAmount = normalizedGross;
+      reviewState.decisions[key].approvedAmount = normalizedGross;
       reviewState.decisions[key].amount = normalizedGross;
       reviewState.decisions[key].liquidatedAmount = normalizedGross;
       syncEditableFieldInputs(key, 'kna-edit-gross', String(e.target.value), e.target);

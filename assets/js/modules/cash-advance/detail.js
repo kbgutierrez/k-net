@@ -146,6 +146,36 @@ const formatTimelineDate = (dateStr) => {
 	return `${yyyy}-${mm}-${dd} ${String(hh).padStart(2, '0')}:${min}${ampm}`;
 };
 
+const AUDIT_FIELD_LABELS = {
+	description: 'Description', amount: 'Amount', approved_amount: 'Approved Amount',
+	cost_center_id: 'Cost Center', payable_to: 'Payable To', address: 'Address', io: 'IO Number',
+};
+const AUDIT_CURRENCY_FIELDS = new Set(['amount', 'approved_amount']);
+
+const formatAuditFieldLabel = (field) => AUDIT_FIELD_LABELS[field] || field.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+const formatAuditValue = (field, value) => {
+	const raw = normalizeDate(value);
+	if (raw === '') return '<span class="text-muted">—</span>';
+	if (AUDIT_CURRENCY_FIELDS.has(field)) {
+		const num = Number(raw);
+		return Number.isFinite(num) ? escapeHtml(formatPHP(num)) : escapeHtml(raw);
+	}
+	return escapeHtml(raw);
+};
+
+const AUDIT_ACTION_VERBS = {
+	SUBMITTED: 'submitted', SAVED_DRAFT: 'saved a draft of', CREATED: 'created', APPROVED: 'approved',
+	REJECTED: 'rejected', UPDATED: 'updated', RESUBMITTED: 'resubmitted', UPDATED_ITEM: 'edited',
+};
+const auditActionVerb = (action) => AUDIT_ACTION_VERBS[action] || action.toLowerCase().replace(/_/g, ' ');
+const joinAuditVerbs = (actions) => {
+	const verbs = [...new Set(actions.map(auditActionVerb))];
+	if (verbs.length === 1) return verbs[0];
+	if (verbs.length === 2) return `${verbs[0]} and ${verbs[1]}`;
+	return `${verbs.slice(0, -1).join(', ')}, and ${verbs[verbs.length - 1]}`;
+};
+
 // ─── GROUP AUDIT TRAIL BY APPROVER + TIMESTAMP ───
 const groupAuditTrail = (auditTrail) => {
 	if (!auditTrail || !auditTrail.length) return [];
@@ -161,6 +191,7 @@ const groupAuditTrail = (auditTrail) => {
 		const changedByName = normalizeDate(entry.changed_by_name || 'Unknown User');
 		const transactionId = normalizeDate(entry.transaction_id || '');
 		const entityType = normalizeDate(entry.entity_type || '').toUpperCase();
+		const fieldName = normalizeDate(entry.field_name || '');
 		const description = normalizeDate(entry.description || '');
 		const remarks = normalizeDate(entry.remarks || '');
 		const dateStr = formatTimelineDate(entry.created_date);
@@ -168,18 +199,21 @@ const groupAuditTrail = (auditTrail) => {
 		const rawDate = normalizeDate(entry.created_date || '');
 		const timeBucket = rawDate.length >= 16 ? rawDate.substring(0, 16) : rawDate;
 
-		const groupKey = `${changedByName}|${action}|${transactionId}|${timeBucket}`;
+		const groupKey = `${changedByName}|${transactionId}|${timeBucket}`;
 
 		return {
 			...entry,
 			_action: action,
 			_entityType: entityType,
+			_fieldName: fieldName,
 			_changedByName: changedByName,
 			_dateStr: dateStr,
 			_timeBucket: timeBucket,
 			_groupKey: groupKey,
 			_description: description,
 			_remarks: remarks,
+			_oldValue: entry.old_value,
+			_newValue: entry.new_value,
 		};
 	});
 
@@ -192,33 +226,28 @@ const groupAuditTrail = (auditTrail) => {
 			groupMap.set(key, {
 				dateStr: entry._dateStr,
 				changedByName: entry._changedByName,
-				action: entry._action,
 				transactionType: normalizeDate(entry.transaction_type || ''),
-				remarks: '',
-				description: '',
-				items: [],
+				actions: [],
+				headerRemarks: '',
+				headerDescription: '',
+				headerChanges: [],
 				hasHeader: false,
-				hasItems: false,
 			});
 		}
 
 		const group = groupMap.get(key);
+		if (!group.actions.includes(entry._action)) group.actions.push(entry._action);
 
 		if (entry._entityType === 'HEADER') {
 			group.hasHeader = true;
-			if (entry._remarks) group.remarks = entry._remarks;
-			if (entry._description) group.description = entry._description;
-		} else if (entry._entityType === 'ITEM') {
-			group.hasItems = true;
-			if (entry._description) {
-				group.items.push({
-					description: entry._description,
-					remarks: entry._remarks,
-				});
+			if (entry._remarks) group.headerRemarks = entry._remarks;
+			if (entry._description) group.headerDescription = entry._description;
+			if (entry._fieldName && normalizeDate(entry._oldValue) !== normalizeDate(entry._newValue)) {
+				group.headerChanges.push({ field: entry._fieldName, oldValue: entry._oldValue, newValue: entry._newValue });
 			}
 		} else {
-			if (entry._description) group.description = entry._description;
-			if (entry._remarks) group.remarks = entry._remarks;
+			if (entry._description) group.headerDescription = entry._description;
+			if (entry._remarks) group.headerRemarks = entry._remarks;
 		}
 	});
 
@@ -234,44 +263,27 @@ const groupAuditTrail = (auditTrail) => {
 
 // ─── BUILD TIMELINE ENTRY TEXT ───
 const buildTimelineText = (group) => {
-	const action = group.action;
-	const changedByName = group.changedByName;
+	const changedByName = escapeHtml(group.changedByName);
 	const transactionType = group.transactionType.toLowerCase();
-	const remarks = group.remarks;
-
-	let actionText = '';
-	switch (action) {
-		case 'SUBMITTED':
-		case 'SAVED_DRAFT':
-			actionText = 'files';
-			break;
-		case 'CREATED':
-			actionText = 'creates';
-			break;
-		case 'APPROVED':
-			actionText = 'approves';
-			break;
-		case 'REJECTED':
-			actionText = 'rejects';
-			break;
-		case 'UPDATED':
-		case 'RESUBMITTED':
-			actionText = 'updates';
-			break;
-		default:
-			actionText = action.toLowerCase();
-	}
 
 	let entityDesc = '';
 	if (transactionType === 'cash_advance') {
-		entityDesc = 'cash advance';
+		entityDesc = 'the cash advance';
 	} else {
-		entityDesc = 'request';
+		entityDesc = 'the request';
 	}
 
-	let text = `${changedByName} ${actionText} ${entityDesc}`;
-	if (group.description) text += ` — ${group.description}`;
-	if (remarks) text += `: "${remarks}"`;
+	const verbPhrase = joinAuditVerbs(group.actions);
+
+	let text = `<strong>${changedByName}</strong> ${verbPhrase} ${entityDesc}`;
+	if (group.headerDescription) text += ` &mdash; ${escapeHtml(group.headerDescription)}`;
+	if (group.headerRemarks) text += `: "${escapeHtml(group.headerRemarks)}"`;
+
+	if (group.headerChanges.length > 0) {
+		const changeParts = group.headerChanges.map((c) => `${escapeHtml(formatAuditFieldLabel(c.field))}: ${formatAuditValue(c.field, c.oldValue)} &rarr; ${formatAuditValue(c.field, c.newValue)}`).join(', ');
+		text += `<br>&nbsp;&nbsp;&bull; ${changeParts}`;
+	}
+
 	return text;
 };
 

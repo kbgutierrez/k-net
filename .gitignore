@@ -60,3 +60,6 @@ application/logs/*
 .env
 application/config/constants.php
 application/modules/approvals/sql/sp_update_ca_detail_review.sql
+sp_fetch_audit_trail.sql
+sp_fetch_transaction_details.sql
+sp_update_liquidation_detail_review.sql

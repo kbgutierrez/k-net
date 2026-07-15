@@ -294,6 +294,45 @@ const formatTimelineDate = (dateStr) => {
 	return `${yyyy}-${mm}-${dd} ${String(hh).padStart(2, '0')}:${min}${ampm}`;
 };
 
+const AUDIT_FIELD_LABELS = {
+	description: 'Description', invoice_receipt_no: 'Invoice/Receipt No.', document_date: 'Document Date',
+	actual_amount: 'Gross Amount', approved_amount: 'Gross Amount', expense_category: 'Expense Type',
+	is_vatable: 'VAT Applicable', net_amount: 'Net Amount', vat_amount: 'VAT Amount',
+	vendor_name: 'Vendor Name', vendor_address: 'Vendor Address', vendor_tin: 'Vendor TIN',
+	amount: 'Amount', cost_center_id: 'Cost Center', payable_to: 'Payable To', address: 'Address', io: 'IO Number',
+};
+const AUDIT_CURRENCY_FIELDS = new Set(['actual_amount', 'approved_amount', 'net_amount', 'vat_amount', 'amount']);
+
+const formatAuditFieldLabel = (field) => AUDIT_FIELD_LABELS[field] || field.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+const formatAuditValue = (field, value) => {
+	const raw = normalizeDate(value);
+	if (raw === '') return '<span class="text-muted">\u2014</span>';
+	if (AUDIT_CURRENCY_FIELDS.has(field)) {
+		const num = Number(raw);
+		return Number.isFinite(num) ? escapeHtml(formatPHP(num)) : escapeHtml(raw);
+	}
+	if (field === 'is_vatable') return (raw === '1' || raw.toLowerCase() === 'true') ? 'Yes' : 'No';
+	if (field === 'document_date') {
+		const d = raw.slice(0, 10);
+		return escapeHtml(d || raw);
+	}
+	return escapeHtml(raw);
+};
+
+const AUDIT_ACTION_VERBS = {
+	SUBMITTED: 'submitted', SAVED_DRAFT: 'saved a draft of', CREATED: 'created', APPROVED: 'approved',
+	REJECTED: 'rejected', UPDATED_DRAFT: 'updated', RESUBMITTED: 'resubmitted',
+	ADDED_ITEM: 'added an item to', UPDATED_ITEM: 'edited',
+};
+const auditActionVerb = (action) => AUDIT_ACTION_VERBS[action] || action.toLowerCase().replace(/_/g, ' ');
+const joinAuditVerbs = (actions) => {
+	const verbs = [...new Set(actions.map(auditActionVerb))];
+	if (verbs.length === 1) return verbs[0];
+	if (verbs.length === 2) return `${verbs[0]} and ${verbs[1]}`;
+	return `${verbs.slice(0, -1).join(', ')}, and ${verbs[verbs.length - 1]}`;
+};
+
 const groupAuditTrail = (auditTrail) => {
 	if (!auditTrail || !auditTrail.length) return [];
 
@@ -308,6 +347,8 @@ const groupAuditTrail = (auditTrail) => {
 		const changedByName = normalizeDate(entry.changed_by_name || 'Unknown User');
 		const transactionId = normalizeDate(entry.transaction_id || '');
 		const entityType = normalizeDate(entry.entity_type || '').toUpperCase();
+		const entityId = normalizeDate(entry.entity_id || '');
+		const fieldName = normalizeDate(entry.field_name || '');
 		const description = normalizeDate(entry.description || '');
 		const remarks = normalizeDate(entry.remarks || '');
 		const dateStr = formatTimelineDate(entry.created_date);
@@ -315,18 +356,22 @@ const groupAuditTrail = (auditTrail) => {
 		const rawDate = normalizeDate(entry.created_date || '');
 		const timeBucket = rawDate.length >= 16 ? rawDate.substring(0, 16) : rawDate;
 
-		const groupKey = `${changedByName}|${action}|${transactionId}|${timeBucket}`;
+		const groupKey = `${changedByName}|${transactionId}|${timeBucket}`;
 
 		return {
 			...entry,
 			_action: action,
 			_entityType: entityType,
+			_entityId: entityId,
+			_fieldName: fieldName,
 			_changedByName: changedByName,
 			_dateStr: dateStr,
 			_timeBucket: timeBucket,
 			_groupKey: groupKey,
 			_description: description,
 			_remarks: remarks,
+			_oldValue: entry.old_value,
+			_newValue: entry.new_value,
 		};
 	});
 
@@ -339,38 +384,44 @@ const groupAuditTrail = (auditTrail) => {
 			groupMap.set(key, {
 				dateStr: entry._dateStr,
 				changedByName: entry._changedByName,
-				action: entry._action,
 				transactionType: normalizeDate(entry.transaction_type || ''),
-				remarks: '',
-				description: '',
-				items: [],
+				actions: [],
+				headerRemarks: '',
+				headerDescription: '',
+				itemsByEntity: new Map(),
 				hasHeader: false,
 				hasItems: false,
 			});
 		}
 
 		const group = groupMap.get(key);
+		if (!group.actions.includes(entry._action)) group.actions.push(entry._action);
 
 		if (entry._entityType === 'HEADER') {
 			group.hasHeader = true;
-			if (entry._remarks) group.remarks = entry._remarks;
-			if (entry._description) group.description = entry._description;
+			if (entry._remarks) group.headerRemarks = entry._remarks;
+			if (entry._description) group.headerDescription = entry._description;
 		} else if (entry._entityType === 'ITEM') {
 			group.hasItems = true;
-			if (entry._description) {
-				group.items.push({
-					description: entry._description,
-					remarks: entry._remarks,
-					actualAmount: entry.actual_amount,
-				});
+			const entityKey = entry._entityId || entry._description || 'item';
+			if (!group.itemsByEntity.has(entityKey)) {
+				group.itemsByEntity.set(entityKey, { description: entry._description, remarks: '', changes: [], actions: [] });
+			}
+			const itemGroup = group.itemsByEntity.get(entityKey);
+			if (entry._description && !itemGroup.description) itemGroup.description = entry._description;
+			if (entry._remarks) itemGroup.remarks = entry._remarks;
+			if (!itemGroup.actions.includes(entry._action)) itemGroup.actions.push(entry._action);
+			const isSkippedField = entry._fieldName === 'status' || entry._fieldName === 'net_amount' || entry._fieldName === 'vat_amount';
+			if (entry._fieldName && !isSkippedField && normalizeDate(entry._oldValue) !== normalizeDate(entry._newValue)) {
+				itemGroup.changes.push({ field: entry._fieldName, oldValue: entry._oldValue, newValue: entry._newValue });
 			}
 		} else {
-			if (entry._description) group.description = entry._description;
-			if (entry._remarks) group.remarks = entry._remarks;
+			if (entry._description) group.headerDescription = entry._description;
+			if (entry._remarks) group.headerRemarks = entry._remarks;
 		}
 	});
 
-	const groups = Array.from(groupMap.values());
+	const groups = Array.from(groupMap.values()).map((g) => ({ ...g, items: Array.from(g.itemsByEntity.values()) }));
 	groups.sort((a, b) => {
 		const da = new Date((a.dateStr || '').replace(' ', 'T'));
 		const db = new Date((b.dateStr || '').replace(' ', 'T'));
@@ -381,76 +432,42 @@ const groupAuditTrail = (auditTrail) => {
 };
 
 const buildTimelineText = (group) => {
-	const action = group.action;
-	const changedByName = group.changedByName;
+	const changedByName = escapeHtml(group.changedByName);
 	const transactionType = group.transactionType.toLowerCase();
-	const remarks = group.remarks;
-	const hasItems = group.hasItems;
 	const items = group.items;
-
-	let actionText = '';
-	switch (action) {
-		case 'SUBMITTED':
-		case 'SAVED_DRAFT':
-			actionText = 'files';
-			break;
-		case 'CREATED':
-			actionText = 'creates';
-			break;
-		case 'APPROVED':
-			actionText = 'approves';
-			break;
-		case 'REJECTED':
-			actionText = 'rejects';
-			break;
-		case 'UPDATED_DRAFT':
-		case 'RESUBMITTED':
-			actionText = 'updates';
-			break;
-		case 'ADDED_ITEM':
-			actionText = 'adds';
-			break;
-		case 'UPDATED_ITEM':
-			actionText = 'updates';
-			break;
-		default:
-			actionText = action.toLowerCase();
-	}
 
 	let entityDesc = '';
 	if (transactionType === 'cash_advance') {
-		entityDesc = 'cash advance';
+		entityDesc = 'the cash advance';
 	} else if (transactionType === 'liquidation') {
-		entityDesc = 'liquidation';
+		entityDesc = 'the liquidation';
 	} else {
-		entityDesc = 'request';
+		entityDesc = 'the request';
 	}
 
-	if (hasItems && items.length > 0) {
-		let mainLine = `${changedByName} ${actionText} ${entityDesc}`;
-		if (remarks) mainLine += `: "${remarks}"`;
+	const verbPhrase = joinAuditVerbs(group.actions);
 
-		const subLines = items.map((item) => {
-			if (item.description) {
-				return `${actionText} ${item.description}`;
-			}
-			return '';
-		}).filter(Boolean);
+	let mainLine = `<strong>${changedByName}</strong> ${verbPhrase} ${entityDesc}`;
+	if (group.headerDescription) mainLine += ` &mdash; ${escapeHtml(group.headerDescription)}`;
+	if (group.headerRemarks) mainLine += `: "${escapeHtml(group.headerRemarks)}"`;
 
-		return [mainLine, ...subLines].join('<br>');
-	}
+	if (!group.hasItems || items.length === 0) return mainLine;
 
-	if (group.hasHeader && !hasItems) {
-		let text = `${changedByName} ${actionText} ${entityDesc}`;
-		if (group.description) text += ` \u2014 ${group.description}`;
-		if (remarks) text += `: "${remarks}"`;
-		return text;
-	}
+	const subLines = items.map((item) => {
+		const label = item.description ? `"${escapeHtml(item.description)}"` : 'an item';
+		const itemVerb = joinAuditVerbs(item.actions);
+		const itemVerbLabel = itemVerb.charAt(0).toUpperCase() + itemVerb.slice(1);
+		if (item.changes.length > 0) {
+			const changeParts = item.changes.map((c) => `${escapeHtml(formatAuditFieldLabel(c.field))}: ${formatAuditValue(c.field, c.oldValue)} &rarr; ${formatAuditValue(c.field, c.newValue)}`).join(', ');
+			let line = `&nbsp;&nbsp;&bull; Changed ${label} &mdash; ${changeParts}`;
+			if (item.remarks) line += ` <em>("${escapeHtml(item.remarks)}")</em>`;
+			return line;
+		}
+		if (item.remarks) return `&nbsp;&nbsp;&bull; ${itemVerbLabel} ${label}: "${escapeHtml(item.remarks)}"`;
+		return `&nbsp;&nbsp;&bull; ${itemVerbLabel} ${label}`;
+	});
 
-	let text = `${changedByName} ${actionText} ${entityDesc}`;
-	if (group.description) text += ` \u2014 ${group.description}`;
-	if (remarks) text += `: "${remarks}"`;
-	return text;
+	return [mainLine, ...subLines].join('<br>');
 };
 
 const renderHistoryTimeline = (auditTrail) => {
