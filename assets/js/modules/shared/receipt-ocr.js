@@ -51,6 +51,8 @@
 			.replace(/\s+/g, ' ')
 			.trim();
 
+	const getExpenseTypeCode = (opt) => normalizeDate(opt.expense_code || opt.expenseCode || '');
+
 	const mapOcrCategoryToExpenseTypeId = (categoryName, expenseTypeOptions) => {
 		const incoming = normalizeCategoryName(categoryName);
 		if (!incoming) {
@@ -59,15 +61,15 @@
 
 		const exact = expenseTypeOptions.find((opt) => normalizeCategoryName(opt.categoryName) === incoming);
 		if (exact) {
-			return String(exact.id);
+			return getExpenseTypeCode(exact);
 		}
 
 		const partial = expenseTypeOptions.find((opt) => {
 			const local = normalizeCategoryName(opt.categoryName);
-			return local.includes(incoming) || incoming.includes(local);
+			return local !== '' && (local.includes(incoming) || incoming.includes(local));
 		});
 
-		return partial ? String(partial.id) : '';
+		return partial ? getExpenseTypeCode(partial) : '';
 	};
 
 	const normalizeOcrDateToYmd = (value) => {

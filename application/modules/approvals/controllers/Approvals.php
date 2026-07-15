@@ -219,7 +219,7 @@ class Approvals extends MY_Controller
                 $firstRow = $result[0];
                 $transactionType = isset($firstRow['transaction_type']) ? strtoupper(trim((string) $firstRow['transaction_type'])) : '';
 
-                if ($transactionType === 'CASH_ADVANCE' || $transactionType === 'LIQUIDATION') {
+                if ($transactionType === 'CASH_ADVANCE' || $transactionType === 'LIQUIDATION' || $transactionType === 'REIMBURSEMENT') {
                     $caId = isset($firstRow['reference_no']) ? $firstRow['reference_no'] : 0;
                     if ($caId) {
                         $attachments = $this->fetchCaAttachments($caId);
@@ -285,6 +285,22 @@ class Approvals extends MY_Controller
         }
 
         $query = $this->sp->db->get_where('tbl_liquidation_details', array('id' => $detailId), 1);
+        if (!$query) {
+            return null;
+        }
+
+        $row = $query->row_array();
+        return is_array($row) ? $row : null;
+    }
+
+    private function getReimbursementDetailById($detailId)
+    {
+        $detailId = (int) $detailId;
+        if ($detailId <= 0 || !$this->sp || !$this->sp->db) {
+            return null;
+        }
+
+        $query = $this->sp->db->get_where('tbl_reimbursement_details', array('id' => $detailId), 1);
         if (!$query) {
             return null;
         }
@@ -402,6 +418,69 @@ class Approvals extends MY_Controller
         }
     }
 
+    private function logReimbursementDetailFieldChanges($referenceNo, $detailId, $beforeRow, $afterValues)
+    {
+        if (!is_array($beforeRow) || !is_array($afterValues) || $referenceNo === '' || (int) $detailId <= 0) {
+            return;
+        }
+
+        $approvedChanged = $this->normalizeAuditDecimal($beforeRow['approved_amount'] ?? '') !== $this->normalizeAuditDecimal($afterValues['approved_amount'] ?? '');
+        $vatableChanged = $this->normalizeAuditValue($beforeRow['is_vatable'] ?? '') !== $this->normalizeAuditValue($afterValues['is_vatable'] ?? '');
+
+        $fieldMap = array(
+            'description' => 'description',
+            'invoice_receipt_no' => 'invoice_receipt_no',
+            'document_date' => 'document_date',
+            'approved_amount' => 'approved_amount',
+            'expense_category' => 'expense_category',
+            'is_vatable' => 'is_vatable',
+            'net_amount' => 'net_amount',
+            'vat_amount' => 'vat_amount',
+            'vendor_name' => 'vendor_name',
+            'vendor_address' => 'vendor_address',
+            'vendor_tin' => 'vendor_tin',
+        );
+
+        foreach ($fieldMap as $auditField => $rowField) {
+            $oldValue = array_key_exists($rowField, $beforeRow) ? $this->normalizeAuditValue($beforeRow[$rowField]) : '';
+            $newValue = array_key_exists($auditField, $afterValues) ? $this->normalizeAuditValue($afterValues[$auditField]) : '';
+
+            if (($auditField === 'net_amount' || $auditField === 'vat_amount') && !$approvedChanged && !$vatableChanged) {
+                continue;
+            }
+
+            if ($auditField === 'document_date') {
+                $oldValue = $oldValue !== '' ? date('Y-m-d', strtotime($oldValue)) : '';
+                $newValue = $newValue !== '' ? date('Y-m-d', strtotime($newValue)) : '';
+            }
+
+            if ($auditField === 'approved_amount' || $auditField === 'net_amount' || $auditField === 'vat_amount') {
+                $oldValue = $this->normalizeAuditDecimal($oldValue);
+                $newValue = $this->normalizeAuditDecimal($newValue);
+            }
+
+            if ($auditField === 'is_vatable') {
+                $oldValue = $oldValue === '' ? '' : ((int) $oldValue === 1 ? '1' : '0');
+                $newValue = $newValue === '' ? '' : ((int) $newValue === 1 ? '1' : '0');
+            }
+
+            if ($oldValue === $newValue) {
+                continue;
+            }
+
+            $this->logAuditTrail(
+                'REIMBURSEMENT',
+                $referenceNo,
+                'UPDATED_ITEM',
+                'ITEM',
+                (int) $detailId,
+                $auditField,
+                $oldValue,
+                $newValue
+            );
+        }
+    }
+
     private function logCashAdvanceFieldChanges($referenceNo, $beforeRow, $afterValues)
     {
         if (!is_array($beforeRow) || !is_array($afterValues) || $referenceNo === '') {
@@ -467,6 +546,38 @@ class Approvals extends MY_Controller
 
         return $this->sp->createData(
             build_sp('sp_update_liquidation_detail_review', count($params)),
+            $params
+        ) === TRUE;
+    }
+
+    /**
+     * Persist approver-side reimbursement item edits during final review submission.
+     */
+    private function updateReimbursementEditableFields($detailId, $description, $invoiceReceiptNo, $documentDate, $actualAmount, $expenseCategory, $isVatable, $netAmount, $vatAmount, $vendorName, $vendorAddress, $vendorTin, $approvedGrossAmount = null)
+    {
+        $detailId = (int) $detailId;
+        if ($detailId <= 0) {
+            return false;
+        }
+
+        $params = array(
+            'DetailId' => $detailId,
+            'Description' => trim((string) $description),
+            'InvoiceReceiptNo' => trim((string) $invoiceReceiptNo),
+            'ActualAmount' => (float) $actualAmount,
+            'DocumentDate' => trim((string) $documentDate),
+            'ExpenseCategory' => trim((string) $expenseCategory),
+            'IsVatable' => (int) (bool) $isVatable,
+            'NetAmount' => (float) $netAmount,
+            'VatAmount' => (float) $vatAmount,
+            'VendorName' => trim((string) $vendorName),
+            'VendorAddress' => trim((string) $vendorAddress),
+            'VendorTin' => trim((string) $vendorTin),
+            'ApprovedGrossAmount' => $approvedGrossAmount !== null ? (float) $approvedGrossAmount : (float) $actualAmount,
+        );
+
+        return $this->sp->createData(
+            build_sp('sp_update_reimbursement_detail_review', count($params)),
             $params
         ) === TRUE;
     }
@@ -615,6 +726,8 @@ class Approvals extends MY_Controller
                 $transactionType = 'CASH_ADVANCE';
             } elseif (strpos($referenceNo, 'LQ') === 0) {
                 $transactionType = 'LIQUIDATION';
+            } elseif (strpos($referenceNo, 'RE') === 0) {
+                $transactionType = 'REIMBURSEMENT';
             }
 
             if ($transactionType !== '' && $oldStatus !== $status) {
@@ -666,7 +779,7 @@ class Approvals extends MY_Controller
                 throw new Exception('User not authenticated.');
             }
 
-            if ($transactionType === 'LIQUIDATION') {
+            if ($transactionType === 'LIQUIDATION' || $transactionType === 'REIMBURSEMENT') {
                 foreach ($decisions as $d) {
                     $detailId = isset($d['detail_id']) ? (int) $d['detail_id'] : 0;
                     $isVatable = isset($d['is_vatable']) ? (int) (bool) $d['is_vatable'] : 0;
@@ -682,11 +795,18 @@ class Approvals extends MY_Controller
                     $vendorTin = isset($d['vendor_tin']) ? (string) $d['vendor_tin'] : '';
 
                     if ($detailId > 0) {
-                        $beforeRow = $this->getLiquidationDetailById($detailId);
                         $approvedGross = isset($d['approved_amount']) ? (float) $d['approved_amount'] : $actualAmount;
-                        $updated = $this->updateLiquidationEditableFields($detailId, $description, $invoiceReceiptNo, $documentDate, $actualAmount, $expenseCategory, $isVatable, $netAmount, $vatAmount, $vendorName, $vendorAddress, $vendorTin, $approvedGross);
+
+                        if ($transactionType === 'LIQUIDATION') {
+                            $beforeRow = $this->getLiquidationDetailById($detailId);
+                            $updated = $this->updateLiquidationEditableFields($detailId, $description, $invoiceReceiptNo, $documentDate, $actualAmount, $expenseCategory, $isVatable, $netAmount, $vatAmount, $vendorName, $vendorAddress, $vendorTin, $approvedGross);
+                        } else {
+                            $beforeRow = $this->getReimbursementDetailById($detailId);
+                            $updated = $this->updateReimbursementEditableFields($detailId, $description, $invoiceReceiptNo, $documentDate, $actualAmount, $expenseCategory, $isVatable, $netAmount, $vatAmount, $vendorName, $vendorAddress, $vendorTin, $approvedGross);
+                        }
+
                         if ($updated) {
-                            $this->logLiquidationDetailFieldChanges($referenceNo, $detailId, $beforeRow, array(
+                            $afterValues = array(
                                 'description' => $description,
                                 'invoice_receipt_no' => $invoiceReceiptNo,
                                 'document_date' => $documentDate,
@@ -699,7 +819,13 @@ class Approvals extends MY_Controller
                                 'vendor_name' => $vendorName,
                                 'vendor_address' => $vendorAddress,
                                 'vendor_tin' => $vendorTin,
-                            ));
+                            );
+
+                            if ($transactionType === 'LIQUIDATION') {
+                                $this->logLiquidationDetailFieldChanges($referenceNo, $detailId, $beforeRow, $afterValues);
+                            } else {
+                                $this->logReimbursementDetailFieldChanges($referenceNo, $detailId, $beforeRow, $afterValues);
+                            }
                         }
                     }
                 }
@@ -731,7 +857,7 @@ class Approvals extends MY_Controller
             $overallDecision = 'APPROVED';
             $rejectionReason = null;
 
-            if ($transactionType === 'LIQUIDATION') {
+            if ($transactionType === 'LIQUIDATION' || $transactionType === 'REIMBURSEMENT') {
                 foreach ($decisions as $d) {
                     $rawDecision = isset($d['decision']) ? strtolower(trim((string) $d['decision'])) : '';
                     if ($rawDecision === 'reject' || $rawDecision === 'rejected') {

@@ -33,6 +33,22 @@ class Reimbursement extends MY_Controller
     {
         $ref = trim((string) $reimbursement_no);
         $isEditMode = $ref !== '';
+
+        $departmentId = $this->session->userdata('user_info')['department_id'];
+        $costCenters = $this->sp->readData(
+            build_sp('sp_fetch_cost_center_by_deptid', 1),
+            array('departmentId' => $departmentId),
+            'result'
+        );
+        if (!is_array($costCenters)) {
+            $costCenters = array();
+        }
+
+        $expenseTypes = $this->sp->fetchData('sp_fetch_expense_types');
+        if (!is_array($expenseTypes)) {
+            $expenseTypes = array();
+        }
+
         $data = array(
             'title' => $isEditMode ? 'Edit Draft Reimbursement' : 'New Reimbursement',
             'main_view' => '../modules/reimbursement/views/add',
@@ -41,7 +57,10 @@ class Reimbursement extends MY_Controller
             'reimbursement_no' => $ref,
             'is_edit_mode' => $isEditMode,
             'draft_edit_window_days' => $this->draftEditWindowDays,
+            'cost_centers' => $costCenters,
+            'expense_types' => $expenseTypes,
             'scripts' => array(
+                '../shared/pdfjs/pdf.min.js',
                 '../shared/receipt-ocr.js',
                 '../reimbursement/index.js',
                 '../reimbursement/add.js',
@@ -76,13 +95,31 @@ class Reimbursement extends MY_Controller
             return;
         }
 
+        $departmentId = $this->session->userdata('user_info')['department_id'];
+        $costCenters = $this->sp->readData(
+            build_sp('sp_fetch_cost_center_by_deptid', 1),
+            array('departmentId' => $departmentId),
+            'result'
+        );
+        if (!is_array($costCenters)) {
+            $costCenters = array();
+        }
+
+        $expenseTypes = $this->sp->fetchData('sp_fetch_expense_types');
+        if (!is_array($expenseTypes)) {
+            $expenseTypes = array();
+        }
+
         $data = array(
             'title' => 'Edit Reimbursement',
             'main_view' => '../modules/reimbursement/views/edit',
             'module_group' => $this->module_group,
             'module' => $this->module,
             'reimbursement_no' => $ref,
+            'cost_centers' => $costCenters,
+            'expense_types' => $expenseTypes,
             'scripts' => array(
+                '../shared/pdfjs/pdf.min.js',
                 '../shared/receipt-ocr.js',
                 '../reimbursement/edit.js',
             ),
@@ -93,24 +130,34 @@ class Reimbursement extends MY_Controller
 
     // ========== API METHODS ==========
 
-    public function api_get_expense_categories()
+    public function api_get_expense_types()
     {
         try {
             $this->output->set_content_type('application/json');
 
             $authHeader = $this->input->get_request_header('Authorization', TRUE);
-            if (!$authHeader || !preg_match('/Bearer\\s(\\S+)/', $authHeader, $matches)) {
+
+            if (!$authHeader || !preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
                 return $this->respondError("Unauthorized: Token missing", 401);
             }
-
+            $departmentId = $this->session->userdata('user_info')['department_id'];
             $token = $matches[1];
+
             $secureToken = "12345678";
 
             if ($token !== $secureToken) {
                 return $this->respondError("Unauthorized: Invalid token.", 401);
             }
+            $params = array(
+                "departmentId" => $departmentId,
+            );
 
-            $result = $this->sp->fetchData('sp_fetch_expense_types');
+            $result = $this->sp->readData(
+                build_sp('sp_fetch_expense_types_by_department', count($params)),
+                $params,
+                'result'
+            );
+
             return $this->respondSuccess("success", $result);
         } catch (Exception $e) {
             return $this->respondError("error: " . $e->getMessage());
@@ -194,6 +241,11 @@ class Reimbursement extends MY_Controller
                 $statusCode = 'RMB_DRAFT';
             }
 
+            $costCenterId = isset($data['CostCenterId']) ? trim((string) $data['CostCenterId']) : '';
+            $payableTo = isset($data['PayableTo']) ? trim((string) $data['PayableTo']) : '';
+            $address = isset($data['Address']) ? trim((string) $data['Address']) : '';
+            $ioNumber = isset($data['IoNumber']) ? trim((string) $data['IoNumber']) : '';
+
             $reimbursementId = '';
             $currentUserId = (int) $this->session->userdata('user_id');
 
@@ -225,6 +277,10 @@ class Reimbursement extends MY_Controller
                     'TotalAmount' => $totalAmount,
                     'StatusCode' => $statusCode,
                     'Description' => $description,
+                    'CostCenterId' => $costCenterId,
+                    'PayableTo' => $payableTo,
+                    'Address' => $address,
+                    'IoNumber' => $ioNumber,
                 );
 
                 $updateHeaderResult = $this->sp->createData(
@@ -266,6 +322,10 @@ class Reimbursement extends MY_Controller
                     "TotalAmount" => $totalAmount,
                     "StatusCode" => $statusCode,
                     "Description" => $description,
+                    "CostCenterId" => $costCenterId,
+                    "PayableTo" => $payableTo,
+                    "Address" => $address,
+                    "IoNumber" => $ioNumber,
                 );
 
                 $headerResult = $this->sp->createReturnId(
@@ -291,10 +351,10 @@ class Reimbursement extends MY_Controller
             // Insert details
             foreach ($data['Expenses'] as $index => $expense) {
                 $actualAmount = isset($expense['ActualAmount']) ? (float) $expense['ActualAmount'] : (isset($expense['amount']) ? (float) $expense['amount'] : 0);
-                $expenseCategory = isset($expense['ExpenseCategory']) ? (int) $expense['ExpenseCategory'] : (isset($expense['expenseType']) ? (int) $expense['expenseType'] : 0);
+                $expenseCategory = isset($expense['ExpenseCategory']) ? trim((string) $expense['ExpenseCategory']) : (isset($expense['expenseType']) ? trim((string) $expense['expenseType']) : '');
                 $isVatable = isset($expense['IsVatable']) ? (bool) $expense['IsVatable'] : (isset($expense['isVattable']) ? (bool) $expense['isVattable'] : false);
 
-                if ($actualAmount <= 0 || $expenseCategory <= 0) {
+                if ($actualAmount <= 0 || $expenseCategory === '') {
                     return $this->respondError("Invalid expense item at index {$index}");
                 }
 
@@ -314,6 +374,9 @@ class Reimbursement extends MY_Controller
                     "NetAmount" => $netAmount,
                     "VatAmount" => $vatAmount,
                     "Attachment" => $attachment,
+                    "VendorName" => isset($expense['VendorName']) ? $expense['VendorName'] : '',
+                    "VendorAddress" => isset($expense['VendorAddress']) ? $expense['VendorAddress'] : '',
+                    "VendorTin" => isset($expense['VendorTin']) ? $expense['VendorTin'] : '',
                 );
 
                 $detailResult = $this->sp->createData(
@@ -326,9 +389,9 @@ class Reimbursement extends MY_Controller
                 }
             }
 
-            // If submitted (not draft), create approval entries
+            // Matrix entries are created inside sp_insert_reimbursement_header itself
+            // (mirrors sp_insert_liquidation_header) - no separate call needed here.
             if ($statusCode === 'RMB_SUBMITTED') {
-                $this->createApprovalEntries($reimbursementId, $totalAmount);
                 $this->logAuditTrail(
                     'REIMBURSEMENT',
                     $reimbursementId,
@@ -394,6 +457,11 @@ class Reimbursement extends MY_Controller
             $description = isset($data['Description']) ? trim((string) $data['Description']) : '';
             $statusCode = isset($data['StatusCode']) && $data['StatusCode'] !== '' ? trim((string) $data['StatusCode']) : 'RMB_SUBMITTED';
 
+            $costCenterId = isset($data['CostCenterId']) ? trim((string) $data['CostCenterId']) : '';
+            $payableTo = isset($data['PayableTo']) ? trim((string) $data['PayableTo']) : '';
+            $address = isset($data['Address']) ? trim((string) $data['Address']) : '';
+            $ioNumber = isset($data['IoNumber']) ? trim((string) $data['IoNumber']) : '';
+
             // Update header
             $updateHeaderParams = array(
                 'ReimbursementId' => $reimbursementId,
@@ -401,6 +469,10 @@ class Reimbursement extends MY_Controller
                 'TotalAmount' => $totalAmount,
                 'StatusCode' => $statusCode,
                 'Description' => $description,
+                'CostCenterId' => $costCenterId,
+                'PayableTo' => $payableTo,
+                'Address' => $address,
+                'IoNumber' => $ioNumber,
             );
 
             $updateHeaderResult = $this->sp->createData(
@@ -477,10 +549,10 @@ class Reimbursement extends MY_Controller
                 }
 
                 $actualAmount = isset($expense['ActualAmount']) ? (float) $expense['ActualAmount'] : 0;
-                $expenseCategory = isset($expense['ExpenseCategory']) ? (int) $expense['ExpenseCategory'] : 0;
+                $expenseCategory = isset($expense['ExpenseCategory']) ? trim((string) $expense['ExpenseCategory']) : '';
                 $isVatable = isset($expense['IsVatable']) ? (bool) $expense['IsVatable'] : false;
 
-                if ($actualAmount <= 0 || $expenseCategory <= 0) {
+                if ($actualAmount <= 0 || $expenseCategory === '') {
                     return $this->respondError('Invalid expense item at index ' . $index);
                 }
 
@@ -499,6 +571,9 @@ class Reimbursement extends MY_Controller
                     'NetAmount' => $netAmount,
                     'VatAmount' => $vatAmount,
                     'Attachment' => $attachment,
+                    'VendorName' => isset($expense['VendorName']) ? $expense['VendorName'] : '',
+                    'VendorAddress' => isset($expense['VendorAddress']) ? $expense['VendorAddress'] : '',
+                    'VendorTin' => isset($expense['VendorTin']) ? $expense['VendorTin'] : '',
                 );
 
                 $detailResult = $this->sp->createData(
@@ -520,11 +595,6 @@ class Reimbursement extends MY_Controller
                 $reimbursementId
             );
 
-            // Re-create approval entries if submitted
-            if ($statusCode === 'RMB_SUBMITTED') {
-                $this->createApprovalEntries($reimbursementId, $totalAmount);
-            }
-
             $message = $statusCode === 'RMB_DRAFT'
                 ? 'Reimbursement saved as draft successfully'
                 : 'Reimbursement updated and resubmitted successfully';
@@ -542,8 +612,6 @@ class Reimbursement extends MY_Controller
             $userId = $this->session->userdata('user_id');
             $cursorIdRaw = $this->input->post('CursorId');
             $takeRaw = $this->input->post('Take');
-            $search = $this->input->post('Search');
-            $statusFilter = $this->input->post('StatusFilter');
 
             $take = (int) $takeRaw;
             if ($take <= 0) {
@@ -559,8 +627,6 @@ class Reimbursement extends MY_Controller
                 "UserId" => $userId,
                 "CursorId" => $cursorId,
                 "Take" => $take,
-                "Search" => $search !== null ? trim((string) $search) : '',
-                "StatusFilter" => $statusFilter !== null ? trim((string) $statusFilter) : '',
             );
 
             $result = $this->sp->readData(
@@ -672,22 +738,6 @@ class Reimbursement extends MY_Controller
     }
 
     // ========== PRIVATE HELPERS ==========
-
-    private function createApprovalEntries($reimbursementId, $totalAmount)
-    {
-        // This should match the existing approval flow pattern
-        // Implementation depends on your existing approval module
-        // Typically this calls sp_create_approval_entries or similar
-        $params = array(
-            'TransactionType' => 'REIMBURSEMENT',
-            'TransactionId' => $reimbursementId,
-            'TotalAmount' => $totalAmount,
-            'UserId' => $this->session->userdata('user_id'),
-        );
-
-        // Call your existing approval creation SP
-        // $this->sp->createData(build_sp('sp_create_approval_entries', count($params)), $params);
-    }
 
     private function getDraftHeaderByReimbursementId($reimbursementId)
     {
@@ -1058,7 +1108,7 @@ class Reimbursement extends MY_Controller
 
             $imageDataUrl = 'data:' . $mimeType . ';base64,' . base64_encode($binary);
 
-            $prompt = "Extract receipt fields and respond with STRICT JSON only. Use keys: document_date, invoice_receipt_no, actual_amount, description, expense_category_name, is_vatable. document_date must be YYYY-MM-DD if possible. actual_amount must be number only. is_vatable must be true or false. If unknown, return empty string for text fields and 0 for amount.";
+            $prompt = "Extract receipt fields and respond with STRICT JSON only. Use keys: document_date, invoice_receipt_no, actual_amount, description, expense_category_name, is_vatable, vendor_name, vendor_address, vendor_tin. document_date must be YYYY-MM-DD if possible. actual_amount must be number only. is_vatable must be true or false. vendor_tin should be numeric TIN with dashes if present (e.g., 123-456-789-000). If unknown, return empty string for text fields and 0 for amount.";
 
             $payload = array(
                 'model' => 'meta-llama/llama-4-scout-17b-16e-instruct',
@@ -1126,6 +1176,9 @@ class Reimbursement extends MY_Controller
                 'description' => isset($ocr['description']) ? (string) $ocr['description'] : '',
                 'expense_category_name' => isset($ocr['expense_category_name']) ? (string) $ocr['expense_category_name'] : '',
                 'is_vatable' => isset($ocr['is_vatable']) ? (bool) $ocr['is_vatable'] : false,
+                'vendor_name' => isset($ocr['vendor_name']) ? (string) $ocr['vendor_name'] : '',
+                'vendor_address' => isset($ocr['vendor_address']) ? (string) $ocr['vendor_address'] : '',
+                'vendor_tin' => isset($ocr['vendor_tin']) ? (string) $ocr['vendor_tin'] : '',
             );
 
             return $this->respondSuccess('success', $result);

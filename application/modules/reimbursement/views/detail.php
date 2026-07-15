@@ -120,7 +120,7 @@
 	}
 	.kna-exp-mobile { display: none; }
 	.kna-exp-table {
-		min-width: 780px;
+		min-width: 860px;
 		width: 100%;
 		border-collapse: separate;
 		border-spacing: 0;
@@ -481,6 +481,27 @@
 				<div class="form-group">
 					<label class="kna-form-label">Description</label>
 					<div class="kna-readonly" id="viewDescription" style="min-height:48px;align-items:flex-start;padding-top:8px;">-</div>
+				</div>
+			</div>
+
+			<div class="kna-info-row kna-info-row-3">
+				<div class="form-group">
+					<label class="kna-form-label">Payable To</label>
+					<div class="kna-readonly" id="viewPayableTo">-</div>
+				</div>
+				<div class="form-group">
+					<label class="kna-form-label">Address</label>
+					<div class="kna-readonly" id="viewAddress">-</div>
+				</div>
+				<div class="form-group">
+					<label class="kna-form-label">Cost Center</label>
+					<div class="kna-readonly" id="viewCostCenter">-</div>
+				</div>
+			</div>
+			<div class="kna-info-row kna-info-row-3">
+				<div class="form-group">
+					<label class="kna-form-label">IO Number</label>
+					<div class="kna-readonly" id="viewIoNumber">-</div>
 				</div>
 			</div>
 

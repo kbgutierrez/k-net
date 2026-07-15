@@ -52,6 +52,8 @@ application/vendor/
 assets/js/bert_model/*
 .refact/buddy/state.json
 
+*.sql
+
 #codeigniter 3
 application/logs/*
 !application/logs/index.html
@@ -63,3 +65,8 @@ application/modules/approvals/sql/sp_update_ca_detail_review.sql
 sp_fetch_audit_trail.sql
 sp_fetch_transaction_details.sql
 sp_update_liquidation_detail_review.sql
+reimbursement_db_rebuild.sql
+schema_dump_reimbursement.sql
+sp_reimbursement_resubmit_helpers.sql
+sp_fetch_reimbursement_list.sql
+drop_expense_category_id.sql

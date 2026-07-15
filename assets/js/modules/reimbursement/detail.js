@@ -6,6 +6,10 @@ const domDetail = {
 	viewTotalAmount: null,
 	viewStatus: null,
 	viewSubmittedDate: null,
+	viewPayableTo: null,
+	viewAddress: null,
+	viewCostCenter: null,
+	viewIoNumber: null,
 	viewExpenseItems: null,
 	viewTimeline: null,
 	btnEditReimbursement: null,
@@ -51,12 +55,13 @@ const renderDetailExpenseItems = (expenses) => {
 		.map((expense, i) => {
 			const docDate = normalizeDate(expense.document_date || '').slice(0, 10);
 			const category = normalizeDate(expense.category_name || '');
-			const reference = normalizeDate(expense.invoice_receipt_no || '') || '\u2014';
-			const amount = Number(expense.actual_amount || 0);
+			const reference = normalizeDate(expense.invoice_receipt_no || '') || '—';
+			const amount = Number(expense.approved_amount || expense.actual_amount || 0);
 			const netAmt = Number(expense.net_amount || 0);
 			const vatAmt = Number(expense.vat_amount || 0);
 			const isVattable = Boolean(Number(expense.is_vatable));
 			const description = normalizeDate(expense.description || '');
+			const vendorName = normalizeDate(expense.vendor_name || '');
 
 			const attachNames = normalizeDate(expense.attachment || '')
 				.split(',')
@@ -64,7 +69,7 @@ const renderDetailExpenseItems = (expenses) => {
 				.filter(Boolean);
 			const attachHtml = attachNames.length
 				? attachNames.map(renderAttachment).join('')
-				: '<span class="text-muted" style="font-size:11px;">\u2014</span>';
+				: '<span class="text-muted" style="font-size:11px;">—</span>';
 
 			const vatBadge = isVattable
 				? '<input type="checkbox" class="kna-vat-check" checked disabled>'
@@ -74,7 +79,6 @@ const renderDetailExpenseItems = (expenses) => {
 				? `<div class="kna-amount-main">${formatPHP(amount)}</div><div class="kna-amount-breakdown">Net ${formatPHP(netAmt)}</div><div class="kna-amount-breakdown">VAT ${formatPHP(vatAmt)}</div>`
 				: `<div class="kna-amount-main">${formatPHP(amount)}</div>`;
 
-			// Rejection / Approval badges
 			const hasApproved = Boolean(Number(expense.has_approved || 0));
 			const hasRejected = Boolean(Number(expense.has_rejected || 0));
 			const rejectionReason = normalizeDate(expense.rejection_reason || '');
@@ -94,6 +98,7 @@ const renderDetailExpenseItems = (expenses) => {
 					<td data-label="Date">${escapeHtml(docDate)}</td>
 					<td data-label="Category">${escapeHtml(category)}</td>
 					<td data-label="Reference">${escapeHtml(reference)}</td>
+					<td data-label="Vendor">${escapeHtml(vendorName || '—')}</td>
 					<td class="text-center kna-cell-vat" data-label="VAT">${vatBadge}</td>
 					<td class="kna-cell-attachment" data-label="Attachment">${attachHtml}</td>
 					<td data-label="Remarks">${escapeHtml(description)}${statusBadge}</td>
@@ -107,12 +112,13 @@ const renderDetailExpenseItems = (expenses) => {
 		.map((expense, i) => {
 			const docDate = normalizeDate(expense.document_date || '').slice(0, 10);
 			const category = normalizeDate(expense.category_name || '');
-			const reference = normalizeDate(expense.invoice_receipt_no || '') || '\u2014';
-			const amount = Number(expense.actual_amount || 0);
+			const reference = normalizeDate(expense.invoice_receipt_no || '') || '—';
+			const amount = Number(expense.approved_amount || expense.actual_amount || 0);
 			const netAmt = Number(expense.net_amount || 0);
 			const vatAmt = Number(expense.vat_amount || 0);
 			const isVattable = Boolean(Number(expense.is_vatable));
-			const description = normalizeDate(expense.description || '') || '\u2014';
+			const description = normalizeDate(expense.description || '') || '—';
+			const vendorName = normalizeDate(expense.vendor_name || '');
 
 			const attachNames = normalizeDate(expense.attachment || '')
 				.split(',')
@@ -123,7 +129,6 @@ const renderDetailExpenseItems = (expenses) => {
 				? `<div class="kna-amount-main">${formatPHP(amount)}</div><div class="kna-amount-breakdown">Net ${formatPHP(netAmt)}</div><div class="kna-amount-breakdown">VAT ${formatPHP(vatAmt)}</div>`
 				: `<div class="kna-amount-main">${formatPHP(amount)}</div>`;
 
-			// Rejection / Approval badges for mobile
 			const hasApproved = Boolean(Number(expense.has_approved || 0));
 			const hasRejected = Boolean(Number(expense.has_rejected || 0));
 			const rejectionReason = normalizeDate(expense.rejection_reason || '');
@@ -142,7 +147,7 @@ const renderDetailExpenseItems = (expenses) => {
 					<div class="kna-exp-card-head">
 						<div>
 							<div class="kna-exp-card-title">${escapeHtml(category || 'Expense Item')} <span class="kna-exp-card-sub">#${i + 1}</span></div>
-							<div class="kna-exp-card-meta">${escapeHtml(docDate)} \u2022 ${escapeHtml(reference)}</div>
+							<div class="kna-exp-card-meta">${escapeHtml(docDate)} • ${escapeHtml(reference)}</div>
 							${statusBadge}
 						</div>
 						<div class="kna-exp-card-amount">${amountHtml}</div>
@@ -155,6 +160,10 @@ const renderDetailExpenseItems = (expenses) => {
 								<input type="checkbox" class="kna-vat-check" ${isVattable ? 'checked' : ''} disabled>
 							</span>
 						</div>
+						<div class="kna-exp-card-field">
+							<span class="kna-exp-card-label">Vendor</span>
+							<span class="kna-exp-card-value">${escapeHtml(vendorName || '—')}</span>
+						</div>
 						<div class="kna-exp-card-field kna-exp-card-field-full">
 							<span class="kna-exp-card-label">Remarks</span>
 							<span class="kna-exp-card-value">${escapeHtml(description)}</span>
@@ -164,7 +173,7 @@ const renderDetailExpenseItems = (expenses) => {
 					<div class="kna-exp-card-field kna-exp-card-field-full">
 						<span class="kna-exp-card-label">Attachment</span>
 						<span class="kna-exp-card-value kna-exp-card-attach">
-							${attachNames.length ? attachNames.map(renderAttachment).join('') : '<span class="text-muted">\u2014</span>'}
+							${attachNames.length ? attachNames.map(renderAttachment).join('') : '<span class="text-muted">—</span>'}
 						</span>
 					</div>
 				</div>
@@ -172,7 +181,7 @@ const renderDetailExpenseItems = (expenses) => {
 		})
 		.join('');
 
-	const total    = expenses.reduce((sum, e) => sum + Number(e.actual_amount || 0), 0);
+	const total    = expenses.reduce((sum, e) => sum + Number(e.approved_amount || e.actual_amount || 0), 0);
 	const totalNet = expenses.reduce((sum, e) => sum + Number(e.net_amount    || 0), 0);
 	const totalVat = expenses.reduce((sum, e) => sum + Number(e.vat_amount    || 0), 0);
 
@@ -186,6 +195,7 @@ const renderDetailExpenseItems = (expenses) => {
 						<th style="width:96px;">Date</th>
 						<th style="width:120px;">Category</th>
 						<th style="width:110px;">Reference</th>
+						<th style="width:120px;">Vendor</th>
 						<th style="width:72px;" class="text-center">VAT</th>
 						<th style="min-width:110px;">Attachment</th>
 						<th>Remarks</th>
@@ -195,7 +205,7 @@ const renderDetailExpenseItems = (expenses) => {
 				<tbody>${rowsHtml}</tbody>
 				<tfoot>
 					<tr>
-						<td colspan="7" class="text-right" style="font-size:12px;">Total</td>
+						<td colspan="8" class="text-right" style="font-size:12px;">Total</td>
 						<td class="text-right">
 							<div class="kna-amount-main">${formatPHP(total)}</div>
 							<div class="kna-amount-breakdown">Net ${formatPHP(totalNet)}</div>
@@ -208,26 +218,7 @@ const renderDetailExpenseItems = (expenses) => {
 	`;
 };
 
-const formatTimelineDate = (dateStr) => {
-	if (!dateStr) return '';
-	const raw = normalizeDate(dateStr);
-	if (!raw) return '';
-
-	const date = new Date(raw.replace(' ', 'T'));
-	if (Number.isNaN(date.getTime())) return raw;
-
-	const yyyy = date.getFullYear();
-	const mm = String(date.getMonth() + 1).padStart(2, '0');
-	const dd = String(date.getDate()).padStart(2, '0');
-	let hh = date.getHours();
-	const ampm = hh >= 12 ? 'PM' : 'AM';
-	hh = hh % 12;
-	hh = hh ? hh : 12;
-	const min = String(date.getMinutes()).padStart(2, '0');
-
-	return `${yyyy}-${mm}-${dd} ${String(hh).padStart(2, '0')}:${min}${ampm}`;
-};
-
+/* ─── TIMELINE ─── */
 const AUDIT_FIELD_LABELS = {
 	description: 'Description', invoice_receipt_no: 'Invoice/Receipt No.', document_date: 'Document Date',
 	actual_amount: 'Gross Amount', approved_amount: 'Gross Amount', expense_category: 'Expense Type',
@@ -241,7 +232,7 @@ const formatAuditFieldLabel = (field) => AUDIT_FIELD_LABELS[field] || field.repl
 
 const formatAuditValue = (field, value) => {
 	const raw = normalizeDate(value);
-	if (raw === '') return '<span class="text-muted">\u2014</span>';
+	if (raw === '') return '<span class="text-muted">—</span>';
 	if (AUDIT_CURRENCY_FIELDS.has(field)) {
 		const num = Number(raw);
 		return Number.isFinite(num) ? escapeHtml(formatPHP(num)) : escapeHtml(raw);
@@ -267,7 +258,26 @@ const joinAuditVerbs = (actions) => {
 	return `${verbs.slice(0, -1).join(', ')}, and ${verbs[verbs.length - 1]}`;
 };
 
-// Group audit trail by approver + timestamp
+const formatTimelineDate = (dateStr) => {
+	if (!dateStr) return '';
+	const raw = normalizeDate(dateStr);
+	if (!raw) return '';
+
+	const date = new Date(raw.replace(' ', 'T'));
+	if (Number.isNaN(date.getTime())) return raw;
+
+	const yyyy = date.getFullYear();
+	const mm = String(date.getMonth() + 1).padStart(2, '0');
+	const dd = String(date.getDate()).padStart(2, '0');
+	let hh = date.getHours();
+	const ampm = hh >= 12 ? 'PM' : 'AM';
+	hh = hh % 12;
+	hh = hh ? hh : 12;
+	const min = String(date.getMinutes()).padStart(2, '0');
+
+	return `${yyyy}-${mm}-${dd} ${String(hh).padStart(2, '0')}:${min}${ampm}`;
+};
+
 const groupAuditTrail = (auditTrail) => {
 	if (!auditTrail || !auditTrail.length) return [];
 
@@ -440,23 +450,20 @@ const renderHistoryTimeline = (auditTrail) => {
 };
 
 const loadAuditTrail = () => {
-	const ref = domDetail.reimbursementRef ? domDetail.reimbursementRef.value : '';
+	const ref = normalizeDate(domDetail.reimbursementRef ? domDetail.reimbursementRef.value : '');
 	if (!ref) return;
 
-	ajax_loader('transactions/reimbursement/api/timeline', { ReferenceNo: ref })
-		.done((response) => {
-			const res = (typeof response === 'string') ? $.parseJSON(response) : response;
-			if (res.status !== 'success') {
-				renderHistoryTimeline([]);
-				return;
-			}
-			renderHistoryTimeline(res.data && res.data.audit_trail ? res.data.audit_trail : []);
-		})
-		.fail(() => {
+	ajax_loader('transactions/reimbursement/api/timeline', { ReferenceNo: ref }).done((response) => {
+		const res = (typeof response === 'string') ? $.parseJSON(response) : response;
+		if (res.status !== 'success') {
 			renderHistoryTimeline([]);
-		});
+			return;
+		}
+		renderHistoryTimeline(res.data && res.data.audit_trail ? res.data.audit_trail : []);
+	}).fail(() => renderHistoryTimeline([]));
 };
 
+/* ─── DETAIL PAGE INIT ─── */
 const cacheDetailDom = () => {
 	domDetail.reimbursementRef = document.getElementById('reimbursementRef');
 	domDetail.viewReimbursementNo = document.getElementById('viewReimbursementNo');
@@ -465,18 +472,14 @@ const cacheDetailDom = () => {
 	domDetail.viewTotalAmount = document.getElementById('viewTotalAmount');
 	domDetail.viewStatus = document.getElementById('viewStatus');
 	domDetail.viewSubmittedDate = document.getElementById('viewSubmittedDate');
+	domDetail.viewPayableTo = document.getElementById('viewPayableTo');
+	domDetail.viewAddress = document.getElementById('viewAddress');
+	domDetail.viewCostCenter = document.getElementById('viewCostCenter');
+	domDetail.viewIoNumber = document.getElementById('viewIoNumber');
 	domDetail.viewExpenseItems = document.getElementById('viewExpenseItems');
 	domDetail.viewTimeline = document.getElementById('viewTimeline');
 	domDetail.btnEditReimbursement = document.getElementById('btnEditReimbursement');
 
-	if (domDetail.viewExpenseItems) {
-		domDetail.viewExpenseItems.addEventListener('click', (e) => {
-			const wrap = e.target.closest('[data-lightbox]');
-			if (wrap) {
-				openLightbox(wrap.getAttribute('data-lightbox'));
-			}
-		});
-	}
 	const lbEl = document.getElementById('knaLightbox');
 	if (lbEl) {
 		lbEl.addEventListener('click', (e) => {
@@ -486,30 +489,31 @@ const cacheDetailDom = () => {
 			}
 		});
 	}
+
+	if (domDetail.viewExpenseItems) {
+		domDetail.viewExpenseItems.addEventListener('click', (e) => {
+			const wrap = e.target.closest('[data-lightbox]');
+			if (wrap) {
+				openLightbox(wrap.getAttribute('data-lightbox'));
+			}
+		});
+	}
 };
 
-const initDetailPage = () => {
-	cacheDetailDom();
-
+const loadReimbursementDetail = () => {
 	const ref = normalizeDate(domDetail.reimbursementRef ? domDetail.reimbursementRef.value : '');
-
 	if (!ref) {
 		if (domDetail.viewExpenseItems) {
-			domDetail.viewExpenseItems.innerHTML = '<div class="text-muted kna-small py-2">Record not found.</div>';
+			domDetail.viewExpenseItems.innerHTML = '<div class="text-muted kna-small py-2">No reimbursement reference provided.</div>';
 		}
 		return;
 	}
 
-	if (domDetail.viewReimbursementNo) {
-		domDetail.viewReimbursementNo.textContent = ref;
-	}
-
-	// Load reimbursement data
 	ajax_loader('transactions/reimbursement/api/get', { ReimbursementId: ref }).done((response) => {
 		const res = (typeof response === 'string') ? $.parseJSON(response) : response;
 		if (res.status !== 'success' || !res.data || !res.data.header) {
 			if (domDetail.viewExpenseItems) {
-				domDetail.viewExpenseItems.innerHTML = '<div class="text-muted kna-small py-2">Could not load reimbursement details.</div>';
+				domDetail.viewExpenseItems.innerHTML = '<div class="text-muted kna-small py-2">Reimbursement record not found.</div>';
 			}
 			return;
 		}
@@ -518,49 +522,44 @@ const initDetailPage = () => {
 		const header = payload.header;
 		const details = payload.details || [];
 
-		if (domDetail.viewReimbursementNo) {
-			domDetail.viewReimbursementNo.textContent = normalizeDate(header.reimbursement_id);
-		}
-		if (domDetail.viewTotalAmount) {
-			domDetail.viewTotalAmount.textContent = formatPHP(Number(header.total_amount || 0));
-		}
-		if (domDetail.viewStatus) {
-			domDetail.viewStatus.innerHTML = getStatusBadge(normalizeDate(header.status_name));
-		}
-		if (domDetail.viewSubmittedDate) {
-			domDetail.viewSubmittedDate.textContent = normalizeDate(header.submitted_date || '').slice(0, 10);
-		}
-		if (domDetail.viewDescription) {
-			domDetail.viewDescription.textContent = normalizeDate(header.description || '') || '-';
+		if (domDetail.viewReimbursementNo) domDetail.viewReimbursementNo.textContent = normalizeDate(header.reimbursement_id);
+		if (domDetail.viewStatus) domDetail.viewStatus.innerHTML = getStatusBadge(normalizeDate(header.status_name));
+		if (domDetail.viewSubmittedDate) domDetail.viewSubmittedDate.textContent = normalizeDate(header.submitted_date || '').slice(0, 10) || '-';
+		if (domDetail.viewDescription) domDetail.viewDescription.textContent = normalizeDate(header.description || '') || '-';
+		if (domDetail.viewTotalAmount) domDetail.viewTotalAmount.textContent = formatPHP(Number(header.total_amount || 0));
+		if (domDetail.viewPayableTo) domDetail.viewPayableTo.textContent = normalizeDate(header.payable_to || '') || '-';
+		if (domDetail.viewAddress) domDetail.viewAddress.textContent = normalizeDate(header.address || '') || '-';
+		if (domDetail.viewIoNumber) domDetail.viewIoNumber.textContent = normalizeDate(header.io_number || '') || '-';
+		if (domDetail.viewCostCenter) {
+			const ccCode = normalizeDate(header.cost_center_id || '');
+			const ccName = normalizeDate(header.cost_center_name || '');
+			domDetail.viewCostCenter.textContent = ccCode ? `${ccCode}${ccName ? ' - ' + ccName : ''}` : '-';
 		}
 
-		// Show Edit button if submitted/rejected and user is the creator
-		const statusCode = normalizeDate(header.status_code || '');
-		const isEditable = statusCode === 'RMB_SUBMITTED' || statusCode === 'RMB_REJECTED';
+		renderDetailExpenseItems(details);
+
+		if (domDetail.viewExpenseDate && details.length) {
+			const dates = details
+				.map((e) => normalizeDate(e.document_date || '').slice(0, 10))
+				.filter(Boolean)
+				.sort();
+			const first = dates[0] || '-';
+			const last = dates[dates.length - 1] || '-';
+			domDetail.viewExpenseDate.textContent = first === last ? first : `${first} – ${last}`;
+		}
+
 		const currentUserId = Number(window.currentUserId || 0);
 		const createdById = Number(header.created_by_id || header.created_by || 0);
-
-		if (isEditable && createdById === currentUserId && domDetail.btnEditReimbursement) {
-			domDetail.btnEditReimbursement.classList.remove('d-none');
-			domDetail.btnEditReimbursement.href = `${base_url}transactions/reimbursement/edit/${encodeURIComponent(ref)}`;
-		}
-
-		// Fetch approval status for each item
-		fetchApprovalStatusForItems(ref, details).then((expensesWithStatus) => {
-			renderDetailExpenseItems(expensesWithStatus);
-
-			if (domDetail.viewExpenseDate && expensesWithStatus.length) {
-				const dates = expensesWithStatus
-					.map((e) => normalizeDate(e.document_date || '').slice(0, 10))
-					.filter(Boolean)
-					.sort();
-				const first = dates[0] || '-';
-				const last = dates[dates.length - 1] || '-';
-				domDetail.viewExpenseDate.textContent = first === last ? first : `${first} \u2013 ${last}`;
+		const statusCode = normalizeDate(header.status_code || '');
+		if (domDetail.btnEditReimbursement) {
+			const canEdit = createdById === currentUserId && (statusCode === 'RMB_SUBMITTED' || statusCode === 'RMB_REJECTED');
+			if (canEdit) {
+				domDetail.btnEditReimbursement.classList.remove('d-none');
+				domDetail.btnEditReimbursement.href = `${base_url}transactions/reimbursement/edit/${encodeURIComponent(ref)}`;
+			} else {
+				domDetail.btnEditReimbursement.classList.add('d-none');
 			}
-		});
-
-		loadAuditTrail();
+		}
 	}).fail(() => {
 		if (domDetail.viewExpenseItems) {
 			domDetail.viewExpenseItems.innerHTML = '<div class="text-muted kna-small py-2">Could not load reimbursement details.</div>';
@@ -568,42 +567,8 @@ const initDetailPage = () => {
 	});
 };
 
-const fetchApprovalStatusForItems = (reimbursementId, expenses) => {
-	return new Promise((resolve) => {
-		ajax_loader('transactions/reimbursement/api/get', { ReimbursementId: reimbursementId }).done((response) => {
-			const res = (typeof response === 'string') ? $.parseJSON(response) : response;
-			if (res.status !== 'success' || !res.data || !res.data.details) {
-				resolve(expenses);
-				return;
-			}
-
-			const detailsWithStatus = res.data.details || [];
-			const statusMap = {};
-
-			detailsWithStatus.forEach((detail) => {
-				statusMap[Number(detail.id)] = {
-					has_approved: detail.has_approved,
-					has_rejected: detail.has_rejected,
-					rejection_reason: detail.rejection_reason,
-					rejected_by_name: detail.rejected_by_name,
-				};
-			});
-
-			const merged = expenses.map((expense) => {
-				const detailId = Number(expense.id || 0);
-				const status = statusMap[detailId] || {};
-				return {
-					...expense,
-					has_approved: status.has_approved || 0,
-					has_rejected: status.has_rejected || 0,
-					rejection_reason: status.rejection_reason || '',
-					rejected_by_name: status.rejected_by_name || '',
-				};
-			});
-
-			resolve(merged);
-		}).fail(() => {
-			resolve(expenses);
-		});
-	});
+const initDetailPage = () => {
+	cacheDetailDom();
+	loadReimbursementDetail();
+	loadAuditTrail();
 };
