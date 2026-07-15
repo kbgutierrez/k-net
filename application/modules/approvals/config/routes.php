@@ -9,3 +9,4 @@ $route['transactions/approvals/api/submit_decisions'] = 'Approvals/api_submit_de
 $route['transactions/approvals/api/per/item/decision'] = 'Approvals/api_per_item_decision';
 $route['transactions/approvals/api/get/timeline'] = 'Approvals/api_get_approval_timeline';
 $route['transactions/approvals/api/update/ca-header'] = 'Approvals/api_update_ca_header';
+$route['transactions/approvals/api/update/rmb-header'] = 'Approvals/api_update_rmb_header';

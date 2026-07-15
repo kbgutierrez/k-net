@@ -674,6 +674,51 @@ class Approvals extends MY_Controller
     }
 
     /**
+     * Update reimbursement header fields (cost_center, payable_to, address, io) in one batch
+     */
+    public function api_update_rmb_header()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $referenceNo = isset($data['reference_no']) ? trim((string) $data['reference_no']) : '';
+            $costCenterId = isset($data['cost_center_id']) ? trim((string) $data['cost_center_id']) : '';
+            $payableTo = isset($data['payable_to']) ? trim((string) $data['payable_to']) : '';
+            $address = isset($data['address']) ? trim((string) $data['address']) : '';
+            $io = isset($data['io']) ? trim((string) $data['io']) : '';
+
+            if ($referenceNo === '') {
+                throw new Exception('Missing required field: reference_no');
+            }
+
+            $userId = (int) $this->session->userdata('user_id');
+            if ($userId <= 0) {
+                throw new Exception('User not authenticated.');
+            }
+
+            $params = array(
+                'ReferenceNo' => $referenceNo,
+                'CostCenterId' => $costCenterId,
+                'PayableTo' => $payableTo,
+                'Address' => $address,
+                'UpdatedBy' => $userId,
+                'IO' => $io,
+            );
+
+            $result = $this->sp->createData(
+                build_sp('sp_update_reimbursement_header_fields', count($params)),
+                $params,
+                'result'
+            );
+
+            return $this->respondSuccess('Reimbursement details updated successfully.');
+        } catch (Throwable $e) {
+            return $this->respondError($e->getMessage());
+        }
+    }
+
+    /**
      * Per-item decision (before final submit)
      */
     public function api_per_item_decision()
@@ -726,7 +771,7 @@ class Approvals extends MY_Controller
                 $transactionType = 'CASH_ADVANCE';
             } elseif (strpos($referenceNo, 'LQ') === 0) {
                 $transactionType = 'LIQUIDATION';
-            } elseif (strpos($referenceNo, 'RE') === 0) {
+            } elseif (strpos($referenceNo, 'RMB') === 0) {
                 $transactionType = 'REIMBURSEMENT';
             }
 
@@ -940,6 +985,8 @@ class Approvals extends MY_Controller
                 $transactionType = 'CASH_ADVANCE';
             } elseif (strpos($referenceNo, 'LQ') === 0) {
                 $transactionType = 'LIQUIDATION';
+            } elseif (strpos($referenceNo, 'RMB') === 0) {
+                $transactionType = 'REIMBURSEMENT';
             }
 
             $auditParams = array(

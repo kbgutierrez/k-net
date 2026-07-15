@@ -329,8 +329,12 @@ const initLiquidationCategorySelect2 = () => {
   });
 };
 
-/* ─── CA HEADER EDITOR (Cost Center + Payable To + Address) ─── */
-const initCaHeaderEditor = (referenceNo) => {
+/* ─── HEADER EDITOR (Cost Center + Payable To + Address + IO) — CA & Reimbursement ─── */
+const initCaHeaderEditor = (referenceNo, options = {}) => {
+  const endpoint = options.endpoint || 'transactions/approvals/api/update/ca-header';
+  const confirmTitle = options.confirmTitle || 'Update Cash Advance Details?';
+  const confirmText = options.confirmText || 'This will overwrite the issuer\'s original entries for Cost Center, Payable To, and Address. Continue?';
+  const successText = options.successText || 'Cash advance details have been updated successfully.';
   const btn = document.getElementById('btnUpdateCaHeader');
   const badge = document.getElementById('caHeaderChangeBadge');
   const ccSelect = document.getElementById('reviewCostCenter');
@@ -378,8 +382,8 @@ const initCaHeaderEditor = (referenceNo) => {
 
     Swal.fire({
       icon: 'question',
-      title: 'Update Cash Advance Details?',
-      text: 'This will overwrite the issuer\'s original entries for Cost Center, Payable To, and Address. Continue?',
+      title: confirmTitle,
+      text: confirmText,
       showCancelButton: true,
       confirmButtonText: 'Yes',
       cancelButtonText: 'Cancel',
@@ -400,7 +404,7 @@ const initCaHeaderEditor = (referenceNo) => {
       };
 
       $.ajax({
-        url: base_url + 'transactions/approvals/api/update/ca-header',
+        url: base_url + endpoint,
         type: 'POST',
         contentType: 'application/json; charset=utf-8',
         dataType: 'json',
@@ -436,7 +440,7 @@ const initCaHeaderEditor = (referenceNo) => {
             Swal.fire({
               icon: 'success',
               title: 'Updated',
-              text: 'Cash advance details have been updated successfully.',
+              text: successText,
               timer: 2000,
               showConfirmButton: false,
               toast: true,
@@ -877,13 +881,16 @@ const renderReimbursement = (data, attachments = []) => {
   if (domReview.reviewStatusBadge) domReview.reviewStatusBadge.innerHTML = getStatusBadge('Pending Approval');
 
   const first = data[0], requesterName = first.user_name || '-';
-  const totalRequested = data.reduce((s, item) => s + (Number(item.actual_amount) || 0), 0);
-  const totalApproved = data.reduce((s, item) => s + (Number(item.gross_amount ?? item.lq_amount) || 0), 0);
+  const totalRequested = data.reduce((s, item) => s + (Number(item.actual_amount ?? item.lq_amount) || 0), 0);
+  const totalApproved = data.reduce((s, item) => s + (Number(item.approved_amount) || 0), 0);
   const hasCaAttachments = attachments && attachments.length > 0;
   const approvalPdfUrl = resolveApprovalPdfUrl(first), hasApprovalPdf = Boolean(approvalPdfUrl);
 
   const reimbursementIo = normalizeDate(first.io || first.io_number || first.io_no || '');
-  const overviewHtml = `<div class="kna-overview-compact">
+  const rmbCostCenterId = normalizeDate(first.cost_center_id || '');
+  const rmbCostCenterOptions = getCostCenterOptions(rmbCostCenterId);
+  const overviewHtml = `<div class="kna-overview-wrapper">
+    <div class="kna-overview-compact">
     <div class="kna-overview-cell">
       <div class="kna-overview-label">Requester</div>
       <div class="kna-overview-value">${escapeHtml(requesterName)}</div>
@@ -906,19 +913,35 @@ const renderReimbursement = (data, attachments = []) => {
     </div>
    <div class="kna-overview-cell">
       <div class="kna-overview-label">Payable To</div>
-      <div class="kna-overview-value">${escapeHtml(first.payable_to || requesterName || '-')}</div>
+      <div class="kna-overview-value">
+        <input type="text" class="form-control form-control-sm kna-ca-field-input" id="reviewPayableTo" data-field="payable_to" data-original="${escapeHtml(first.payable_to || '')}" value="${escapeHtml(first.payable_to || '')}" placeholder="Enter payable to..." style="min-width:140px;">
+      </div>
     </div>
     <div class="kna-overview-cell">
       <div class="kna-overview-label">Cost Center</div>
-      <div class="kna-overview-value">${escapeHtml(first.cost_center_id || '-')} - ${escapeHtml(first.cost_center_name || first.cost_center || '-')}</div>
+      <div class="kna-overview-value">
+        <select class="kna-cost-center-select" id="reviewCostCenter" data-field="cost_center_id" data-original="${escapeHtml(rmbCostCenterId)}" style="min-width:140px;">
+          ${rmbCostCenterOptions}
+        </select>
+      </div>
     </div>
     <div class="kna-overview-cell wide">
       <div class="kna-overview-label">Address</div>
-      <div class="kna-overview-value kna-address">${escapeHtml(first.address || '-')}</div>
+      <div class="kna-overview-value">
+        <input type="text" class="form-control form-control-sm kna-ca-field-input" id="reviewAddress" data-field="address" data-original="${escapeHtml(first.address || '')}" value="${escapeHtml(first.address || '')}" placeholder="Enter address..." style="min-width:140px;">
+      </div>
     </div>
     <div class="kna-overview-cell">
       <div class="kna-overview-label">IO</div>
-      <div class="kna-overview-value">${escapeHtml(reimbursementIo || '-')}</div>
+      <div class="kna-overview-value">
+        <input type="text" class="form-control form-control-sm kna-ca-field-input" id="reviewIo" data-field="io" data-original="${escapeHtml(reimbursementIo)}" value="${escapeHtml(reimbursementIo)}" placeholder="Enter IO..." style="min-width:140px;">
+      </div>
+    </div>
+  </div>
+    <div class="kna-ca-update-bar">
+      <button type="button" class="btn btn-primary btn-sm kna-small font-weight-bold" id="btnUpdateCaHeader" style="min-width:110px;">
+        <i class="fas fa-save mr-1"></i> Update
+      </button>
     </div>
   </div>
   ${hasApprovalPdf ? `<div class="kna-doc-bar" data-toggle-doc-viewer data-target="ca-doc-viewer" aria-expanded="false">
@@ -944,6 +967,24 @@ const renderReimbursement = (data, attachments = []) => {
 
 
   if (domReview.reviewHeaderFields) domReview.reviewHeaderFields.innerHTML = overviewHtml;
+
+  // Initialize Select2 for cost center
+  const rmbCcSelect = document.getElementById('reviewCostCenter');
+  if (rmbCcSelect && window.jQuery && $.fn.select2) {
+    $(rmbCcSelect).select2({
+      placeholder: 'Select Cost Center',
+      allowClear: false,
+      width: 'style'
+    });
+  }
+
+  // Bind header field editor (same behavior as cash advance, reimbursement endpoint)
+  initCaHeaderEditor(first.reference_no || first.liquidation_id, {
+    endpoint: 'transactions/approvals/api/update/rmb-header',
+    confirmTitle: 'Update Reimbursement Details?',
+    confirmText: 'This will overwrite the requester\'s original entries for Cost Center, Payable To, Address, and IO. Continue?',
+    successText: 'Reimbursement details have been updated successfully.'
+  });
 
   // Bind document bar toggle for reimbursement
   const docBar = document.querySelector('.kna-doc-bar[data-toggle-doc-viewer]');
@@ -1078,7 +1119,7 @@ const renderReimbursement = (data, attachments = []) => {
   const desktopHtml = `<div class="kna-review-desktop kna-review-desktop-liquidation kna-review-desktop-reimbursement"><div class="kna-review-table-shell">
     <div class="kna-review-table-wrap-main"><table class="table table-sm kna-review-table-main"><thead><tr><th>#</th><th>Description</th><th>Expense Type</th><th>Invoice/Receipt</th><th>Doc. Date</th><th class="text-right">Gross</th><th>VAT</th><th class="text-right">Net</th><th class="text-right">VAT Amt</th><th>Attachment</th><th>Vendor</th></tr></thead><tbody>${mainRows}</tbody></table></div>
     <div class="kna-review-table-wrap-action"><table class="table table-sm kna-review-table-action"><thead><tr><th>Action</th></tr></thead><tbody>${actionRows}</tbody></table></div>
-  </div><div class="kna-review-footer"><div class="kna-review-footer-main"><span class="kna-review-footer-label">Total Reimbursed Amount</span><div class="kna-review-footer-amount kna-amount-main">${formatPHP(totalApproved)}</div></div></div></div>`;
+  </div><div class="kna-review-footer"><div class="kna-review-footer-main"><span class="kna-review-footer-label">Total Reimbursed Amount</span><div class="kna-review-footer-amount kna-amount-main">${formatPHP(totalRequested)}</div></div></div></div>`;
 
   const mobileHtml = `<div class="kna-exp-mobile">${mobileCards}</div>`;
 
@@ -1091,7 +1132,9 @@ const renderReimbursement = (data, attachments = []) => {
 const updateVatDisplay = (key, isVatable) => {
   const decision = reviewState.decisions[key];
   if (!decision || decision.isReadOnly) return;
-  const vatCalc = calculateVat(decision.actualAmount, isVatable);
+  // Compute from the current (possibly approver-edited) gross, not the original actualAmount
+  const currentGross = Number(decision.amount ?? decision.approvedAmount ?? decision.actualAmount) || 0;
+  const vatCalc = calculateVat(currentGross, isVatable);
   decision.isVatable = isVatable; decision.netAmount = vatCalc.netAmount; decision.vatAmount = vatCalc.vatAmount;
   document.querySelectorAll(`[data-item-key="${key}"]`).forEach(row => {
     const netCell = row.querySelector('.kna-net-cell'), vatCell = row.querySelector('.kna-vat-amt-cell');
