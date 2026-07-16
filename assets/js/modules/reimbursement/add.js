@@ -71,6 +71,38 @@ const initCostCenterSelect2 = () => {
 	$c.find('.select2-selection__arrow b').css({ borderWidth: '3px 3px 0 3px', marginTop: '-2px' });
 };
 
+const initFileForSelect2 = () => {
+	if (!domAdd.newFileFor || typeof jQuery.fn?.select2 === 'undefined') return;
+	const $s = jQuery(domAdd.newFileFor);
+	if ($s.hasClass('select2-hidden-accessible')) $s.select2('destroy');
+	const $dropdownParent = $s.closest('.page-inner').length ? $s.closest('.page-inner') : jQuery(document.body);
+	$s.select2({ placeholder: 'Myself', allowClear: false, width: '100%', dropdownAutoWidth: false, minimumResultsForSearch: 5, dropdownParent: $dropdownParent });
+	const $c = $s.next('.select2-container');
+	$c.find('.select2-selection--single').css({ height: '32px', border: '1px solid #ced4da', borderRadius: '4px', background: '#fff', fontSize: '12px' });
+	$c.find('.select2-selection__rendered').css({ lineHeight: '30px', paddingLeft: '10px', paddingRight: '20px', color: '#495057' });
+	$c.find('.select2-selection__arrow').css({ height: '30px', width: '20px' });
+	$c.find('.select2-selection__arrow b').css({ borderWidth: '3px 3px 0 3px', marginTop: '-2px' });
+};
+
+// ─── Team Member (File For) Options ───
+const getTeamMemberOptions = (selectedValue) => {
+	const dataEl = document.getElementById('teamMembersData');
+	if (!dataEl) return '<option value="">Myself</option>';
+	try {
+		const members = JSON.parse(dataEl.value);
+		if (!Array.isArray(members) || members.length === 0) return '<option value="">Myself</option>';
+		const opts = members.map((m) => {
+			const value = escapeHtml(String(m.member_user_id || ''));
+			const text = escapeHtml(`${m.member_name || ''}${m.designation ? ' - ' + m.designation : ''}`);
+			const selected = value === normalizeDate(selectedValue) ? ' selected' : '';
+			return `<option value="${value}"${selected}>${text}</option>`;
+		}).join('');
+		return `<option value="">Myself</option>${opts}`;
+	} catch (e) {
+		return '<option value="">Myself</option>';
+	}
+};
+
 // ─── Cost Center Options ───
 const getCostCenterOptions = (selectedValue) => {
 	const dataEl = document.getElementById('costCentersData');
@@ -109,7 +141,7 @@ const syncDateRange = () => {
 
 // ─── DOM Cache ───
 const cacheAddDom = () => {
-	const ids = ['reimbursementRef', 'draftEditWindowDays', 'isEditMode', 'newDescription', 'newDateRange', 'newTotalAmount', 'newPayableTo', 'newAddress', 'newCostCenter', 'newIoNumber', 'btnAddExpenseItem', 'expenseItemsContainer', 'btnSaveDraftReimbursement', 'btnSaveNewReimbursement'];
+	const ids = ['reimbursementRef', 'draftEditWindowDays', 'isEditMode', 'newDescription', 'newDateRange', 'newTotalAmount', 'newAddress', 'newCostCenter', 'newIoNumber', 'newFileFor', 'btnAddExpenseItem', 'expenseItemsContainer', 'btnSaveDraftReimbursement', 'btnSaveNewReimbursement'];
 	ids.forEach((id) => { domAdd[id] = document.getElementById(id); });
 };
 
@@ -205,10 +237,10 @@ const getFormState = () => {
 	return {
 		totalAmount, dateFrom, dateTo,
 		description: normalizeDate(domAdd.newDescription.value),
-		payableTo: normalizeDate(domAdd.newPayableTo?.value || ''),
 		address: normalizeDate(domAdd.newAddress?.value || ''),
 		costCenterId: normalizeDate(domAdd.newCostCenter?.value || ''),
 		ioNumber: normalizeDate(domAdd.newIoNumber?.value || ''),
+		fileForUserId: normalizeDate(domAdd.newFileFor?.value || ''),
 	};
 };
 
@@ -248,9 +280,9 @@ const sendReimbursement = (statusCode) => {
 		fd.append('StatusCode', statusCode);
 		fd.append('Description', state.description);
 		fd.append('CostCenterId', state.costCenterId);
-		fd.append('PayableTo', state.payableTo);
 		fd.append('Address', state.address);
 		fd.append('IoNumber', state.ioNumber);
+		if (state.fileForUserId) fd.append('FileForUserId', state.fileForUserId);
 		fd.append('Expenses', JSON.stringify(expenseItems.map((it) => ({
 			DocumentDate: it.documentDate, ExpenseCategory: it.expenseType, InvoiceReceiptNo: it.reference,
 			ActualAmount: getItemAmount(it), IsVatable: Boolean(it.isVattable), Description: it.remarks,
@@ -293,7 +325,7 @@ const sendReimbursement = (statusCode) => {
 const setEditability = (editable) => {
 	draftCanEdit = editable;
 	const d = !editable;
-	['newDescription', 'newPayableTo', 'newAddress', 'newCostCenter', 'newIoNumber', 'btnAddExpenseItem', 'btnSaveNewReimbursement', 'btnSaveDraftReimbursement'].forEach((k) => { if (domAdd[k]) domAdd[k].disabled = d; });
+	['newDescription', 'newAddress', 'newCostCenter', 'newIoNumber', 'newFileFor', 'btnAddExpenseItem', 'btnSaveNewReimbursement', 'btnSaveDraftReimbursement'].forEach((k) => { if (domAdd[k]) domAdd[k].disabled = d; });
 };
 
 const loadDraftForEdit = () => {
@@ -314,7 +346,6 @@ const loadDraftForEdit = () => {
 			setEditability(Boolean(payload.canEdit));
 
 			domAdd.newDescription.value = normalizeDate(header.description);
-			if (domAdd.newPayableTo) domAdd.newPayableTo.value = normalizeDate(header.payable_to);
 			if (domAdd.newAddress) domAdd.newAddress.value = normalizeDate(header.address);
 			if (domAdd.newIoNumber) domAdd.newIoNumber.value = normalizeDate(header.io_number);
 			if (domAdd.newCostCenter) { domAdd.newCostCenter.innerHTML = getCostCenterOptions(header.cost_center_id); initCostCenterSelect2(); }
@@ -386,6 +417,7 @@ const initAddPage = () => {
 	draftEditWindowDays = safeNum(domAdd.draftEditWindowDays?.value) || 7;
 	currentReimbursementId = normalizeDate(domAdd.reimbursementRef?.value || '');
 	if (domAdd.newCostCenter) { domAdd.newCostCenter.innerHTML = getCostCenterOptions(''); initCostCenterSelect2(); }
+	if (domAdd.newFileFor) { domAdd.newFileFor.innerHTML = getTeamMemberOptions(''); initFileForSelect2(); }
 
 	reimbursementReceiptOcr = window.SharedReceiptOcr && window.SharedReceiptOcr.create({
 		maxAttachmentBytes: MAX_ATTACHMENT_BYTES, getExpenseItem: findExpenseItem, getExpenseTypeOptions: () => expenseTypeOptions,

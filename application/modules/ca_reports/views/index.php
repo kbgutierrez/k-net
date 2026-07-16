@@ -148,49 +148,7 @@
 <div class="page-inner kna-page">
   <div class="d-flex align-items-center justify-content-between mb-2 kna-stack-mobile">
     <div>
-      <div class="kna-title">Cash Advance</div>
-    </div>
-    <button type="button" class="btn btn-primary btn-sm kna-small kna-mobile-cta" id="btnOpenNew"
-      data-has-pending="<?=!empty($has_pending_ca) ? '1' : '0';?>"
-      data-pending-id="<?=html_escape($pending_ca_id ?? '');?>"
-      data-pending-status="<?=html_escape($pending_ca_status ?? '');?>">
-      New Request
-    </button>
-  </div>
-
-  <!-- Summary Cards -->
-  <div class="row mb-2">
-    <div class="col-md-3 col-6 pr-md-2 mb-2 mb-md-0">
-      <div class="card kna-card h-100">
-        <div class="card-body">
-          <p class="kna-kpi-caption">Total Requested</p>
-          <p class="kna-kpi" id="sumTotalGranted">—</p>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-3 col-6 px-md-2 mb-2 mb-md-0">
-      <div class="card kna-card h-100">
-        <div class="card-body">
-          <p class="kna-kpi-caption">Pending</p>
-          <p class="kna-kpi" id="sumPending">—</p>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-3 col-6 px-md-2">
-      <div class="card kna-card h-100">
-        <div class="card-body">
-          <p class="kna-kpi-caption">For Liquidation</p>
-          <p class="kna-kpi" id="sumForLiquidation">—</p>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-3 col-6 pl-md-2">
-      <div class="card kna-card h-100">
-        <div class="card-body">
-          <p class="kna-kpi-caption">Approved</p>
-          <p class="kpi kna-kpi" id="sumApproved">—</p>
-        </div>
-      </div>
+      <div class="kna-title">Cash Advance Report</div>
     </div>
   </div>
 
@@ -203,22 +161,32 @@
           <input type="text" class="form-control form-control-sm kna-small" id="filterDateRange" placeholder="Select range" autocomplete="off" readonly style="width:180px;">
         </div>
         <div class="kna-filter-field">
+          <label class="kna-small kna-form-label mb-1">Department</label>
+          <select class="form-control form-control-sm kna-small" id="filterDepartment" style="width:180px;">
+            <option value="">All Departments</option>
+          </select>
+        </div>
+        <div class="kna-filter-field">
+          <label class="kna-small kna-form-label mb-1">Company</label>
+          <select class="form-control form-control-sm kna-small" id="filterCompany" style="width:180px;">
+            <option value="">All Companies</option>
+          </select>
+        </div>
+        <div class="kna-filter-field">
+          <label class="kna-small kna-form-label mb-1">Employee</label>
+          <select class="form-control form-control-sm kna-small" id="filterEmployee" style="width:220px;">
+            <option value="">All Employees</option>
+          </select>
+        </div>
+        <div class="kna-filter-field">
           <label class="kna-small kna-form-label mb-1">Status</label>
-          <select class="form-control form-control-sm kna-small" id="filterStatus" style="width:150px;">
+          <select class="form-control form-control-sm kna-small" id="filterStatus" style="width:160px;">
             <option value="">All Status</option>
             <option value="Pending Approval">Pending Approval</option>
             <option value="For Liquidation">For Liquidation</option>
             <option value="Approved">Approved</option>
             <option value="Rejected">Rejected</option>
-          </select>
-        </div>
-        <div class="kna-filter-field">
-          <label class="kna-small kna-form-label mb-1">Amount</label>
-          <select class="form-control form-control-sm kna-small" id="filterAmountRange" style="width:160px;">
-            <option value="">All Amounts</option>
-            <option value="0-5000">Up to PHP 5,000</option>
-            <option value="5001-10000">PHP 5,001 – 10,000</option>
-            <option value="10001-999999">Above PHP 10,000</option>
+            <option value="Completed">Completed</option>
           </select>
         </div>
         <div class="kna-filter-field">
@@ -243,6 +211,9 @@
           <thead>
             <tr>
               <th style="width:170px;">Cash Advance No</th>
+              <th style="min-width:180px;">Employee</th>
+              <th style="min-width:160px;">Department</th>
+              <th style="min-width:160px;">Company</th>
               <th class="text-right">Amount</th>
               <th style="min-width:320px;">Purpose</th>
               <th>Needed On</th>

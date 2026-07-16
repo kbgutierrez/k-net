@@ -13,11 +13,43 @@ class SPModel extends CI_Model
   {
     if (!empty($database_name)) {
       $this->db = $this->load->database($database_name, TRUE);
-    } 
+    }
+  }
+  /**
+   * CI3's db_debug hard-exits the request via display_error() on any SQL
+   * error instead of letting it be caught as a PHP exception - so a THROW
+   * from a stored proc (e.g. a validation rule) would crash the whole
+   * request rather than surface as a normal error response. Suppress
+   * db_debug only around the query itself so failures come back as a
+   * normal FALSE result / $this->db->error(), then restore it after.
+   */
+  private function runQuerySafely($sp, $data = null)
+  {
+    $previousDebug = $this->db->db_debug;
+    $this->db->db_debug = FALSE;
+    try {
+      return ($data === null) ? $this->db->query($sp) : $this->db->query($sp, $data);
+    } finally {
+      $this->db->db_debug = $previousDebug;
+    }
+  }
+  /**
+   * The native driver prefixes every error with vendor/driver tags like
+   * "[Microsoft][ODBC Driver 13 for SQL Server][SQL Server]" ahead of the
+   * actual message (e.g. our own THROW text from a validation rule). That
+   * prefix is meaningless to an end user, so strip it before the message
+   * ever reaches a controller's respondError(). The untouched original is
+   * still written to the CI log for developer diagnostics.
+   */
+  private function cleanErrorMessage($rawMessage)
+  {
+    log_message('error', 'SPModel DB error: ' . $rawMessage);
+    $cleaned = preg_replace('/^(?:\[[^\]]*\])+\s*/', '', $rawMessage);
+    return ($cleaned !== null && trim($cleaned) !== '') ? trim($cleaned) : 'Something went wrong while saving. Please try again.';
   }
   public function fetchData($sp, $type = 'result')
   {
-    $query = $this->db->query($sp);
+    $query = $this->runQuerySafely($sp);
     return ($type == 'result') ? $query->result_array() : $query->row_array();
   }
   public function readData(
@@ -25,7 +57,7 @@ class SPModel extends CI_Model
     $data,
     $type
   ) {
-    $query = $this->db->query($sp, $data);
+    $query = $this->runQuerySafely($sp, $data);
     if ($type == 'result') {
       return $query->result_array();
     }
@@ -36,10 +68,10 @@ class SPModel extends CI_Model
   public function createData($sp, $data)
   {
     try {
-      $query = $this->db->query($sp, $data);
+      $query = $this->runQuerySafely($sp, $data);
       $db_error = $this->db->error();
       if ($db_error['message']) {
-        throw new Exception('Database error! Error Code [' . $db_error['code'] . '] Error: ' . $db_error['message']);
+        throw new Exception($this->cleanErrorMessage($db_error['message']));
         return FALSE;
       } else {
         return TRUE;
@@ -50,7 +82,12 @@ class SPModel extends CI_Model
   }
   public function createReturnId($sp, $data)
   {
-    $query = $this->db->query($sp, $data);
-    return $query ? $query->row_array() : $this->db->error();
+    $query = $this->runQuerySafely($sp, $data);
+    if ($query) {
+      return $query->row_array();
+    }
+    $db_error = $this->db->error();
+    $db_error['message'] = $this->cleanErrorMessage($db_error['message']);
+    return $db_error;
   }
 }

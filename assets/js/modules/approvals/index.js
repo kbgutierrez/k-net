@@ -7,6 +7,10 @@ let approvalsIsLoadingRows = false;
 let selectedTransactionType = 'ALL';
 let approvalsDesktopPage = 1;
 
+let myTeamActive = false;
+let teamMemberIds = [];
+let approvalsDateRangePicker = null;
+
 const APPROVALS_PAGE_SIZE = 10;
 
 const formatPHP = (amount) => {
@@ -115,9 +119,35 @@ const loadApprovals = (reset = false) => {
 		});
 };
 
-const getFilteredApprovals = () => (selectedTransactionType === 'ALL'
-	? approvals
-	: approvals.filter((row) => row.transactionType === selectedTransactionType));
+const loadTeam = () => {
+	ajax_loader('transactions/approvals/api/get/team', {})
+		.done((response) => {
+			const res = (typeof response === 'string') ? $.parseJSON(response) : response;
+			if (res.status !== 'success') return;
+			teamMemberIds = (res.data || []).map((m) => Number(m.member_user_id || 0)).filter(Boolean);
+		});
+};
+
+const matchesDateRange = (row) => {
+	const selected = approvalsDateRangePicker ? approvalsDateRangePicker.selectedDates : [];
+	if (selected.length !== 2 || !row.submittedDate) return true;
+
+	const toIso = (date) => {
+		const y = date.getFullYear();
+		const m = `${date.getMonth() + 1}`.padStart(2, '0');
+		const d = `${date.getDate()}`.padStart(2, '0');
+		return `${y}-${m}-${d}`;
+	};
+
+	const from = toIso(selected[0]);
+	const to = toIso(selected[1]);
+	return row.submittedDate >= from && row.submittedDate <= to;
+};
+
+const getFilteredApprovals = () => approvals
+	.filter((row) => selectedTransactionType === 'ALL' || row.transactionType === selectedTransactionType)
+	.filter((row) => !myTeamActive || teamMemberIds.includes(row.userId))
+	.filter(matchesDateRange);
 
 const renderDesktopPagination = (rows) => {
 	const desktopPagination = document.getElementById('desktopPagination');
@@ -253,6 +283,46 @@ const initListPage = () => {
 		});
 	});
 
+	const btnMyTeamToggle = document.getElementById('btnMyTeamToggle');
+	if (btnMyTeamToggle) {
+		btnMyTeamToggle.addEventListener('click', () => {
+			myTeamActive = !myTeamActive;
+			btnMyTeamToggle.classList.toggle('is-active', myTeamActive);
+			btnMyTeamToggle.setAttribute('data-active', myTeamActive ? '1' : '0');
+			approvalsDesktopPage = 1;
+			refreshApprovalsList();
+		});
+	}
+
+	const filterDateRange = document.getElementById('filterDateRange');
+	if (filterDateRange && typeof flatpickr !== 'undefined') {
+		approvalsDateRangePicker = flatpickr(filterDateRange, {
+			mode: 'range',
+			dateFormat: 'Y-m-d',
+			allowInput: true,
+			onChange: (selectedDates) => {
+				if (selectedDates.length === 0 || selectedDates.length === 2) {
+					approvalsDesktopPage = 1;
+					refreshApprovalsList();
+				}
+			},
+		});
+	}
+
+	const btnResetApprovalFilters = document.getElementById('btnResetApprovalFilters');
+	if (btnResetApprovalFilters) {
+		btnResetApprovalFilters.addEventListener('click', () => {
+			myTeamActive = false;
+			if (btnMyTeamToggle) {
+				btnMyTeamToggle.classList.remove('is-active');
+				btnMyTeamToggle.setAttribute('data-active', '0');
+			}
+			if (approvalsDateRangePicker) approvalsDateRangePicker.clear();
+			approvalsDesktopPage = 1;
+			refreshApprovalsList();
+		});
+	}
+
 	const desktopPagination = document.getElementById('desktopPagination');
 	if (desktopPagination) {
 		desktopPagination.addEventListener('click', (event) => {
@@ -276,6 +346,7 @@ const initListPage = () => {
 		});
 	}
 
+	loadTeam();
 	loadApprovals(true);
 };
 

@@ -87,6 +87,11 @@
         color: #fff;
     }
 
+    .kna-form-label {
+        margin-bottom: .3rem;
+        font-weight: 600;
+    }
+
     .kna-badge {
         padding: .2rem .4rem;
         border-radius: 3px;
@@ -206,6 +211,23 @@
             <button class="kna-tab" data-transaction-type="CASH_ADVANCE">Cash Advance</button>
             <button class="kna-tab" data-transaction-type="LIQUIDATION">Liquidation</button>
             <button class="kna-tab" data-transaction-type="REIMBURSEMENT">Reimbursement</button>
+        </div>
+    </div>
+
+    <div class="card kna-card mb-2">
+        <div class="card-body py-2 d-flex align-items-end flex-wrap" style="gap:.5rem;">
+            <div>
+                <button type="button" class="kna-tab" id="btnMyTeamToggle" data-active="0">My Team</button>
+            </div>
+            <div>
+                <label class="kna-small kna-form-label mb-1">Submitted Date Range</label>
+                <input type="text" class="form-control form-control-sm kna-small" id="filterDateRange" placeholder="Select date range" style="width:220px;">
+            </div>
+            <div>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="btnResetApprovalFilters" title="Clear filters" style="height:31px;width:31px;padding:0;">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
         </div>
     </div>
 

@@ -61,7 +61,7 @@ class Reimbursement extends MY_Controller
             );
 
             $result = $this->sp->readData(
-                build_sp('sp_fetch_supervisor_team_reimbursements', count($params)),
+                build_sp('sp_fetch_supervisor_team_reimbursement_details', count($params)),
                 $params,
                 'result'
             );
@@ -81,6 +81,35 @@ class Reimbursement extends MY_Controller
         );
 
         return !empty($row) ? $row : null;
+    }
+
+    /* ------------------------------------------------------------
+       PROXY FILING (a supervisor filing a reimbursement on behalf
+       of a team member — self-filing remains the default)
+       ------------------------------------------------------------ */
+
+    public function api_get_team()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+
+            $team = $this->getTeamForUser((int) $this->session->userdata('user_id'));
+
+            return $this->respondSuccess('OK', $team);
+        } catch (Exception $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
+    private function getTeamForUser($userId)
+    {
+        $team = $this->sp->readData(
+            build_sp('sp_fetch_supervisor_team_broad', 1),
+            array('SupervisorUserId' => $userId),
+            'result'
+        );
+
+        return is_array($team) ? $team : array();
     }
 
     public function add($reimbursement_no = '')
@@ -103,6 +132,8 @@ class Reimbursement extends MY_Controller
             $expenseTypes = array();
         }
 
+        $teamMembers = $this->getTeamForUser((int) $this->session->userdata('user_id'));
+
         $data = array(
             'title' => $isEditMode ? 'Edit Draft Reimbursement' : 'New Reimbursement',
             'main_view' => '../modules/reimbursement/views/add',
@@ -113,6 +144,7 @@ class Reimbursement extends MY_Controller
             'draft_edit_window_days' => $this->draftEditWindowDays,
             'cost_centers' => $costCenters,
             'expense_types' => $expenseTypes,
+            'team_members' => $teamMembers,
             'scripts' => array(
                 '../shared/pdfjs/pdf.min.js',
                 '../shared/receipt-ocr.js',
@@ -236,7 +268,8 @@ class Reimbursement extends MY_Controller
 
             $userId = (int) $this->session->userdata('user_id');
             $createdById = isset($header['created_by_id']) ? (int) $header['created_by_id'] : 0;
-            if ($createdById !== $userId) {
+            $filedById = isset($header['filed_by']) ? (int) $header['filed_by'] : 0;
+            if ($createdById !== $userId && $filedById !== $userId) {
                 return $this->respondError('You are not allowed to access this reimbursement.');
             }
 
@@ -296,12 +329,38 @@ class Reimbursement extends MY_Controller
             }
 
             $costCenterId = isset($data['CostCenterId']) ? trim((string) $data['CostCenterId']) : '';
-            $payableTo = isset($data['PayableTo']) ? trim((string) $data['PayableTo']) : '';
             $address = isset($data['Address']) ? trim((string) $data['Address']) : '';
             $ioNumber = isset($data['IoNumber']) ? trim((string) $data['IoNumber']) : '';
 
             $reimbursementId = '';
             $currentUserId = (int) $this->session->userdata('user_id');
+
+            // Payable To is no longer manually typed - it's always the expense
+            // owner's own name (never something a filer could mistype or leave
+            // pointing at the wrong person).
+            $userInfo = $this->session->userdata('user_info');
+            $payableTo = trim(
+                trim((string) ($userInfo['lastname'] ?? '')) . ', ' . trim((string) ($userInfo['firstname'] ?? '')),
+                ', '
+            );
+
+            // Optional proxy filing: a supervisor filing on behalf of a team member.
+            $fileForUserId = isset($data['FileForUserId']) ? (int) $data['FileForUserId'] : 0;
+            $ownerUserId = $currentUserId;
+            if ($fileForUserId > 0 && $fileForUserId !== $currentUserId) {
+                $matchedMember = null;
+                foreach ($this->getTeamForUser($currentUserId) as $member) {
+                    if (isset($member['member_user_id']) && (int) $member['member_user_id'] === $fileForUserId) {
+                        $matchedMember = $member;
+                        break;
+                    }
+                }
+                if ($matchedMember === null) {
+                    return $this->respondError('You can only file on behalf of your own team members.');
+                }
+                $ownerUserId = $fileForUserId;
+                $payableTo = isset($matchedMember['member_name']) ? (string) $matchedMember['member_name'] : $payableTo;
+            }
 
             // Update existing draft
             if ($requestedReimbursementId !== '') {
@@ -311,7 +370,8 @@ class Reimbursement extends MY_Controller
                 }
 
                 $createdById = isset($existingHeader['created_by_id']) ? (int) $existingHeader['created_by_id'] : 0;
-                if ($createdById !== $currentUserId) {
+                $filedById = isset($existingHeader['filed_by']) ? (int) $existingHeader['filed_by'] : 0;
+                if ($createdById !== $currentUserId && $filedById !== $currentUserId) {
                     return $this->respondError('You are not allowed to update this draft.');
                 }
 
@@ -327,7 +387,7 @@ class Reimbursement extends MY_Controller
 
                 $updateHeaderParams = array(
                     'ReimbursementId' => $requestedReimbursementId,
-                    'UserId' => $currentUserId,
+                    'UserId' => $createdById,
                     'TotalAmount' => $totalAmount,
                     'StatusCode' => $statusCode,
                     'Description' => $description,
@@ -372,7 +432,7 @@ class Reimbursement extends MY_Controller
             // Create new
             if ($reimbursementId === '') {
                 $headerParams = array(
-                    "UserId" => $currentUserId,
+                    "UserId" => $ownerUserId,
                     "TotalAmount" => $totalAmount,
                     "StatusCode" => $statusCode,
                     "Description" => $description,
@@ -380,6 +440,7 @@ class Reimbursement extends MY_Controller
                     "PayableTo" => $payableTo,
                     "Address" => $address,
                     "IoNumber" => $ioNumber,
+                    "FiledBy" => $currentUserId,
                 );
 
                 $headerResult = $this->sp->createReturnId(
@@ -490,7 +551,8 @@ class Reimbursement extends MY_Controller
 
             $currentUserId = (int) $this->session->userdata('user_id');
             $createdById = isset($existingHeader['created_by_id']) ? (int) $existingHeader['created_by_id'] : 0;
-            if ($createdById !== $currentUserId) {
+            $filedById = isset($existingHeader['filed_by']) ? (int) $existingHeader['filed_by'] : 0;
+            if ($createdById !== $currentUserId && $filedById !== $currentUserId) {
                 return $this->respondError('You are not allowed to update this reimbursement.');
             }
 
@@ -512,14 +574,17 @@ class Reimbursement extends MY_Controller
             $statusCode = isset($data['StatusCode']) && $data['StatusCode'] !== '' ? trim((string) $data['StatusCode']) : 'RMB_SUBMITTED';
 
             $costCenterId = isset($data['CostCenterId']) ? trim((string) $data['CostCenterId']) : '';
-            $payableTo = isset($data['PayableTo']) ? trim((string) $data['PayableTo']) : '';
+            // Payable To is derived, never manually typed - preserve whatever
+            // it already was rather than re-deriving it here (this is the
+            // resubmit flow, not a new filing, so the owner hasn't changed).
+            $payableTo = isset($existingHeader['payable_to']) ? trim((string) $existingHeader['payable_to']) : '';
             $address = isset($data['Address']) ? trim((string) $data['Address']) : '';
             $ioNumber = isset($data['IoNumber']) ? trim((string) $data['IoNumber']) : '';
 
             // Update header
             $updateHeaderParams = array(
                 'ReimbursementId' => $reimbursementId,
-                'UserId' => $currentUserId,
+                'UserId' => $createdById,
                 'TotalAmount' => $totalAmount,
                 'StatusCode' => $statusCode,
                 'Description' => $description,
@@ -735,7 +800,8 @@ class Reimbursement extends MY_Controller
 
             $currentUserId = (int) $this->session->userdata('user_id');
             $createdById = isset($header['created_by_id']) ? (int) $header['created_by_id'] : 0;
-            if ($createdById !== $currentUserId) {
+            $filedById = isset($header['filed_by']) ? (int) $header['filed_by'] : 0;
+            if ($createdById !== $currentUserId && $filedById !== $currentUserId) {
                 return $this->respondError('You are not allowed to delete this reimbursement.');
             }
 

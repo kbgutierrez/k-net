@@ -83,7 +83,39 @@ class Approval_Matrix extends MY_Controller
         try{
             $this->output->set_content_type('application/json');
             $result = $this->sp->fetchData('sp_fetch_department');
-    
+
+            return $this->respondSuccess("success", $result);
+        }catch(Exception $e){
+            return $this->respondError("An error occurred: " . $e->getMessage());
+        }
+    }
+
+    public function api_get_sales_offices(){
+        try{
+            $this->output->set_content_type('application/json');
+            $result = $this->sp->fetchData('sp_fetch_sales_offices');
+
+            return $this->respondSuccess("success", $result);
+        }catch(Exception $e){
+            return $this->respondError("An error occurred: " . $e->getMessage());
+        }
+    }
+
+    public function api_get_sales_districts(){
+        try{
+            $this->output->set_content_type('application/json');
+            $sOffcCode = trim((string) $this->input->post('SOffcCode'));
+
+            if ($sOffcCode === '') {
+                return $this->respondError("SOffcCode is required");
+            }
+
+            $result = $this->sp->readData(
+                build_sp('sp_fetch_sales_districts_by_office', 1),
+                array('SOffcCode' => $sOffcCode),
+                'result'
+            );
+
             return $this->respondSuccess("success", $result);
         }catch(Exception $e){
             return $this->respondError("An error occurred: " . $e->getMessage());
@@ -101,22 +133,26 @@ class Approval_Matrix extends MY_Controller
                 'department_id' => $data['department_id'],
                 'min_amount' => $data['min_amount'],
                 'max_amount' => $data['max_amount'],
-                'created_by' => $this->session->userdata('user_id')                
+                'created_by' => $this->session->userdata('user_id'),
+                'sales_office_code' => !empty($data['sales_office_code']) ? $data['sales_office_code'] : null,
+                'sales_district_code' => !empty($data['sales_district_code']) ? $data['sales_district_code'] : null,
             );
             $headerId = $this->sp->createReturnId(build_sp('sp_insert_approval_matrix_header', count($headerParams)), $headerParams, 'result');
-            if($headerId){
-                $details = isset($data['details']) && is_array($data['details']) ? $data['details'] : array();
-                foreach($details as $detail){
-                    $detailParams = array(
-                        'matrix_header_id' => $headerId['id'],
-                        'approver_id' => $detail['approver_id'],
-                        'approval_order' => $detail['approval_order'],
-                        'approval_type' => $detail['approval_type']
-                    );
-                    $this->sp->createData(build_sp('sp_insert_approval_matrix_details', count($detailParams)), $detailParams);
-                }
-                return $this->respondSuccess("Approval matrix saved successfully");
+            if (!is_array($headerId) || empty($headerId['id'])) {
+                $message = (is_array($headerId) && !empty($headerId['message'])) ? $headerId['message'] : "Failed to save approval matrix";
+                return $this->respondError($message);
             }
+            $details = isset($data['details']) && is_array($data['details']) ? $data['details'] : array();
+            foreach($details as $detail){
+                $detailParams = array(
+                    'matrix_header_id' => $headerId['id'],
+                    'approver_id' => $detail['approver_id'],
+                    'approval_order' => $detail['approval_order'],
+                    'approval_type' => $detail['approval_type']
+                );
+                $this->sp->createData(build_sp('sp_insert_approval_matrix_details', count($detailParams)), $detailParams);
+            }
+            return $this->respondSuccess("Approval matrix saved successfully");
 
         }catch(Exception $e){
             return $this->respondError("An error occurred: " . $e->getMessage());
@@ -141,14 +177,20 @@ class Approval_Matrix extends MY_Controller
                 'min_amount' => $data['min_amount'],
                 'max_amount' => $data['max_amount'],
                 'is_active' => isset($data['is_active']) ? (int) $data['is_active'] : 1,
-                'updated_by' => $this->session->userdata('user_id')
+                'updated_by' => $this->session->userdata('user_id'),
+                'sales_office_code' => !empty($data['sales_office_code']) ? $data['sales_office_code'] : null,
+                'sales_district_code' => !empty($data['sales_district_code']) ? $data['sales_district_code'] : null,
             );
 
             // Update header
-            $this->sp->createData(
+            $headerResult = $this->sp->createData(
                 build_sp('sp_update_approval_matrix_header', count($headerParams)),
                 $headerParams
             );
+
+            if ($headerResult !== true) {
+                return $this->respondError(is_string($headerResult) ? $headerResult : "Failed to update approval matrix");
+            }
 
             // Delete existing details
             $this->sp->createData(
@@ -183,12 +225,8 @@ class Approval_Matrix extends MY_Controller
                 $this->output->set_content_type('application/json');
                 $userId = $this->session->userdata('user_id');
                 $cursorIdRaw = $this->input->post('CursorId');
-                $takeRaw = $this->input->post('Take');
-                
-                $take = (int) $takeRaw;
-                if ($take <= 0) {
-                    $take = 20;
-                }
+                $take = $this->resolvePaginationTake($this->input->post('Take'));
+
                 $cursorId = null;
                 if ($cursorIdRaw !== null && $cursorIdRaw !== '') {
                     $cursorId = (int) $cursorIdRaw;
@@ -204,24 +242,8 @@ class Approval_Matrix extends MY_Controller
                     'result'
                 );
 
-                $hasMore = count($result) > $take;
-                if ($hasMore) {
-                    array_pop($result);
-                }
-                $nextCursorId = null;
-                if (!empty($result)) {
-                    $lastRow = end($result);
-                    $nextCursorId = isset($lastRow['id']) ? (int) $lastRow['id'] : null;
-                }
-                echo json_encode(array(
-                    'status' => 'success',
-                    'data' => $result,
-                    'pagination' => array(
-                        'take' => $take,
-                        'hasMore' => $hasMore,
-                        'nextCursorId' => $nextCursorId,
-                    ),
-                ));
+                $payload = $this->buildPaginationResult($result, $take);
+                echo json_encode(array('status' => 'success') + $payload);
         }catch(Exception $e){
             echo json_encode(array(
                 'status' => 'error',

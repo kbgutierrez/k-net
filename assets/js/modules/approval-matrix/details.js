@@ -1,5 +1,7 @@
 let detailsApproverOptions = [];
 let detailsDepartmentOptions = [];
+let detailsSalesOfficeOptions = [];
+let detailsSalesDistrictOptions = [];
 let isRefreshingOptions = false;
 
 const detailsDom = {
@@ -7,6 +9,8 @@ const detailsDom = {
 	matrixName: null,
 	transactionType: null,
 	departmentId: null,
+	salesOfficeId: null,
+	salesDistrictId: null,
 	minAmount: null,
 	maxAmount: null,
 	isActive: null,
@@ -190,6 +194,72 @@ const populateDetailsDepartmentSelect = (selectedId) => {
 	$(detailsDom.departmentId).select2({ width: '100%', placeholder: 'Select department' });
 };
 
+const populateDetailsSalesOfficeSelect = (selectedCode = '') => {
+	if (!detailsDom.salesOfficeId) return;
+	detailsDom.salesOfficeId.innerHTML = ['<option value="">All Offices (department-wide)</option>'].concat(
+		detailsSalesOfficeOptions.map((o) => `<option value="${escapeHtml(String(o.SOffcCode))}" ${String(o.SOffcCode) === String(selectedCode) ? 'selected' : ''}>${escapeHtml(o.SOffcCode)} - ${escapeHtml(o.SoffcNm)}</option>`),
+	).join('');
+	if ($(detailsDom.salesOfficeId).data('select2')) {
+		$(detailsDom.salesOfficeId).select2('destroy');
+	}
+	$(detailsDom.salesOfficeId).select2({ width: '100%', placeholder: 'All Offices' });
+};
+
+const populateDetailsSalesDistrictSelect = (selectedCode = '') => {
+	if (!detailsDom.salesDistrictId) return;
+	const hasOffice = Boolean(detailsDom.salesOfficeId && detailsDom.salesOfficeId.value);
+	detailsDom.salesDistrictId.innerHTML = ['<option value="">All Districts (office-wide)</option>'].concat(
+		detailsSalesDistrictOptions.map((d) => `<option value="${escapeHtml(String(d.SDstCode))}" ${String(d.SDstCode) === String(selectedCode) ? 'selected' : ''}>${escapeHtml(d.SDstCode)} - ${escapeHtml(d.SDstNm)}</option>`),
+	).join('');
+	detailsDom.salesDistrictId.disabled = !hasOffice;
+	if ($(detailsDom.salesDistrictId).data('select2')) {
+		$(detailsDom.salesDistrictId).select2('destroy');
+	}
+	$(detailsDom.salesDistrictId).select2({ width: '100%', placeholder: 'All Districts' });
+};
+
+const loadDetailsSalesDistrictsForOffice = (sOffcCode, selectedCode = '', onDone) => {
+	if (!sOffcCode) {
+		detailsSalesDistrictOptions = [];
+		populateDetailsSalesDistrictSelect();
+		if (typeof onDone === 'function') onDone();
+		return;
+	}
+
+	ajax_loader('maintenance/approval-matrix/api/get/sales-districts', { SOffcCode: sOffcCode })
+		.done((response) => {
+			const res = typeof response === 'string' ? $.parseJSON(response) : response;
+			if (res.status === 'success') {
+				detailsSalesDistrictOptions = res.data || [];
+			}
+			populateDetailsSalesDistrictSelect(selectedCode);
+			if (typeof onDone === 'function') onDone();
+		})
+		.fail(() => {
+			detailsSalesDistrictOptions = [];
+			populateDetailsSalesDistrictSelect();
+			if (typeof onDone === 'function') onDone();
+		});
+};
+
+const loadSalesOffices = (onDone) => {
+	ajax_loader('maintenance/approval-matrix/api/get/sales-offices', {})
+		.done((response) => {
+			const res = typeof response === 'string' ? $.parseJSON(response) : response;
+			if (res.status === 'success') {
+				detailsSalesOfficeOptions = res.data || [];
+			}
+			if (typeof onDone === 'function') {
+				onDone();
+			}
+		})
+		.fail(() => {
+			if (typeof onDone === 'function') {
+				onDone();
+			}
+		});
+};
+
 const loadApprovers = (onDone) => {
 	ajax_loader('maintenance/approval-matrix/api/get/approvers', {})
 		.done((response) => {
@@ -241,7 +311,11 @@ const loadMatrixHeader = (matrixId) => {
 			if (detailsDom.isActive) detailsDom.isActive.value = Number(header.is_active || 0) ? '1' : '0';
 			
 			populateDetailsDepartmentSelect(String(header.department_id || ''));
-			
+
+			const officeCode = normalizeText(header.sales_office_code);
+			populateDetailsSalesOfficeSelect(officeCode);
+			loadDetailsSalesDistrictsForOffice(officeCode, normalizeText(header.sales_district_code));
+
 			// Re-init Select2 for header fields after values are set
 			$(detailsDom.transactionType).select2({ width: '100%', minimumResultsForSearch: Infinity });
 			$(detailsDom.isActive).select2({ width: '100%', minimumResultsForSearch: Infinity });
@@ -296,6 +370,8 @@ const saveChanges = () => {
 		matrix_name: normalizeText(detailsDom.matrixName.value),
 		transaction_type: String(detailsDom.transactionType.value || ''),
 		department_id: String(detailsDom.departmentId.value || ''),
+		sales_office_code: String((detailsDom.salesOfficeId && detailsDom.salesOfficeId.value) || ''),
+		sales_district_code: String((detailsDom.salesDistrictId && detailsDom.salesDistrictId.value) || ''),
 		min_amount: Number(detailsDom.minAmount.value || 0),
 		max_amount: Number(detailsDom.maxAmount.value || 0),
 		is_active: Number((detailsDom.isActive && detailsDom.isActive.value) || 1),
@@ -327,11 +403,11 @@ const saveChanges = () => {
 								window.location.href = `${base_url}maintenance/approval-matrix`;
 							});
 					} else {
-						Swal.fire({ icon: 'error', title: 'Error', text: res.response || 'Failed to update.' });
+						Swal.fire({ icon: 'warning', title: 'Unable to Save Changes', text: res.response || 'Please review the matrix details and try again.' });
 					}
 				})
 				.fail(() => {
-					Swal.fire({ icon: 'error', title: 'Error', text: 'Unable to update. Please try again.' });
+					Swal.fire({ icon: 'error', title: 'Connection Problem', text: 'We couldn\'t reach the server. Please check your connection and try again.' });
 				});
 		}
 	});
@@ -342,6 +418,8 @@ const cacheDetailsDom = () => {
 	detailsDom.matrixName = document.getElementById('matrixName');
 	detailsDom.transactionType = document.getElementById('transactionType');
 	detailsDom.departmentId = document.getElementById('departmentId');
+	detailsDom.salesOfficeId = document.getElementById('salesOfficeId');
+	detailsDom.salesDistrictId = document.getElementById('salesDistrictId');
 	detailsDom.minAmount = document.getElementById('minAmount');
 	detailsDom.maxAmount = document.getElementById('maxAmount');
 	detailsDom.isActive = document.getElementById('isActive');
@@ -351,6 +429,12 @@ const cacheDetailsDom = () => {
 };
 
 const bindDetailsEvents = () => {
+	if (detailsDom.salesOfficeId) {
+		$(detailsDom.salesOfficeId).on('change', () => {
+			loadDetailsSalesDistrictsForOffice(detailsDom.salesOfficeId.value);
+		});
+	}
+
 	if (detailsDom.btnAddApprover) {
 		detailsDom.btnAddApprover.addEventListener('click', () => {
 			if (!detailsDom.approverRows) {
@@ -423,12 +507,15 @@ $(document).ready(() => {
 		return;
 	}
 
-	// Load approvers and departments first, then load matrix data
+	// Load approvers, departments, and sales offices first, then load matrix data
 	loadApprovers(() => {
 		loadDepartments(() => {
-			populateDetailsDepartmentSelect('');
-			loadMatrixHeader(matrixId);
-			loadMatrixDetails(matrixId);
+			loadSalesOffices(() => {
+				populateDetailsDepartmentSelect('');
+				populateDetailsSalesOfficeSelect('');
+				loadMatrixHeader(matrixId);
+				loadMatrixDetails(matrixId);
+			});
 		});
 	});
 });

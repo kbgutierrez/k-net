@@ -1,5 +1,7 @@
 let addApproverOptions = [];
 let addDepartmentOptions = [];
+let addSalesOfficeOptions = [];
+let addSalesDistrictOptions = [];
 
 let isRefreshingOptions = false;
 
@@ -7,6 +9,8 @@ const addDom = {
     matrixName: null,
     transactionType: null,
     departmentId: null,
+    salesOfficeId: null,
+    salesDistrictId: null,
     minAmount: null,
     maxAmount: null,
     approverRows: null,
@@ -182,6 +186,50 @@ const populateDepartmentSelect = () => {
     $(addDom.departmentId).select2({ width: '100%', placeholder: 'Select department' });
 };
 
+const populateSalesOfficeSelect = (selectedCode = '') => {
+    if (!addDom.salesOfficeId) return;
+    addDom.salesOfficeId.innerHTML = ['<option value="">All Offices (department-wide)</option>'].concat(
+        addSalesOfficeOptions.map((o) => `<option value="${escapeHtml(String(o.SOffcCode))}" ${String(o.SOffcCode) === String(selectedCode) ? 'selected' : ''}>${escapeHtml(o.SOffcCode)} - ${escapeHtml(o.SoffcNm)}</option>`),
+    ).join('');
+    if ($(addDom.salesOfficeId).data('select2')) {
+        $(addDom.salesOfficeId).select2('destroy');
+    }
+    $(addDom.salesOfficeId).select2({ width: '100%', placeholder: 'All Offices' });
+};
+
+const populateSalesDistrictSelect = (selectedCode = '') => {
+    if (!addDom.salesDistrictId) return;
+    const hasOffice = Boolean(addDom.salesOfficeId && addDom.salesOfficeId.value);
+    addDom.salesDistrictId.innerHTML = ['<option value="">All Districts (office-wide)</option>'].concat(
+        addSalesDistrictOptions.map((d) => `<option value="${escapeHtml(String(d.SDstCode))}" ${String(d.SDstCode) === String(selectedCode) ? 'selected' : ''}>${escapeHtml(d.SDstCode)} - ${escapeHtml(d.SDstNm)}</option>`),
+    ).join('');
+    addDom.salesDistrictId.disabled = !hasOffice;
+    if ($(addDom.salesDistrictId).data('select2')) {
+        $(addDom.salesDistrictId).select2('destroy');
+    }
+    $(addDom.salesDistrictId).select2({ width: '100%', placeholder: 'All Districts' });
+};
+
+const loadSalesDistrictsForOffice = (sOffcCode, selectedCode = '') => {
+    if (!sOffcCode) {
+        addSalesDistrictOptions = [];
+        populateSalesDistrictSelect();
+        return;
+    }
+
+    ajax_loader('maintenance/approval-matrix/api/get/sales-districts', { SOffcCode: sOffcCode })
+        .done((response) => {
+            const res = typeof response === 'string' ? $.parseJSON(response) : response;
+            if (res.status !== 'success') return;
+            addSalesDistrictOptions = res.data || [];
+            populateSalesDistrictSelect(selectedCode);
+        })
+        .fail(() => {
+            addSalesDistrictOptions = [];
+            populateSalesDistrictSelect();
+        });
+};
+
 const loadApprovers = () => {
     ajax_loader('maintenance/approval-matrix/api/get/approvers', {})
         .done((response) => {
@@ -213,6 +261,22 @@ const loadDepartments = () => {
         });
 };
 
+const loadSalesOffices = () => {
+    ajax_loader('maintenance/approval-matrix/api/get/sales-offices', {})
+        .done((response) => {
+            const res = typeof response === 'string' ? $.parseJSON(response) : response;
+            if (res.status !== 'success') return;
+            addSalesOfficeOptions = res.data || [];
+            populateSalesOfficeSelect();
+            populateSalesDistrictSelect();
+        })
+        .fail(() => {
+            if (addDom.salesOfficeId) {
+                addDom.salesOfficeId.innerHTML = '<option value="">All Offices (department-wide)</option>';
+            }
+        });
+};
+
 const collectApprovers = () => {
     const rows = Array.from(document.querySelectorAll('[data-approver-row]'));
     return rows.map((row) => ({
@@ -238,6 +302,8 @@ const saveMatrix = () => {
         matrix_name: normalizeText(addDom.matrixName.value),
         transaction_type: String(addDom.transactionType.value || ''),
         department_id: String(addDom.departmentId.value || ''),
+        sales_office_code: String((addDom.salesOfficeId && addDom.salesOfficeId.value) || ''),
+        sales_district_code: String((addDom.salesDistrictId && addDom.salesDistrictId.value) || ''),
         min_amount: Number(addDom.minAmount.value || 0),
         max_amount: Number(addDom.maxAmount.value || 0),
         is_active: 1,
@@ -269,11 +335,11 @@ const saveMatrix = () => {
                                 window.location.href = `${base_url}maintenance/approval-matrix`;
                             });
                     } else {
-                        Swal.fire({ icon: 'error', title: 'Error', text: res.response || 'Failed to save.' });
+                        Swal.fire({ icon: 'warning', title: 'Unable to Save', text: res.response || 'Please review the matrix details and try again.' });
                     }
                 })
                 .fail(() => {
-                    Swal.fire({ icon: 'error', title: 'Error', text: 'Unable to save. Please try again.' });
+                    Swal.fire({ icon: 'error', title: 'Connection Problem', text: 'We couldn\'t reach the server. Please check your connection and try again.' });
                 });
         }
     });
@@ -283,6 +349,8 @@ const cacheAddDom = () => {
     addDom.matrixName = document.getElementById('matrixName');
     addDom.transactionType = document.getElementById('transactionType');
     addDom.departmentId = document.getElementById('departmentId');
+    addDom.salesOfficeId = document.getElementById('salesOfficeId');
+    addDom.salesDistrictId = document.getElementById('salesDistrictId');
     addDom.minAmount = document.getElementById('minAmount');
     addDom.maxAmount = document.getElementById('maxAmount');
     addDom.approverRows = document.getElementById('approverRows');
@@ -291,6 +359,12 @@ const cacheAddDom = () => {
 };
 
 const bindAddEvents = () => {
+    if (addDom.salesOfficeId) {
+        $(addDom.salesOfficeId).on('change', () => {
+            loadSalesDistrictsForOffice(addDom.salesOfficeId.value);
+        });
+    }
+
     if (addDom.btnAddApprover) {
         addDom.btnAddApprover.addEventListener('click', () => {
             if (!addDom.approverRows) return;
@@ -360,4 +434,5 @@ $(document).ready(() => {
     bindAddEvents();
     loadApprovers();
     loadDepartments();
+    loadSalesOffices();
 });

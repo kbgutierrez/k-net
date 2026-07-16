@@ -1,6 +1,7 @@
 let allMatrixRows = [];
 let selectedTransactionType = 'ALL';
 let matrixDesktopPage = 1;
+let matrixSortBy = 'created_desc';
 
 const MATRIX_PAGE_SIZE = 10;
 
@@ -46,12 +47,30 @@ const getTransactionTypeLabel = (type) => {
 	return escapeHtml(normalizeText(type));
 };
 
+const getTransactionTypeBadge = (type) => {
+	const label = getTransactionTypeLabel(type);
+	if (type === 'CASH_ADVANCE') return `<span class="kna-badge kna-badge-cash-advance">${label}</span>`;
+	if (type === 'LIQUIDATION') return `<span class="kna-badge kna-badge-liquidation">${label}</span>`;
+	if (type === 'REIMBURSEMENT') return `<span class="kna-badge kna-badge-reimbursement">${label}</span>`;
+	return `<span class="kna-badge kna-badge-inactive">${label}</span>`;
+};
+
+const getAreaLabel = (row) => {
+	if (row.sales_district_code) return `${row.sales_district_code} - ${row.sales_district_name}`;
+	if (row.sales_office_code) return `${row.sales_office_code} - ${row.sales_office_name}`;
+	return 'All';
+};
+
 const normalizeRows = (rows) =>
 	(rows || []).map((row) => ({
 		id: normalizeText(row.id),
 		matrix_name: normalizeText(row.matrix_name),
 		transaction_type: normalizeText(row.transaction_type),
 		department: normalizeText(row.department_name || row.department || ''),
+		sales_office_code: normalizeText(row.sales_office_code || ''),
+		sales_office_name: normalizeText(row.sales_office_name || ''),
+		sales_district_code: normalizeText(row.sales_district_code || ''),
+		sales_district_name: normalizeText(row.sales_district_name || ''),
 		min_amount: Number(row.min_amount || 0),
 		max_amount: Number(row.max_amount || 0),
 		is_active: Number(row.is_active || 0),
@@ -61,16 +80,54 @@ const normalizeRows = (rows) =>
 		updated_date: normalizeText(row.updated_date || ''),
 	}));
 
-const getFilteredRows = () => (selectedTransactionType === 'ALL'
-	? allMatrixRows
-	: allMatrixRows.filter((row) => row.transaction_type === selectedTransactionType));
+const matchesKeyword = (row, keyword) => {
+	if (!keyword) return true;
+	const haystack = `${row.matrix_name} ${row.department} ${row.sales_office_name} ${row.sales_district_name}`.toLowerCase();
+	return haystack.indexOf(keyword) !== -1;
+};
+
+const TRANSACTION_TYPE_ORDER = { CASH_ADVANCE: 0, LIQUIDATION: 1, REIMBURSEMENT: 2 };
+
+const sortRows = (rows) => {
+	const sorted = rows.slice();
+	switch (matrixSortBy) {
+		case 'created_asc':
+			sorted.sort((a, b) => Number(a.id) - Number(b.id));
+			break;
+		case 'name_asc':
+			sorted.sort((a, b) => a.matrix_name.localeCompare(b.matrix_name));
+			break;
+		case 'name_desc':
+			sorted.sort((a, b) => b.matrix_name.localeCompare(a.matrix_name));
+			break;
+		case 'type_asc':
+			sorted.sort((a, b) => {
+				const typeDiff = (TRANSACTION_TYPE_ORDER[a.transaction_type] ?? 99) - (TRANSACTION_TYPE_ORDER[b.transaction_type] ?? 99);
+				return typeDiff !== 0 ? typeDiff : Number(b.id) - Number(a.id);
+			});
+			break;
+		case 'created_desc':
+		default:
+			sorted.sort((a, b) => Number(b.id) - Number(a.id));
+			break;
+	}
+	return sorted;
+};
+
+const getFilteredRows = () => {
+	const keyword = normalizeText(document.getElementById('filterKeyword')?.value).trim().toLowerCase();
+	const scoped = selectedTransactionType === 'ALL'
+		? allMatrixRows
+		: allMatrixRows.filter((row) => row.transaction_type === selectedTransactionType);
+	return sortRows(scoped.filter((row) => matchesKeyword(row, keyword)));
+};
 
 const setTableState = (message) => {
 	const tbodyMain = document.getElementById('matrixTbodyMain');
 	const tbodyAction = document.getElementById('matrixTbodyAction');
 	const desktopPagination = document.getElementById('desktopPagination');
 	const resultCount = document.getElementById('resultCount');
-	if (tbodyMain) tbodyMain.innerHTML = `<tr><td colspan="9" class="text-center text-muted kna-small py-3">${escapeHtml(message)}</td></tr>`;
+	if (tbodyMain) tbodyMain.innerHTML = `<tr><td colspan="10" class="text-center text-muted kna-small py-3">${escapeHtml(message)}</td></tr>`;
 	if (tbodyAction) tbodyAction.innerHTML = '<tr><td></td></tr>';
 	if (desktopPagination) desktopPagination.innerHTML = '';
 	if (resultCount) resultCount.textContent = '0 record(s)';
@@ -151,8 +208,9 @@ const renderRows = () => {
 	tbodyMain.innerHTML = pageRows.map((row) => `
 		<tr>
 			<td>${escapeHtml(row.matrix_name)}</td>
-			<td>${escapeHtml(getTransactionTypeLabel(row.transaction_type))}</td>
+			<td>${getTransactionTypeBadge(row.transaction_type)}</td>
 			<td>${escapeHtml(row.department)}</td>
+			<td>${escapeHtml(getAreaLabel(row))}</td>
 			<td>${escapeHtml(formatAmount(row.min_amount))} - ${escapeHtml(formatAmount(row.max_amount))}</td>
 			<td>${statusBadge(row.is_active)}</td>
 			<td>${escapeHtml(row.created_by)}</td>
@@ -176,7 +234,7 @@ const renderRows = () => {
 const loadMatrices = () => {
 	setTableState('Loading...');
 
-	ajax_loader('maintenance/approval-matrix/api/get/header', {})
+	ajax_loader('maintenance/approval-matrix/api/get/header', { Take: 0 })
 		.done((response) => {
 			const res = typeof response === 'string' ? $.parseJSON(response) : response;
 			if (res.status !== 'success') {
@@ -193,6 +251,35 @@ const loadMatrices = () => {
 };
 
 const bindEvents = () => {
+	const filterKeyword = document.getElementById('filterKeyword');
+	const sortBy = document.getElementById('sortBy');
+	const btnResetFilters = document.getElementById('btnResetFilters');
+
+	if (filterKeyword) {
+		filterKeyword.addEventListener('input', () => {
+			matrixDesktopPage = 1;
+			renderRows();
+		});
+	}
+
+	if (sortBy) {
+		sortBy.addEventListener('change', () => {
+			matrixSortBy = sortBy.value;
+			matrixDesktopPage = 1;
+			renderRows();
+		});
+	}
+
+	if (btnResetFilters) {
+		btnResetFilters.addEventListener('click', () => {
+			if (filterKeyword) filterKeyword.value = '';
+			if (sortBy) sortBy.value = 'created_desc';
+			matrixSortBy = 'created_desc';
+			matrixDesktopPage = 1;
+			renderRows();
+		});
+	}
+
 	document.querySelectorAll('[data-transaction-type]').forEach((btn) => {
 		btn.addEventListener('click', () => {
 			selectedTransactionType = btn.getAttribute('data-transaction-type') || 'ALL';

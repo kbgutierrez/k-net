@@ -68,6 +68,19 @@
 					<label class="kna-form-label kna-small">Max Amount</label>
 					<input type="number" min="0" step="0.01" class="form-control form-control-sm kna-small" id="maxAmount" placeholder="99999999.99">
 				</div>
+				<div class="form-group col-md-3">
+					<label class="kna-form-label kna-small">Sales Office <span class="kna-small text-muted">(optional)</span></label>
+					<select class="form-control form-control-sm kna-small" id="salesOfficeId"><option value="">Loading...</option></select>
+				</div>
+				<div class="form-group col-md-3">
+					<label class="kna-form-label kna-small">Sales District <span class="kna-small text-muted">(optional)</span></label>
+					<select class="form-control form-control-sm kna-small" id="salesDistrictId" disabled><option value="">All Districts (office-wide)</option></select>
+				</div>
+			</div>
+			<div class="form-row">
+				<div class="form-group col-md-12 mb-0">
+					<div class="kna-small text-muted">Tip: Leave Sales Office and Sales District blank to apply this rule to the whole department. A rule set to a specific office or district always takes priority over one that isn't.</div>
+				</div>
 			</div>
 		</div>
 	</div>

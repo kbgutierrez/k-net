@@ -153,6 +153,29 @@ class Approvals extends MY_Controller
         }
     }
 
+    /**
+     * A supervisor's broader team (any designation, not just Salesman) —
+     * used for the "My Team" inbox filter. Reuses sp_fetch_supervisor_team_broad,
+     * the same lookup the Reimbursement module uses for proxy filing.
+     */
+    public function api_get_team()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+
+            $userId = (int) $this->session->userdata('user_id');
+            $team = $this->sp->readData(
+                build_sp('sp_fetch_supervisor_team_broad', 1),
+                array('SupervisorUserId' => $userId),
+                'result'
+            );
+
+            return $this->respondSuccess('OK', is_array($team) ? $team : array());
+        } catch (Exception $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
     public function api_get_details()
     {
         try {

@@ -134,36 +134,55 @@ class CA_Reports extends MY_Controller
     {
         try {
             $this->output->set_content_type('application/json');
-            $userId = $this->session->userdata('user_id');
-            $cursorIdRaw = $this->input->post('CursorId');
-            $takeRaw = $this->input->post('Take');
+            $dateFrom = trim((string) $this->input->post('DateFrom'));
+            $dateTo = trim((string) $this->input->post('DateTo'));
+            $status = trim((string) $this->input->post('Status'));
+            $department = trim((string) $this->input->post('Department'));
+            $company = trim((string) $this->input->post('Company'));
+            $employee = trim((string) $this->input->post('Employee'));
 
-            $take = (int) $takeRaw;
-            if ($take <= 0) {
-                $take = 20;
-            }
-
-            $cursorId = null;
-            if ($cursorIdRaw !== null && $cursorIdRaw !== '') {
-                $cursorId = (int) $cursorIdRaw;
-            }
-
-            $params = array(
-                "UserId" => $userId,
-                "CursorId" => $cursorId,
-                "Take" => $take,
+            $db = $this->sp->db;
+            $db->select(
+                "A.id,
+                A.cash_advance_id,
+                A.user_id,
+                LTRIM(RTRIM(ISNULL(B.lastname, '') + ', ' + ISNULL(B.firstname, ''))) AS employee_name,
+                CAST(ISNULL(B.company, '') AS NVARCHAR(100)) AS company_name,
+                ISNULL(D.short_name, '') AS department_name,
+                A.amount,
+                A.description,
+                A.needed_date,
+                A.created_date,
+                A.updated_date,
+                A.status_code,
+                A.status_name",
+                false
             );
+            $db->from('vw_ca A');
+            $db->join('BigEUsers.dbo.users B', 'A.user_id = B.id', 'inner', false);
+            $db->join('BigEHRIS.dbo.department D', 'B.department_id = D.department_id', 'left', false);
 
-            $result = $this->sp->readData(
-                build_sp('sp_fetch_ca', count($params)),
-                $params,
-                'result'
-            );
-
-            $hasMore = count($result) > $take;
-            if ($hasMore) {
-                array_pop($result);
+            if ($dateFrom !== '') {
+                $db->where('CONVERT(date, A.created_date) >=', $dateFrom, false);
             }
+            if ($dateTo !== '') {
+                $db->where('CONVERT(date, A.created_date) <=', $dateTo, false);
+            }
+            if ($status !== '') {
+                $db->where('A.status_name', $status);
+            }
+            if ($department !== '') {
+                $db->where("ISNULL(D.short_name, '') =", $department, false);
+            }
+            if ($company !== '') {
+                $db->where("CAST(ISNULL(B.company, '') AS NVARCHAR(100)) =", $company, false);
+            }
+            if ($employee !== '') {
+                $db->where("LTRIM(RTRIM(ISNULL(B.lastname, '') + ', ' + ISNULL(B.firstname, ''))) =", $employee, false);
+            }
+
+            $db->order_by('A.id', 'DESC');
+            $result = $db->get()->result_array();
 
             $nextCursorId = null;
             if (!empty($result)) {
@@ -175,12 +194,12 @@ class CA_Reports extends MY_Controller
                 'status' => 'success',
                 'data' => $result,
                 'pagination' => array(
-                    'take' => $take,
-                    'hasMore' => $hasMore,
+                    'take' => count($result),
+                    'hasMore' => false,
                     'nextCursorId' => $nextCursorId,
                 ),
             ));
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             echo json_encode(array(
                 'status' => 'error',
                 'response' => "An error occurred: " . $e->getMessage(),

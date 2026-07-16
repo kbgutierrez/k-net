@@ -18,6 +18,10 @@
 	.kna-badge { padding: .2rem .4rem; border-radius: 3px; font-size: 11px; font-weight: 600; display: inline-block; }
 	.kna-badge-active { background: #e8f7ee; color: #17663a; }
 	.kna-badge-inactive { background: #eef2f7; color: #495869; }
+	.kna-badge-cash-advance { background: #e6f4ff; color: #0056b3; }
+	.kna-badge-liquidation { background: #fff4e0; color: #8a5a00; }
+	.kna-badge-reimbursement { background: #f3e8ff; color: #6b21a8; }
+	.kna-form-label { margin-bottom: .3rem; font-weight: 600; }
 </style>
 
 <div class="page-inner kna-page">
@@ -38,6 +42,32 @@
 		</div>
 	</div>
 
+	<div class="card kna-card mb-2">
+		<div class="card-body py-2">
+			<div class="d-flex flex-wrap align-items-end" style="gap:.5rem;">
+				<div>
+					<label class="kna-small kna-form-label mb-1">Search</label>
+					<input type="text" class="form-control form-control-sm kna-small" id="filterKeyword" placeholder="Matrix name, department, or area" style="width:240px;">
+				</div>
+				<div>
+					<label class="kna-small kna-form-label mb-1">Sort By</label>
+					<select class="form-control form-control-sm kna-small" id="sortBy" style="width:180px;">
+						<option value="created_desc">Newest First</option>
+						<option value="created_asc">Oldest First</option>
+						<option value="name_asc">Name (A-Z)</option>
+						<option value="name_desc">Name (Z-A)</option>
+						<option value="type_asc">Transaction Type</option>
+					</select>
+				</div>
+				<div>
+					<button type="button" class="btn btn-outline-secondary btn-sm" id="btnResetFilters" title="Clear filters" style="height:31px;width:31px;padding:0;">
+						<i class="fas fa-sync-alt"></i>
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
 	<div class="card kna-card">
 		<div class="card-body">
 			<div class="d-flex align-items-center justify-content-between mb-2">
@@ -52,6 +82,7 @@
 								<th>Matrix Name</th>
 								<th>Transaction Type</th>
 								<th>Department</th>
+								<th>Area</th>
 								<th>Amount Range</th>
 								<th>Status</th>
 								<th>Created By</th>

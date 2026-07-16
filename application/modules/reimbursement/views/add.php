@@ -148,6 +148,7 @@
 	?>
 	<input type="hidden" id="costCentersData" value="<?=html_escape(json_encode($ccData));?>">
 	<input type="hidden" id="expenseTypesData" value="<?=html_escape(json_encode($expenseTypeData));?>">
+	<input type="hidden" id="teamMembersData" value="<?=html_escape(json_encode(!empty($team_members) ? $team_members : array()));?>">
 	<div class="d-flex align-items-center justify-content-between mb-2">
 		<div>
 			<div class="kna-title"><?=!empty($is_edit_mode) ? 'Edit Draft Reimbursement' : 'New Reimbursement';?></div>
@@ -164,6 +165,16 @@
 					<i class="fas fa-info-circle"></i>
 					Reimbursement Information
 				</div>
+				<?php if (!empty($team_members)): ?>
+				<div class="kna-info-row kna-info-row-3" id="fileForRow">
+					<div class="form-group">
+						<label class="kna-form-label">File For</label>
+						<select class="form-control form-control-sm kna-small" id="newFileFor">
+							<option value="">Myself</option>
+						</select>
+					</div>
+				</div>
+				<?php endif; ?>
 				<div class="kna-info-row kna-info-row-3">
 					<div class="form-group">
 						<label class="kna-form-label">IO Number</label>
@@ -179,10 +190,6 @@
 					</div>
 				</div>
 				<div class="kna-info-row kna-info-row-3">
-					<div class="form-group">
-						<label class="kna-form-label">Payable To</label>
-						<input type="text" class="form-control form-control-sm kna-small" id="newPayableTo" placeholder="Employee name">
-					</div>
 					<div class="form-group">
 						<label class="kna-form-label">Address</label>
 						<input type="text" class="form-control form-control-sm kna-small" id="newAddress" placeholder="Address">
