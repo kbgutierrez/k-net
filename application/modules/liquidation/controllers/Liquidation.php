@@ -907,12 +907,7 @@ class Liquidation extends MY_Controller
             $this->output->set_content_type('application/json');
             $userId = $this->session->userdata('user_id');
             $cursorIdRaw = $this->input->post('CursorId');
-            $takeRaw = $this->input->post('Take');
-
-            $take = (int) $takeRaw;
-            if ($take <= 0) {
-                $take = 20;
-            }
+            $take = $this->resolvePaginationTake($this->input->post('Take'));
 
             $cursorId = null;
             if ($cursorIdRaw !== null && $cursorIdRaw !== '') {
@@ -931,25 +926,12 @@ class Liquidation extends MY_Controller
                 'result'
             );
 
-            $hasMore = count($result) > $take;
-            if ($hasMore) {
-                array_pop($result);
-            }
-
-            $nextCursorId = null;
-            if (!empty($result)) {
-                $lastRow = end($result);
-                $nextCursorId = isset($lastRow['id']) ? (int) $lastRow['id'] : null;
-            }
+            $payload = $this->buildPaginationResult($result, $take);
 
             echo json_encode(array(
                 'status' => 'success',
-                'data' => $result,
-                'pagination' => array(
-                    'take' => $take,
-                    'hasMore' => $hasMore,
-                    'nextCursorId' => $nextCursorId,
-                ),
+                'data' => $payload['data'],
+                'pagination' => $payload['pagination'],
             ));
         } catch (Exception $e) {
             echo json_encode(array(

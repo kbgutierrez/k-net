@@ -38,7 +38,9 @@ const loadLiquidations = (reset = false) => {
 	liqIsLoadingRows = true;
 	updateLoadMoreButton();
 
-	const payload = { Take: 20 };
+	// Take: 0 asks the SP for the exact full result set (no artificial cap);
+	// client-side handles filtering & paging from there.
+	const payload = { Take: reset ? 0 : LIQ_PAGE_SIZE };
 	if (liqNextCursorId !== null) {
 		payload.CursorId = liqNextCursorId;
 	}

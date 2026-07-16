@@ -79,6 +79,50 @@ class MY_Controller extends MX_Controller
             $params
         );
     }
+
+    /**
+     * Normalizes a raw "Take" request param into either a positive page size
+     * or null. Null tells the list SP to skip TOP and return every remaining
+     * row exactly (client paginates locally) instead of capping at a guessed
+     * upper bound.
+     */
+    protected function resolvePaginationTake($takeRaw)
+    {
+        $take = ($takeRaw !== null && $takeRaw !== '') ? (int) $takeRaw : 0;
+        return $take > 0 ? $take : null;
+    }
+
+    /**
+     * Builds the {data, pagination} payload for a cursor-paginated list SP
+     * called with the take+1/pop-the-extra convention. Pass the same $take
+     * returned by resolvePaginationTake(): null means the SP already
+     * returned the exact full result set, so hasMore is always false.
+     */
+    protected function buildPaginationResult($result, $take, $cursorField = 'id')
+    {
+        if ($take === null) {
+            return array(
+                'data' => $result,
+                'pagination' => array('take' => 0, 'hasMore' => false, 'nextCursorId' => null),
+            );
+        }
+
+        $hasMore = count($result) > $take;
+        if ($hasMore) {
+            array_pop($result);
+        }
+
+        $nextCursorId = null;
+        if (!empty($result)) {
+            $lastRow = end($result);
+            $nextCursorId = isset($lastRow[$cursorField]) ? (int) $lastRow[$cursorField] : null;
+        }
+
+        return array(
+            'data' => $result,
+            'pagination' => array('take' => $take, 'hasMore' => $hasMore, 'nextCursorId' => $nextCursorId),
+        );
+    }
 }
 
 

@@ -13,4 +13,5 @@ $route['transactions/reimbursement/api/list'] = 'Reimbursement/api_get_list';
 $route['transactions/reimbursement/api/delete'] = 'Reimbursement/api_delete_draft';
 $route['transactions/reimbursement/api/get/expense_types'] = 'Reimbursement/api_get_expense_types';
 $route['transactions/reimbursement/api/timeline'] = 'Reimbursement/api_get_timeline';
+$route['transactions/reimbursement/api/get/team'] = 'Reimbursement/api_get_team_report';
 $route['transactions/reimbursement/api/ocr'] = 'Reimbursement/api_ocr_receipt';

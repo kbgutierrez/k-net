@@ -21,12 +21,66 @@ class Reimbursement extends MY_Controller
             'main_view' => '../modules/reimbursement/views/index',
             'module_group' => $this->module_group,
             'module' => $this->module,
+            'hasActiveFund' => $this->getActiveFundForUser((int) $this->session->userdata('user_id')) !== null,
             'scripts' => array(
                 '../reimbursement/index.js',
             ),
         );
 
         $this->load->view('main', $data);
+    }
+
+    /* ------------------------------------------------------------
+       MY TEAM (visible only to users who currently hold an
+       active revolving fund — they need to periodically report
+       their team's approved reimbursements to Accounting)
+       ------------------------------------------------------------ */
+
+    public function api_get_team_report()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+
+            $userId = (int) $this->session->userdata('user_id');
+
+            if ($this->getActiveFundForUser($userId) === null) {
+                return $this->respondError('You do not currently hold an active revolving fund.');
+            }
+
+            $dateFrom = trim((string) $this->input->post('DateFrom'));
+            $dateTo = trim((string) $this->input->post('DateTo'));
+
+            if ($dateFrom === '' || $dateTo === '') {
+                return $this->respondError('Please select a date range.');
+            }
+
+            $params = array(
+                'SupervisorUserId' => $userId,
+                'DateFrom' => $dateFrom,
+                'DateTo' => $dateTo,
+            );
+
+            $result = $this->sp->readData(
+                build_sp('sp_fetch_supervisor_team_reimbursements', count($params)),
+                $params,
+                'result'
+            );
+
+            return $this->respondSuccess('OK', $result);
+        } catch (Exception $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
+    private function getActiveFundForUser($userId)
+    {
+        $row = $this->sp->readData(
+            build_sp('sp_fetch_user_active_revolving_fund', 1),
+            array('UserId' => $userId),
+            'row'
+        );
+
+        return !empty($row) ? $row : null;
     }
 
     public function add($reimbursement_no = '')

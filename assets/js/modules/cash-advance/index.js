@@ -94,8 +94,10 @@ const loadCashAdvances = (reset = false) => {
 	isLoadingRows = true;
 	updateLoadMoreButtons();
 
+	// Take: 0 asks the SP for the exact full result set (no artificial cap);
+	// client-side handles filtering & paging from there.
 	const postData = {
-		Take: PAGE_SIZE,
+		Take: reset ? 0 : PAGE_SIZE,
 	};
 
 	if (nextCursorId !== null) {

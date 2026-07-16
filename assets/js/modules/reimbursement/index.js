@@ -448,6 +448,165 @@ const initListPage = () => {
 	}
 
 	loadReimbursements(true);
+
+	initTeamTab();
+};
+
+/* ============================================================
+   MY TEAM TAB (only present in the DOM for users who currently
+   hold an active revolving fund)
+   ============================================================ */
+
+const domTeam = {
+	dateRange: null,
+	dateRangePicker: null,
+	btnSearch: null,
+	btnExport: null,
+	table: null,
+	tbody: null,
+	mobileList: null,
+	resultCount: null,
+	resultCountMobile: null,
+};
+
+let teamRows = [];
+let teamLastRange = null;
+
+const dateToIso = (date) => {
+	const y = date.getFullYear();
+	const m = `${date.getMonth() + 1}`.padStart(2, '0');
+	const d = `${date.getDate()}`.padStart(2, '0');
+	return `${y}-${m}-${d}`;
+};
+
+const normalizeTeamRows = (rows) => (rows || []).map((row) => ({
+	reimbursementId: normalizeDate(row.reimbursement_id),
+	salesman: normalizeDate(row.salesman),
+	totalAmount: Number(row.total_amount || 0),
+	description: normalizeDate(row.description),
+	costCenterName: normalizeDate(row.cost_center_name),
+	statusName: normalizeDate(row.status_name),
+	createdDate: normalizeDate(row.created_date).slice(0, 10),
+}));
+
+const renderTeamDesktopTable = (rows) => {
+	domTeam.tbody.innerHTML = '';
+	if (!rows.length) {
+		domTeam.tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No records found</td></tr>';
+		return;
+	}
+	rows.forEach((row) => {
+		const tr = document.createElement('tr');
+		tr.innerHTML = `
+			<td class="font-weight-bold">${escapeHtml(row.reimbursementId)}</td>
+			<td>${escapeHtml(row.salesman)}</td>
+			<td class="text-right">${formatPHP(row.totalAmount)}</td>
+			<td class="text-truncate" style="max-width:220px;" title="${escapeHtml(row.description)}">${escapeHtml(row.description || '-')}</td>
+			<td>${escapeHtml(row.costCenterName || '-')}</td>
+			<td>${escapeHtml(row.statusName)}</td>
+			<td>${escapeHtml(row.createdDate)}</td>
+		`;
+		domTeam.tbody.appendChild(tr);
+	});
+};
+
+const renderTeamMobileCards = (rows) => {
+	domTeam.mobileList.innerHTML = '';
+	if (!rows.length) {
+		domTeam.mobileList.innerHTML = '<div class="kna-small text-center text-muted py-2">No records found</div>';
+		return;
+	}
+	rows.forEach((row) => {
+		const item = document.createElement('div');
+		item.className = 'kna-item';
+		item.innerHTML = `
+			<div class="kna-row">
+				<div class="kna-small font-weight-bold">${escapeHtml(row.reimbursementId)}</div>
+				<div class="kna-small">${escapeHtml(row.statusName)}</div>
+			</div>
+			<div class="kna-small font-weight-bold">${escapeHtml(row.salesman)}</div>
+			<div class="kna-row"><div class="kna-small text-muted">Amount</div><div class="kna-small">${formatPHP(row.totalAmount)}</div></div>
+			<div class="kna-row"><div class="kna-small text-muted">Filed</div><div class="kna-small">${escapeHtml(row.createdDate)}</div></div>
+			<div class="kna-small text-muted mt-1">${escapeHtml(row.description || '-')}</div>
+		`;
+		domTeam.mobileList.appendChild(item);
+	});
+};
+
+const refreshTeamUI = () => {
+	renderTeamDesktopTable(teamRows);
+	renderTeamMobileCards(teamRows);
+	domTeam.resultCount.textContent = `${teamRows.length} record(s)`;
+	domTeam.resultCountMobile.textContent = `${teamRows.length} record(s)`;
+	domTeam.btnExport.disabled = teamRows.length === 0;
+};
+
+const teamSearch = () => {
+	const range = domTeam.dateRangePicker ? domTeam.dateRangePicker.selectedDates : [];
+	if (range.length !== 2) {
+		Swal.fire({ icon: 'warning', title: 'Incomplete', text: 'Please select a date range.' });
+		return;
+	}
+
+	const dateFrom = dateToIso(range[0]);
+	const dateTo = dateToIso(range[1]);
+
+	ajax_loader('transactions/reimbursement/api/get/team', { DateFrom: dateFrom, DateTo: dateTo }).done((response) => {
+		const res = (typeof response === 'string') ? $.parseJSON(response) : response;
+		if (!res || res.status !== 'success') {
+			Swal.fire({ icon: 'error', title: 'Failed', text: (res && res.response) ? res.response : 'Failed to load report.' });
+			return;
+		}
+		teamRows = normalizeTeamRows(res.data);
+		teamLastRange = { dateFrom, dateTo };
+		refreshTeamUI();
+	}).fail(() => {
+		Swal.fire({ icon: 'error', title: 'Request Failed', text: 'Could not connect to the server.' });
+	});
+};
+
+const teamExport = () => {
+	if (!teamRows.length || typeof XLSX === 'undefined') return;
+
+	const exportRows = teamRows.map((row) => ({
+		'Reimbursement No': row.reimbursementId,
+		'Salesman': row.salesman,
+		'Amount': row.totalAmount,
+		'Description': row.description,
+		'Cost Center': row.costCenterName,
+		'Status': row.statusName,
+		'Filed Date': row.createdDate,
+	}));
+
+	const ws = XLSX.utils.json_to_sheet(exportRows);
+	const wb = XLSX.utils.book_new();
+	XLSX.utils.book_append_sheet(wb, ws, 'Reimbursements');
+
+	const range = teamLastRange || {};
+	const fileName = `Team-Reimbursement-Report-${range.dateFrom || 'all'}-to-${range.dateTo || 'all'}.xlsx`;
+	XLSX.writeFile(wb, fileName);
+};
+
+const initTeamTab = () => {
+	domTeam.dateRange = document.getElementById('teamDateRange');
+	if (!domTeam.dateRange) {
+		return;
+	}
+
+	domTeam.btnSearch = document.getElementById('btnTeamSearch');
+	domTeam.btnExport = document.getElementById('btnTeamExport');
+	domTeam.table = document.getElementById('teamReportTable');
+	domTeam.tbody = document.getElementById('teamReportTbody');
+	domTeam.mobileList = document.getElementById('teamReportMobileList');
+	domTeam.resultCount = document.getElementById('teamResultCount');
+	domTeam.resultCountMobile = document.getElementById('teamResultCountMobile');
+
+	if (typeof flatpickr !== 'undefined') {
+		domTeam.dateRangePicker = flatpickr(domTeam.dateRange, { mode: 'range', dateFormat: 'Y-m-d', allowInput: true });
+	}
+
+	domTeam.btnSearch.addEventListener('click', teamSearch);
+	domTeam.btnExport.addEventListener('click', teamExport);
 };
 
 // Router: Initialize the correct page

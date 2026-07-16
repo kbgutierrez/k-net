@@ -4,7 +4,6 @@ let hasMoreRows = false;
 let isLoadingRows = false;
 let desktopPage = 1;
 const PAGE_SIZE = 10;      // records shown per page
-const FETCH_SIZE = 5000;   // load all maintenance records at once
 
 const dom = {
 	filterKeyword: null,
@@ -114,8 +113,9 @@ const loadExpenseTypes = (reset = false) => {
 	isLoadingRows = true;
 	updateLoadMoreButtons();
 
-	// Fetch all records in one call; client-side handles filtering & paging
-	const payload = { Take: reset ? FETCH_SIZE : PAGE_SIZE };
+	// Take: 0 asks the SP for the exact full result set (no artificial cap);
+	// client-side handles filtering & paging from there.
+	const payload = { Take: reset ? 0 : PAGE_SIZE };
 	if (!reset && nextCursorId !== null) {
 		payload.CursorId = nextCursorId;
 	}

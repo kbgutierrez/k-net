@@ -166,6 +166,12 @@
 			width: 100% !important;
 		}
 	}
+
+	.kna-rmb-tabs { border-bottom: 1px solid #d9e0e7; margin-bottom: .85rem; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+	.kna-rmb-tabs::-webkit-scrollbar { height: 4px; }
+	.kna-rmb-tabs .nav-link { font-size: 13px; font-weight: 600; color: #4a5a6a; border: none; border-bottom: 2px solid transparent; padding: .55rem .9rem; white-space: nowrap; }
+	.kna-rmb-tabs .nav-link.active { color: #2f6eb4; border-bottom-color: #2f6eb4; background: transparent; }
+	.kna-rmb-tabs .nav-link i { margin-right: 5px; }
 </style>
 
 <div class="page-inner kna-page">
@@ -177,6 +183,24 @@
 			New Reimbursement
 		</button>
 	</div>
+
+	<ul class="nav kna-rmb-tabs" id="rmbTabs" role="tablist">
+		<li class="nav-item">
+			<a class="nav-link active" id="rmb-tab-mine" data-toggle="tab" href="#rmb-pane-mine" role="tab" aria-controls="rmb-pane-mine" aria-selected="true">
+				<i class="fas fa-receipt"></i>My Reimbursements
+			</a>
+		</li>
+		<?php if (!empty($hasActiveFund)): ?>
+		<li class="nav-item">
+			<a class="nav-link" id="rmb-tab-team" data-toggle="tab" href="#rmb-pane-team" role="tab" aria-controls="rmb-pane-team" aria-selected="false">
+				<i class="fas fa-users"></i>My Team
+			</a>
+		</li>
+		<?php endif; ?>
+	</ul>
+
+	<div class="tab-content" id="rmbTabsContent">
+	<div class="tab-pane fade show active" id="rmb-pane-mine" role="tabpanel" aria-labelledby="rmb-tab-mine">
 
 	<div class="row mb-2">
 		<div class="col-md-3 col-6 pr-md-2 mb-2 mb-md-0">
@@ -290,5 +314,71 @@
 				<button type="button" class="btn btn-outline-secondary btn-sm kna-small d-none" id="btnLoadMoreMobile">Load More</button>
 			</div>
 		</div>
+	</div>
+
+	</div>
+
+	<?php if (!empty($hasActiveFund)): ?>
+	<div class="tab-pane fade" id="rmb-pane-team" role="tabpanel" aria-labelledby="rmb-tab-team">
+
+		<div class="card kna-card mb-2">
+			<div class="card-body py-2">
+				<div class="kna-small text-muted mb-2">Download your team's approved reimbursements within a date range, to send to Accounting.</div>
+				<div class="d-flex flex-wrap align-items-end justify-content-between kna-stack-mobile" style="gap:.5rem;">
+					<div class="d-flex flex-wrap align-items-end" style="gap:.5rem;">
+						<div>
+							<label class="kna-small kna-form-label mb-1">Date Range</label>
+							<input type="text" class="form-control form-control-sm kna-small" id="teamDateRange" placeholder="Select date range" style="width:220px;">
+						</div>
+						<div>
+							<button type="button" class="btn btn-primary btn-sm kna-small" id="btnTeamSearch" style="height:31px;">
+								<i class="fas fa-search mr-1"></i>Search
+							</button>
+						</div>
+					</div>
+					<button type="button" class="btn btn-outline-success btn-sm kna-small kna-mobile-cta" id="btnTeamExport" disabled>
+						<i class="fas fa-file-excel mr-1"></i>Export to Excel
+					</button>
+				</div>
+			</div>
+		</div>
+
+		<div class="card kna-card d-none d-md-block">
+			<div class="card-body">
+				<div class="d-flex align-items-center justify-content-between mb-2">
+					<div class="kna-small text-muted">Team Approved Reimbursements</div>
+					<div class="kna-small text-muted" id="teamResultCount">0 record(s)</div>
+				</div>
+				<div class="table-responsive">
+					<table class="table table-sm kna-table" id="teamReportTable" style="width:100%">
+						<thead>
+							<tr>
+								<th>Reimbursement No</th>
+								<th>Salesman</th>
+								<th class="text-right">Amount</th>
+								<th>Description</th>
+								<th>Cost Center</th>
+								<th>Status</th>
+								<th>Filed Date</th>
+							</tr>
+						</thead>
+						<tbody id="teamReportTbody"></tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+
+		<div class="card kna-card d-md-none">
+			<div class="card-body">
+				<div class="d-flex align-items-center justify-content-between mb-2">
+					<div class="kna-small text-muted">Team Approved Reimbursements</div>
+					<div class="kna-small text-muted" id="teamResultCountMobile">0 record(s)</div>
+				</div>
+				<div class="kna-mobile-list" id="teamReportMobileList"></div>
+			</div>
+		</div>
+	</div>
+	<?php endif; ?>
+
 	</div>
 </div>

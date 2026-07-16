@@ -72,8 +72,10 @@ const loadApprovals = (reset = false) => {
 
 	approvalsIsLoadingRows = true;
 
+	// Take: 0 asks the SP for the exact full result set (no artificial cap);
+	// client-side handles filtering & paging from there.
 	const payload = {
-		Take: 20,
+		Take: reset ? 0 : APPROVALS_PAGE_SIZE,
 	};
 
 	if (approvalsNextCursorId !== null) {

@@ -26,7 +26,7 @@ class Revolving_Fund extends MY_Controller
     }
 
     /* ------------------------------------------------------------
-       FUND (Setup tab)
+       FUND (single create/edit action — fund + holder together)
        ------------------------------------------------------------ */
 
     public function api_get_funds()
@@ -34,10 +34,7 @@ class Revolving_Fund extends MY_Controller
         try {
             $this->output->set_content_type('application/json');
 
-            $take = (int) $this->input->post('Take');
-            if ($take <= 0) {
-                $take = 20;
-            }
+            $take = $this->resolvePaginationTake($this->input->post('Take'));
 
             $cursorIdRaw = $this->input->post('CursorId');
             $cursorId = ($cursorIdRaw !== null && $cursorIdRaw !== '') ? (int) $cursorIdRaw : null;
@@ -56,20 +53,8 @@ class Revolving_Fund extends MY_Controller
                 'result'
             );
 
-            $this->respondList($result, $take);
-        } catch (Exception $e) {
-            return $this->respondError('An error occurred: ' . $e->getMessage());
-        }
-    }
-
-    public function api_get_active_funds()
-    {
-        try {
-            $this->output->set_content_type('application/json');
-
-            $result = $this->sp->fetchData('sp_fetch_active_revolving_funds');
-
-            return $this->respondSuccess('OK', $result);
+            $payload = $this->buildPaginationResult($result, $take);
+            echo json_encode(array('status' => 'success') + $payload);
         } catch (Exception $e) {
             return $this->respondError('An error occurred: ' . $e->getMessage());
         }
@@ -115,7 +100,7 @@ class Revolving_Fund extends MY_Controller
             );
 
             $result = $this->sp->createReturnId(
-                build_sp('sp_insert_revolving_fund', count($params)),
+                build_sp('sp_insert_revolving_fund_with_holder', count($params)),
                 $params
             );
 
@@ -171,7 +156,7 @@ class Revolving_Fund extends MY_Controller
             );
 
             $result = $this->sp->createData(
-                build_sp('sp_update_revolving_fund', count($params)),
+                build_sp('sp_update_revolving_fund_with_holder', count($params)),
                 $params
             );
 
@@ -188,155 +173,7 @@ class Revolving_Fund extends MY_Controller
     }
 
     /* ------------------------------------------------------------
-       ASSIGNMENT (User Assignment tab)
-       ------------------------------------------------------------ */
-
-    public function api_get_assignments()
-    {
-        try {
-            $this->output->set_content_type('application/json');
-
-            $take = (int) $this->input->post('Take');
-            if ($take <= 0) {
-                $take = 20;
-            }
-
-            $cursorIdRaw = $this->input->post('CursorId');
-            $cursorId = ($cursorIdRaw !== null && $cursorIdRaw !== '') ? (int) $cursorIdRaw : null;
-            $fundIdRaw = $this->input->post('FundId');
-            $fundId = ($fundIdRaw !== null && $fundIdRaw !== '') ? (int) $fundIdRaw : null;
-
-            $params = array(
-                'CursorId' => $cursorId,
-                'Take' => $take,
-                'FundId' => $fundId,
-                'Keyword' => $this->input->post('Keyword'),
-                'Status' => $this->input->post('Status'),
-            );
-
-            $result = $this->sp->readData(
-                build_sp('sp_fetch_revolving_fund_assignment_list', count($params)),
-                $params,
-                'result'
-            );
-
-            $this->respondList($result, $take);
-        } catch (Exception $e) {
-            return $this->respondError('An error occurred: ' . $e->getMessage());
-        }
-    }
-
-    public function api_save_assignment()
-    {
-        try {
-            $this->output->set_content_type('application/json');
-
-            $data = $this->getRequestPayload();
-
-            $fundId = isset($data['FundId']) ? (int) $data['FundId'] : 0;
-            $assigneeType = isset($data['AssigneeType']) ? trim((string) $data['AssigneeType']) : '';
-            $assigneeName = isset($data['AssigneeName']) ? trim((string) $data['AssigneeName']) : '';
-            $effectiveDate = isset($data['EffectiveDate']) ? trim((string) $data['EffectiveDate']) : '';
-
-            if ($fundId <= 0) {
-                return $this->respondError('Please select a revolving fund');
-            }
-
-            if (!in_array($assigneeType, array('PERSON', 'DEPARTMENT'), true)) {
-                return $this->respondError('Assignee type must be Person or Department');
-            }
-
-            if ($assigneeName === '') {
-                return $this->respondError('Assignee is required');
-            }
-
-            if ($effectiveDate === '') {
-                return $this->respondError('Effective date is required');
-            }
-
-            $status = isset($data['Status']) ? trim((string) $data['Status']) : 'RF_ASSIGN_ACTIVE';
-            if (!in_array($status, array('RF_ASSIGN_ACTIVE', 'RF_ASSIGN_INACTIVE'), true)) {
-                $status = 'RF_ASSIGN_ACTIVE';
-            }
-
-            $params = array(
-                'FundId' => $fundId,
-                'AssigneeType' => $assigneeType,
-                'AssigneeId' => isset($data['AssigneeId']) && $data['AssigneeId'] !== '' ? (int) $data['AssigneeId'] : null,
-                'AssigneeName' => $assigneeName,
-                'Status' => $status,
-                'EffectiveDate' => $effectiveDate,
-                'EndDate' => !empty($data['EndDate']) ? $data['EndDate'] : null,
-                'CreatedBy' => (int) $this->session->userdata('user_id'),
-            );
-
-            $result = $this->sp->createData(
-                build_sp('sp_insert_revolving_fund_assignment', count($params)),
-                $params
-            );
-
-            if ($result !== true) {
-                return $this->respondError(is_string($result) ? $result : 'Failed to create assignment');
-            }
-
-            $this->logAuditTrail('REVOLVING_FUND', $fundId, 'CREATE', 'ASSIGNMENT', $fundId, null, null, json_encode($params));
-
-            return $this->respondSuccess('Fund assignment created successfully');
-        } catch (Exception $e) {
-            return $this->respondError('An error occurred: ' . $e->getMessage());
-        }
-    }
-
-    public function api_update_assignment()
-    {
-        try {
-            $this->output->set_content_type('application/json');
-
-            $data = $this->getRequestPayload();
-
-            $id = isset($data['Id']) ? (int) $data['Id'] : 0;
-            $effectiveDate = isset($data['EffectiveDate']) ? trim((string) $data['EffectiveDate']) : '';
-
-            if ($id <= 0) {
-                return $this->respondError('Invalid assignment id');
-            }
-
-            if ($effectiveDate === '') {
-                return $this->respondError('Effective date is required');
-            }
-
-            $status = isset($data['Status']) ? trim((string) $data['Status']) : 'RF_ASSIGN_ACTIVE';
-            if (!in_array($status, array('RF_ASSIGN_ACTIVE', 'RF_ASSIGN_INACTIVE'), true)) {
-                $status = 'RF_ASSIGN_ACTIVE';
-            }
-
-            $params = array(
-                'Id' => $id,
-                'Status' => $status,
-                'EffectiveDate' => $effectiveDate,
-                'EndDate' => !empty($data['EndDate']) ? $data['EndDate'] : null,
-                'UpdatedBy' => (int) $this->session->userdata('user_id'),
-            );
-
-            $result = $this->sp->createData(
-                build_sp('sp_update_revolving_fund_assignment', count($params)),
-                $params
-            );
-
-            if ($result !== true) {
-                return $this->respondError(is_string($result) ? $result : 'Failed to update assignment');
-            }
-
-            $this->logAuditTrail('REVOLVING_FUND', $id, 'UPDATE', 'ASSIGNMENT', $id, null, null, json_encode($params));
-
-            return $this->respondSuccess('Fund assignment updated successfully');
-        } catch (Exception $e) {
-            return $this->respondError('An error occurred: ' . $e->getMessage());
-        }
-    }
-
-    /* ------------------------------------------------------------
-       LEDGER (Top-up & Adjustment tab)
+       LEDGER (Add Money / History, per fund row)
        ------------------------------------------------------------ */
 
     public function api_get_ledger()
@@ -344,10 +181,7 @@ class Revolving_Fund extends MY_Controller
         try {
             $this->output->set_content_type('application/json');
 
-            $take = (int) $this->input->post('Take');
-            if ($take <= 0) {
-                $take = 20;
-            }
+            $take = $this->resolvePaginationTake($this->input->post('Take'));
 
             $cursorIdRaw = $this->input->post('CursorId');
             $cursorId = ($cursorIdRaw !== null && $cursorIdRaw !== '') ? (int) $cursorIdRaw : null;
@@ -369,7 +203,8 @@ class Revolving_Fund extends MY_Controller
                 'result'
             );
 
-            $this->respondList($result, $take);
+            $payload = $this->buildPaginationResult($result, $take);
+            echo json_encode(array('status' => 'success') + $payload);
         } catch (Exception $e) {
             return $this->respondError('An error occurred: ' . $e->getMessage());
         }
@@ -471,30 +306,6 @@ class Revolving_Fund extends MY_Controller
     /* ------------------------------------------------------------
        HELPERS
        ------------------------------------------------------------ */
-
-    private function respondList($result, $take)
-    {
-        $hasMore = count($result) > $take;
-        if ($hasMore) {
-            array_pop($result);
-        }
-
-        $nextCursorId = null;
-        if (!empty($result)) {
-            $lastRow = end($result);
-            $nextCursorId = isset($lastRow['id']) ? (int) $lastRow['id'] : null;
-        }
-
-        echo json_encode(array(
-            'status' => 'success',
-            'data' => $result,
-            'pagination' => array(
-                'take' => $take,
-                'hasMore' => $hasMore,
-                'nextCursorId' => $nextCursorId,
-            ),
-        ));
-    }
 
     private function getRequestPayload()
     {
