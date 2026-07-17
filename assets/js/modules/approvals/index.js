@@ -2,6 +2,7 @@
 const APPROVALS_ENDPOINTS = {
 	pending: 'transactions/approvals/api/get/header',
 	past: 'transactions/approvals/api/get/past-header',
+	payment: 'transactions/approvals/api/get/payment-queue',
 };
 
 let selectedApprovalTab = 'pending';
@@ -10,6 +11,7 @@ let selectedApprovalTab = 'pending';
 const approvalsTabState = {
 	pending: { rows: [], nextCursorId: null, hasMoreRows: false, loaded: false },
 	past: { rows: [], nextCursorId: null, hasMoreRows: false, loaded: false },
+	payment: { rows: [], nextCursorId: null, hasMoreRows: false, loaded: false },
 };
 
 let approvals = [];
@@ -73,6 +75,7 @@ const normalizeApprovalRows = (rows) =>
 		submittedDate: normalizeDate(row.submitted_date).slice(0, 10),
 		decisionStatus: normalizeDate(row.decision_status).toUpperCase(),
 		decidedDate: normalizeDate(row.decided_date).slice(0, 10),
+		paymentAction: normalizeDate(row.payment_action).toUpperCase(),
 	}));
 
 const loadApprovals = (reset = false) => {
@@ -209,6 +212,7 @@ const goToDesktopPage = (targetPage) => {
 };
 
 const isPastTab = () => selectedApprovalTab === 'past';
+const isPaymentTab = () => selectedApprovalTab === 'payment';
 
 const getStatusBadgeHtml = (decisionStatus) => {
 	if (decisionStatus === 'APPROVED') {
@@ -219,6 +223,18 @@ const getStatusBadgeHtml = (decisionStatus) => {
 	}
 	return '—';
 };
+
+const getPaymentActionBadgeHtml = (paymentAction) => {
+	if (paymentAction === 'ADVISE') {
+		return '<span class="kna-badge kna-badge-pending">Needs Advisory</span>';
+	}
+	if (paymentAction === 'RELEASE') {
+		return '<span class="kna-badge kna-badge-partial">Needs Release</span>';
+	}
+	return '—';
+};
+
+const getPaymentActionLabel = (paymentAction) => (paymentAction === 'RELEASE' ? 'Release' : 'Advise');
 
 const getReviewUrl = (row) => {
 	const base = `${base_url}transactions/approvals/review/${encodeURIComponent(row.referenceNo)}`;
@@ -232,7 +248,8 @@ const renderMobileCards = (pageRows) => {
 	}
 
 	if (!pageRows.length) {
-		mobileList.innerHTML = `<div class="text-center text-muted kna-small py-4">No ${isPastTab() ? 'Past' : 'Pending'} Approvals</div>`;
+		const emptyLabel = isPastTab() ? 'Past' : (isPaymentTab() ? 'Payment' : 'Pending');
+		mobileList.innerHTML = `<div class="text-center text-muted kna-small py-4">No ${emptyLabel} Approvals</div>`;
 		return;
 	}
 
@@ -244,6 +261,7 @@ const renderMobileCards = (pageRows) => {
 					<div class="text-muted kna-small">${escapeHtml(getTransactionTypeLabel(row.transactionType))}</div>
 				</div>
 				${isPastTab() ? `<div>${getStatusBadgeHtml(row.decisionStatus)}</div>` : ''}
+				${isPaymentTab() ? `<div>${getPaymentActionBadgeHtml(row.paymentAction)}</div>` : ''}
 			</div>
 			<div class="mt-2 kna-small">
 				<div><strong>Requestor:</strong> ${escapeHtml(row.requestor)}</div>
@@ -255,7 +273,7 @@ const renderMobileCards = (pageRows) => {
 				<a
 					class="btn btn-primary btn-sm btn-block"
 					href="${getReviewUrl(row)}">
-					${isPastTab() ? 'View' : 'Review'}
+					${isPastTab() ? 'View' : (isPaymentTab() ? getPaymentActionLabel(row.paymentAction) : 'Review')}
 				</a>
 			</div>
 		</div>
@@ -278,13 +296,14 @@ const refreshApprovalsList = () => {
 
 	const start = (approvalsDesktopPage - 1) * APPROVALS_PAGE_SIZE;
 	const pageRows = rows.slice(start, start + APPROVALS_PAGE_SIZE);
-	const colCount = isPastTab() ? 7 : 6;
+	const colCount = (isPastTab() || isPaymentTab()) ? 7 : 6;
 
 	if (!pageRows.length) {
+		const emptyLabel = isPastTab() ? 'Past' : (isPaymentTab() ? 'Payment' : 'Pending');
 		tbodyMain.innerHTML = `
 		<tr>
 			<td colspan="${colCount}" class="text-center text-muted kna-small py-4">
-				No ${isPastTab() ? 'Past' : 'Pending'} Approvals
+				No ${emptyLabel} Approvals
 			</td>
 		</tr>
 	`;
@@ -313,6 +332,7 @@ const refreshApprovalsList = () => {
 			<td>${formatPHP(row.amount)}</td>
 			<td>${formatDisplayDate(row.submittedDate)}</td>
 			${isPastTab() ? `<td>${getStatusBadgeHtml(row.decisionStatus)}</td>` : ''}
+			${isPaymentTab() ? `<td>${getPaymentActionBadgeHtml(row.paymentAction)}</td>` : ''}
 		</tr>
 	`).join('');
 
@@ -322,7 +342,7 @@ const refreshApprovalsList = () => {
 				<a
 					class="btn btn-outline-primary btn-xs kna-small py-1 px-2"
 					href="${getReviewUrl(row)}">
-					${isPastTab() ? 'View' : 'Review'}
+					${isPastTab() ? 'View' : (isPaymentTab() ? getPaymentActionLabel(row.paymentAction) : 'Review')}
 				</a>
 			</td>
 		</tr>
@@ -340,20 +360,24 @@ const updateApprovalTabChrome = () => {
 	const pageTitle = document.getElementById('approvalsPageTitle');
 	const resultLabel = document.getElementById('resultLabel');
 	const statusColumnHeader = document.getElementById('statusColumnHeader');
+	const paymentActionColumnHeader = document.getElementById('paymentActionColumnHeader');
 
 	if (pageTitle) {
-		pageTitle.textContent = isPastTab() ? 'Past Approvals' : 'Pending Approvals';
+		pageTitle.textContent = isPastTab() ? 'Past Approvals' : (isPaymentTab() ? 'For Payment' : 'Pending Approvals');
 	}
 	if (resultLabel) {
-		resultLabel.textContent = isPastTab() ? 'Already Reviewed' : 'Awaiting Your Action';
+		resultLabel.textContent = isPastTab() ? 'Already Reviewed' : (isPaymentTab() ? 'Awaiting Payment Action' : 'Awaiting Your Action');
 	}
 	if (statusColumnHeader) {
 		statusColumnHeader.classList.toggle('d-none', !isPastTab());
 	}
+	if (paymentActionColumnHeader) {
+		paymentActionColumnHeader.classList.toggle('d-none', !isPaymentTab());
+	}
 };
 
 const switchApprovalTab = (tab) => {
-	if (tab !== 'pending' && tab !== 'past') {
+	if (tab !== 'pending' && tab !== 'past' && tab !== 'payment') {
 		return;
 	}
 

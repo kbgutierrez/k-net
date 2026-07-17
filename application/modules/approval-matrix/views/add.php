@@ -10,6 +10,28 @@
 	.kna-form-label { margin-bottom: .3rem; font-weight: 600; }
 	.kna-approver-row { border: 1px dashed #d9e0e7; border-radius: 6px; padding: .6rem; margin-bottom: .55rem; background: #fbfdff; }
 
+	/* Payment Controls: dropdown-with-checkboxes */
+	.kna-payment-dropdown { position: relative; }
+	.kna-payment-dropdown .js-payment-dropdown-toggle { height: 28px; font-size: 12px; display: flex; align-items: center; justify-content: space-between; }
+	.kna-payment-dropdown-menu { min-width: 180px; font-size: 12px; background: #fff; }
+	.kna-payment-dropdown-menu .custom-control-label { cursor: pointer; }
+	/* Atlantis theme's .custom-control.custom-checkbox forces display:inline-block
+	   and padding-left:2em (assets/css/atlantis.css), which stacks these two
+	   checkboxes side by side and misaligns the indicator box against
+	   Bootstrap's hard-coded left:-1.5rem on the label ::before/::after.
+	   Scoped override restores the normal stacked/aligned checkbox layout
+	   only inside this dropdown. */
+	.kna-payment-dropdown-menu .custom-control.custom-checkbox {
+		display: block !important;
+		padding-left: 1.5rem;
+		margin-right: 0;
+		line-height: 1.4;
+	}
+	.kna-payment-dropdown-menu .custom-control-label::before,
+	.kna-payment-dropdown-menu .custom-control-label::after {
+		left: -1.5rem;
+	}
+
 	/* Select2 compact override */
 	.kna-page .select2-container .select2-selection--single,
 	.kna-page .select2-container--default .select2-selection--single { height: 28px !important; }

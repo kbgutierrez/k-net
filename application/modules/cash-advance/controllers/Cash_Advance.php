@@ -871,6 +871,16 @@ class Cash_Advance extends MY_Controller
             return;
         }
 
+        // K-flow has its own notifications for its own internal approval
+        // steps, but has no visibility into K-net's approval chain — the
+        // moment kflow_doc_status becomes 4 (fully approved by K-flow) is
+        // exactly when this CA becomes visible to K-net approvers
+        // (vw_approvals_header filters on kflow_doc_status = 4), so that's
+        // K-net's own "Submitted" moment: notify the first K-net approver.
+        if ($isApproved) {
+            $this->notifyFirstKnetApprover($caRef);
+        }
+
         echo json_encode(array(
             'status' => 'success',
             'message' => 'K-net updated',
@@ -883,6 +893,68 @@ class Cash_Advance extends MY_Controller
             ),
             'debug' => $debug,
         ));
+    }
+
+    /**
+     * Notify the first pending K-net approver once a cash advance clears
+     * K-flow and enters K-net's own approval chain. Never lets a
+     * notification failure affect the calling callback's response.
+     */
+    private function notifyFirstKnetApprover($caRef)
+    {
+        try {
+            if (!$this->sp || !$this->sp->db) {
+                return;
+            }
+
+            $header = $this->sp->db->get_where('tbl_approval_header', array('reference_id' => $caRef, 'is_active' => 1), 1)->row_array();
+            if (!is_array($header)) {
+                return;
+            }
+
+            $firstApprover = $this->sp->db->select('approver_id')
+                ->from('tbl_approval_details')
+                ->where('approval_header_id', $header['id'])
+                ->where('status', 'PENDING')
+                ->order_by('approval_order', 'ASC')
+                ->limit(1)
+                ->get()
+                ->row_array();
+
+            if (!is_array($firstApprover) || empty($firstApprover['approver_id'])) {
+                return;
+            }
+
+            $approverInfo = get_user_info((int) $firstApprover['approver_id']);
+            if (!is_array($approverInfo) || empty($approverInfo['email'])) {
+                return;
+            }
+
+            $ca = $this->sp->db->get_where('tbl_cash_advance', array('cash_advance_id' => $caRef), 1)->row_array();
+            $requesterInfo = (is_array($ca) && !empty($ca['user_id'])) ? get_user_info((int) $ca['user_id']) : null;
+
+            $approverName = trim((string) ($approverInfo['firstname'] ?? '') . ' ' . (string) ($approverInfo['lastname'] ?? ''));
+            $requesterName = is_array($requesterInfo)
+                ? trim((string) ($requesterInfo['firstname'] ?? '') . ' ' . (string) ($requesterInfo['lastname'] ?? ''))
+                : '';
+
+            $mergeData = array(
+                'amount' => number_format((float) ($ca['amount'] ?? 0), 2),
+                'status' => 'PENDING',
+                'remarks' => '',
+                'action_date' => date('Y-m-d H:i:s'),
+                'requester_name' => $requesterName,
+                'requester_department' => is_array($requesterInfo) ? (string) ($requesterInfo['short_name'] ?? '') : '',
+                'approver_name' => $approverName,
+            );
+
+            notify_event('TXN_SUBMITTED', 'CASH_ADVANCE', $caRef, array(array(
+                'email' => $approverInfo['email'],
+                'name' => $approverName !== '' ? $approverName : $approverInfo['email'],
+            )), $mergeData);
+        } catch (Throwable $e) {
+            log_message('error', 'notifyFirstKnetApprover failed for ' . $caRef . ': ' . $e->getMessage());
+        }
     }
 
     public function api_get_attachments()

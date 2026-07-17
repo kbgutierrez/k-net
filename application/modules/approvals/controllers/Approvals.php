@@ -159,6 +159,8 @@ class Approvals extends MY_Controller
                         $remarks
                     );
 
+                    $this->notifyDecisionOutcome('REIMBURSEMENT', $referenceNo, 'APPROVED', $userId, $result[0], $remarks);
+
                     $approved[] = $referenceNo;
                 } catch (Throwable $e) {
                     $errors[] = array(
@@ -410,14 +412,191 @@ class Approvals extends MY_Controller
                 }
             }
 
+            $paymentCapability = null;
+            if (is_array($result) && count($result) > 0) {
+                $capParams = array(
+                    'ReferenceNo' => $refereceNo,
+                    'UserId' => $this->session->userdata('user_id'),
+                );
+                $capResult = $this->sp->readData(
+                    build_sp('sp_fetch_user_payment_capability', count($capParams)),
+                    $capParams,
+                    'row'
+                );
+                $paymentCapability = is_array($capResult) ? $capResult : null;
+            }
+
             return $this->respondSuccess("Details fetched successfully.", array(
                 'items' => $result,
                 'attachments' => $attachments,
                 'has_attachments' => $hasAttachments,
+                'payment_capability' => $paymentCapability,
             ));
         } catch (Exception $e) {
             return $this->respondError("An error occurred: " . $e->getMessage());
         }
+    }
+
+    public function api_get_payment_queue()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $userId = $this->session->userdata('user_id');
+            $cursorIdRaw = $this->input->post('CursorId');
+            $take = $this->resolvePaginationTake($this->input->post('Take'));
+
+            $cursorId = null;
+            if ($cursorIdRaw !== null && $cursorIdRaw !== '') {
+                $cursorId = (int) $cursorIdRaw;
+            }
+
+            $params = array(
+                "UserId" => $userId,
+                "CursorId" => $cursorId,
+                "Take" => $take,
+            );
+
+            $result = $this->sp->readData(
+                build_sp('sp_fetch_payment_queue_header', count($params)),
+                $params,
+                'result'
+            );
+
+            $payload = $this->buildPaginationResult($result, $take, 'approval_detail_id');
+
+            echo json_encode(array(
+                'status' => 'success',
+                'data' => $payload['data'],
+                'pagination' => $payload['pagination'],
+            ));
+        } catch (Exception $e) {
+            echo json_encode(array(
+                'status' => 'error',
+                'response' => "An error occurred: " . $e->getMessage(),
+            ));
+        }
+    }
+
+    public function api_advise_payment()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $referenceNo = isset($data['reference_no']) ? trim((string) $data['reference_no']) : '';
+            $remarks = isset($data['remarks']) ? trim((string) $data['remarks']) : '';
+
+            if ($referenceNo === '') {
+                throw new Exception('Missing required field: reference_no');
+            }
+
+            $userId = (int) $this->session->userdata('user_id');
+            if ($userId <= 0) {
+                throw new Exception('User not authenticated.');
+            }
+
+            $spParams = array(
+                'ReferenceId' => $referenceNo,
+                'UserId' => $userId,
+                'Remarks' => $remarks,
+            );
+
+            $result = $this->sp->readData(
+                build_sp('sp_advise_payment', count($spParams)),
+                $spParams,
+                'row'
+            );
+
+            if (!is_array($result) || empty($result['new_status'])) {
+                throw new Exception('Advise payment did not return a result.');
+            }
+
+            $transactionType = $this->resolveTransactionTypeFromReference($referenceNo);
+            $this->logAuditTrail(
+                $transactionType,
+                $referenceNo,
+                $result['new_status'],
+                'HEADER',
+                $referenceNo,
+                null,
+                null,
+                $remarks
+            );
+
+            $this->notifyPaymentEvent('PAYMENT_ADVISED', $transactionType, $referenceNo, $userId, $remarks, true);
+
+            return $this->respondSuccess('Payment advised successfully.', $result);
+        } catch (Throwable $e) {
+            return $this->respondError($e->getMessage());
+        }
+    }
+
+    public function api_release_payment()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $referenceNo = isset($data['reference_no']) ? trim((string) $data['reference_no']) : '';
+            $remarks = isset($data['remarks']) ? trim((string) $data['remarks']) : '';
+
+            if ($referenceNo === '') {
+                throw new Exception('Missing required field: reference_no');
+            }
+
+            $userId = (int) $this->session->userdata('user_id');
+            if ($userId <= 0) {
+                throw new Exception('User not authenticated.');
+            }
+
+            $spParams = array(
+                'ReferenceId' => $referenceNo,
+                'UserId' => $userId,
+                'Remarks' => $remarks,
+            );
+
+            $result = $this->sp->readData(
+                build_sp('sp_release_payment', count($spParams)),
+                $spParams,
+                'row'
+            );
+
+            if (!is_array($result) || empty($result['new_status'])) {
+                throw new Exception('Release payment did not return a result.');
+            }
+
+            $transactionType = $this->resolveTransactionTypeFromReference($referenceNo);
+            $this->logAuditTrail(
+                $transactionType,
+                $referenceNo,
+                $result['new_status'],
+                'HEADER',
+                $referenceNo,
+                null,
+                null,
+                $remarks
+            );
+
+            $this->notifyPaymentEvent('PAYMENT_RELEASED', $transactionType, $referenceNo, $userId, $remarks, false);
+
+            return $this->respondSuccess('Payment released successfully.', $result);
+        } catch (Throwable $e) {
+            return $this->respondError($e->getMessage());
+        }
+    }
+
+    private function resolveTransactionTypeFromReference($referenceNo)
+    {
+        if (strpos($referenceNo, 'RMB') === 0) {
+            return 'REIMBURSEMENT';
+        }
+        if (strpos($referenceNo, 'LQ') === 0) {
+            return 'LIQUIDATION';
+        }
+        if (strpos($referenceNo, 'CA') === 0) {
+            return 'CASH_ADVANCE';
+        }
+        return '';
     }
 
     private function normalizeRelativeAssetPath($path)
@@ -505,6 +684,198 @@ class Approvals extends MY_Controller
 
         $row = $query->row_array();
         return is_array($row) ? $row : null;
+    }
+
+    /**
+     * Requester user_id + total amount + description for a transaction,
+     * used to build notify_event() merge data / recipient lookups.
+     */
+    private function getTransactionRequesterAndAmount($referenceNo, $transactionType)
+    {
+        $default = array('user_id' => 0, 'amount' => 0, 'description' => '');
+
+        if (!$this->sp || !$this->sp->db) {
+            return $default;
+        }
+
+        if ($transactionType === 'CASH_ADVANCE') {
+            $row = $this->sp->db->get_where('tbl_cash_advance', array('cash_advance_id' => $referenceNo), 1)->row_array();
+            if (!is_array($row)) {
+                return $default;
+            }
+            return array(
+                'user_id' => (int) ($row['user_id'] ?? 0),
+                'amount' => (float) ($row['amount'] ?? 0),
+                'description' => (string) ($row['description'] ?? ''),
+            );
+        }
+
+        if ($transactionType === 'LIQUIDATION') {
+            $row = $this->sp->db->get_where('tbl_liquidation_header', array('liquidation_id' => $referenceNo), 1)->row_array();
+            if (!is_array($row)) {
+                return $default;
+            }
+            return array(
+                'user_id' => (int) ($row['created_by'] ?? 0),
+                'amount' => (float) ($row['total_amount_spent'] ?? 0),
+                'description' => '',
+            );
+        }
+
+        if ($transactionType === 'REIMBURSEMENT') {
+            $row = $this->sp->db->get_where('tbl_reimbursement_header', array('reimbursement_id' => $referenceNo), 1)->row_array();
+            if (!is_array($row)) {
+                return $default;
+            }
+            // user_id = the expense owner (who the notification is about);
+            // created_by/filed_by can be a different person under proxy
+            // filing (a supervisor filing on a team member's behalf).
+            return array(
+                'user_id' => (int) ($row['user_id'] ?? 0),
+                'amount' => (float) ($row['total_amount'] ?? 0),
+                'description' => (string) ($row['description'] ?? ''),
+            );
+        }
+
+        return $default;
+    }
+
+    /**
+     * ['email' => ..., 'name' => ...] for notify_event(), or null if the
+     * user has no usable email — callers must skip null recipients.
+     */
+    private function buildNotificationRecipient($userId)
+    {
+        $userId = (int) $userId;
+        if ($userId <= 0) {
+            return null;
+        }
+
+        $info = get_user_info($userId);
+        if (!is_array($info) || empty($info['email'])) {
+            return null;
+        }
+
+        $name = trim((string) ($info['firstname'] ?? '') . ' ' . (string) ($info['lastname'] ?? ''));
+
+        return array(
+            'email' => $info['email'],
+            'name' => $name !== '' ? $name : $info['email'],
+            'department' => (string) ($info['short_name'] ?? ''),
+        );
+    }
+
+    /**
+     * Notify the requester + next approver / final outcome after a header
+     * decision (sp_approval_decision). $decisionRow is that SP's result row.
+     */
+    private function notifyDecisionOutcome($transactionType, $referenceNo, $overallDecision, $decidedByUserId, $decisionRow, $remarksForMerge)
+    {
+        $txInfo = $this->getTransactionRequesterAndAmount($referenceNo, $transactionType);
+        $requesterRecipient = $this->buildNotificationRecipient($txInfo['user_id']);
+        $deciderRecipient = $this->buildNotificationRecipient($decidedByUserId);
+
+        $mergeData = array(
+            'amount' => number_format((float) $txInfo['amount'], 2),
+            'status' => $overallDecision,
+            'remarks' => (string) $remarksForMerge,
+            'action_date' => date('Y-m-d H:i:s'),
+            'requester_name' => $requesterRecipient['name'] ?? '',
+            'requester_department' => $requesterRecipient['department'] ?? '',
+            'approver_name' => $deciderRecipient['name'] ?? '',
+        );
+
+        if ($overallDecision === 'REJECTED') {
+            if ($requesterRecipient) {
+                notify_event('TXN_REJECTED', $transactionType, $referenceNo, array($requesterRecipient), $mergeData);
+            }
+            return;
+        }
+
+        $nextApproverId = isset($decisionRow['next_approver_id']) ? (int) $decisionRow['next_approver_id'] : 0;
+        if ($nextApproverId > 0) {
+            $nextApproverRecipient = $this->buildNotificationRecipient($nextApproverId);
+            if ($nextApproverRecipient) {
+                notify_event('TXN_STEP_APPROVED', $transactionType, $referenceNo, array($nextApproverRecipient), $mergeData);
+            }
+            return;
+        }
+
+        if ($requesterRecipient) {
+            notify_event('TXN_FULLY_APPROVED', $transactionType, $referenceNo, array($requesterRecipient), $mergeData);
+        }
+    }
+
+    /**
+     * user_ids of approvers flagged is_payment_release=1 on this
+     * transaction's approval matrix (used to alert them once a payment
+     * has been advised and is ready for them to release).
+     */
+    private function getPaymentReleaseApproverIds($referenceNo)
+    {
+        if (!$this->sp || !$this->sp->db) {
+            return array();
+        }
+
+        $header = $this->sp->db->get_where('tbl_approval_header', array('reference_id' => $referenceNo, 'is_active' => 1), 1)->row_array();
+        if (!is_array($header) || empty($header['approval_matrix_id'])) {
+            return array();
+        }
+
+        $query = $this->sp->db->select('approver_id')
+            ->from('tbl_approval_matrix_details')
+            ->where('matrix_header_id', $header['approval_matrix_id'])
+            ->where('is_payment_release', 1)
+            ->get();
+
+        if (!$query) {
+            return array();
+        }
+
+        $ids = array();
+        foreach ($query->result_array() as $row) {
+            $ids[] = (int) $row['approver_id'];
+        }
+        return $ids;
+    }
+
+    /**
+     * Notify the requester, and (for PAYMENT_ADVISED only) any approvers
+     * flagged with Payment Release capability on this transaction's matrix.
+     */
+    private function notifyPaymentEvent($eventCode, $transactionType, $referenceNo, $actingUserId, $remarks, $includeReleaseApprovers)
+    {
+        $txInfo = $this->getTransactionRequesterAndAmount($referenceNo, $transactionType);
+        $requesterRecipient = $this->buildNotificationRecipient($txInfo['user_id']);
+        $actorRecipient = $this->buildNotificationRecipient($actingUserId);
+
+        $mergeData = array(
+            'amount' => number_format((float) $txInfo['amount'], 2),
+            'status' => $eventCode,
+            'remarks' => (string) $remarks,
+            'action_date' => date('Y-m-d H:i:s'),
+            'requester_name' => $requesterRecipient['name'] ?? '',
+            'requester_department' => $requesterRecipient['department'] ?? '',
+            'approver_name' => $actorRecipient['name'] ?? '',
+        );
+
+        $recipients = array();
+        if ($requesterRecipient) {
+            $recipients[] = $requesterRecipient;
+        }
+
+        if ($includeReleaseApprovers) {
+            foreach ($this->getPaymentReleaseApproverIds($referenceNo) as $approverId) {
+                $recipient = $this->buildNotificationRecipient($approverId);
+                if ($recipient) {
+                    $recipients[] = $recipient;
+                }
+            }
+        }
+
+        if (!empty($recipients)) {
+            notify_event($eventCode, $transactionType, $referenceNo, $recipients, $mergeData);
+        }
     }
 
     private function normalizeAuditValue($value)
@@ -1135,6 +1506,8 @@ class Approvals extends MY_Controller
                 null,
                 $overallRemarks ?: $rejectionReason
             );
+
+            $this->notifyDecisionOutcome($transactionType, $referenceNo, $overallDecision, $userId, $row, $overallRemarks ?: $rejectionReason);
 
             return $this->respondSuccess('Decision submitted successfully.', array(
                 'next_approver_id' => isset($row['next_approver_id']) ? (int) $row['next_approver_id'] : null,

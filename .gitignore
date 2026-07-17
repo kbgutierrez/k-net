@@ -70,3 +70,4 @@ schema_dump_reimbursement.sql
 sp_reimbursement_resubmit_helpers.sql
 sp_fetch_reimbursement_list.sql
 drop_expense_category_id.sql
+application/config/notification_email.php

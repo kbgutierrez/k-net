@@ -14,7 +14,7 @@ class CA_Reports extends MY_Controller
     public function index()
     {
         $userId = $this->session->userdata('user_id');
-        $pendingCa = $this->getPendingCashAdvance($userId);
+        $pendingCa = $this->getCashAdvanceData($userId);
 
         $data = array(
             'title' => 'Cash Advance Reports',
@@ -55,7 +55,7 @@ class CA_Reports extends MY_Controller
     {
         $userId = $this->session->userdata('user_id');
         $departmentId = $this->session->userdata('user_info')['department_id'];
-        $pendingCa = $this->getPendingCashAdvance($userId);
+        $pendingCa = $this->getCashAdvanceData($userId);
 
         if (!empty($pendingCa)) {
             redirect('transactions/cash-advance');

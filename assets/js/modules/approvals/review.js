@@ -3,7 +3,8 @@ const domReview = {
   reviewStatusBadge: null, reviewHeaderFields: null, viewApprovalItems: null,
   reviewTimeline: null, summaryReviewed: null, summaryApprovedAmount: null,
   summaryRejectedAmount: null, reviewerRemarks: null, btnSubmitDecision: null,
-  decisionSummary: null
+  decisionSummary: null, paymentActionBar: null, paymentActionStatus: null,
+  paymentActionRemarks: null, paymentActionRemarksLabel: null, btnPaymentAction: null
 };
 
 const IMG_EXTS = /\.(jpg|jpeg|png|gif|webp)$/i;
@@ -12,7 +13,7 @@ const ATTACHMENTS_BASE = base_url + 'assets/uploads/attachments/';
 let reviewState = {
   transactionType: null, referenceNo: null, items: [], header: null,
   decisions: {}, totalItems: 0, reviewedCount: 0, approvedAmount: 0, rejectedAmount: 0,
-  isPastMode: false
+  isPastMode: false, paymentCapability: null
 };
 
 /* ─── Derive an overall Approved/Rejected badge from item outcomes, used
@@ -1544,13 +1545,88 @@ const loadReviewData = () => {
     if (res.status !== 'success' || !res.data || !res.data.items || !Array.isArray(res.data.items)) { if (domReview.viewApprovalItems) domReview.viewApprovalItems.innerHTML = '<div class="alert alert-danger kna-small">' + escapeHtml(res.response || 'Failed to load details.') + '</div>'; return; }
     const responseData = res.data, items = responseData.items || [], attachments = responseData.attachments || [];
     if (!items.length) { if (domReview.viewApprovalItems) domReview.viewApprovalItems.innerHTML = '<div class="alert alert-danger kna-small">No data returned for this reference.</div>'; return; }
+
+    const paymentCapability = responseData.payment_capability || null;
+    const canAdvise = Boolean(paymentCapability && Number(paymentCapability.can_advise) === 1);
+    const canRelease = Boolean(paymentCapability && Number(paymentCapability.can_release) === 1);
+    reviewState.paymentCapability = paymentCapability;
+    if (canAdvise || canRelease) {
+      reviewState.isPastMode = true;
+      if (domReview.decisionSummary) domReview.decisionSummary.classList.add('d-none');
+    }
+
     reviewState.transactionType = items[0].transaction_type;
     if (reviewState.transactionType === 'CASH_ADVANCE') renderCashAdvance(items, attachments);
     else if (reviewState.transactionType === 'LIQUIDATION') renderLiquidation(items, attachments);
     else if (reviewState.transactionType === 'REIMBURSEMENT') renderReimbursement(items, attachments);
     else { if (domReview.viewApprovalItems) domReview.viewApprovalItems.innerHTML = '<div class="alert alert-danger kna-small">Unknown transaction type: ' + escapeHtml(reviewState.transactionType) + '</div>'; return; }
     renderReviewTimeline(); updateSummary();
+    applyPaymentActionBar(canAdvise, canRelease, paymentCapability);
   }).fail(() => { if (domReview.viewApprovalItems) domReview.viewApprovalItems.innerHTML = '<div class="alert alert-danger kna-small">Server error while fetching details.</div>'; });
+};
+
+/* ─── PAYMENT ADVISORY / RELEASE ─── */
+const applyPaymentActionBar = (canAdvise, canRelease, paymentCapability) => {
+  const bar = domReview.paymentActionBar;
+  if (!bar) return;
+
+  if (!canAdvise && !canRelease) {
+    bar.classList.add('d-none');
+    return;
+  }
+
+  bar.classList.remove('d-none');
+  if (domReview.paymentActionStatus) domReview.paymentActionStatus.textContent = (paymentCapability && paymentCapability.status_name) || '—';
+
+  const isRelease = canRelease;
+  if (domReview.paymentActionRemarksLabel) domReview.paymentActionRemarksLabel.textContent = isRelease ? 'Release Remarks' : 'Advisory Remarks';
+  if (domReview.paymentActionRemarks) domReview.paymentActionRemarks.placeholder = isRelease ? 'Optional notes about this payment release...' : 'Optional notes about this payment advisory...';
+  if (domReview.btnPaymentAction) {
+    domReview.btnPaymentAction.textContent = isRelease ? 'Release Payment' : 'Advise for Payment';
+    domReview.btnPaymentAction.disabled = false;
+  }
+};
+
+const submitPaymentAction = () => {
+  const paymentCapability = reviewState.paymentCapability;
+  if (!paymentCapability) return;
+
+  const isRelease = Number(paymentCapability.can_release) === 1;
+  const endpoint = isRelease ? 'transactions/approvals/api/payment/release' : 'transactions/approvals/api/payment/advise';
+  const confirmVerb = isRelease ? 'release payment for' : 'advise payment for';
+
+  Swal.fire({
+    icon: 'question', title: 'Confirm', text: `Are you sure you want to ${confirmVerb} ${reviewState.referenceNo}?`,
+    showCancelButton: true, confirmButtonText: 'Yes', cancelButtonText: 'No', reverseButtons: true
+  }).then((result) => {
+    if (!result.isConfirmed) return;
+
+    const payload = {
+      reference_no: reviewState.referenceNo,
+      remarks: domReview.paymentActionRemarks ? domReview.paymentActionRemarks.value : ''
+    };
+    const btn = domReview.btnPaymentAction;
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Processing...'; }
+
+    $.ajax({
+      url: base_url + endpoint, type: 'POST', contentType: 'application/json; charset=utf-8', dataType: 'json', data: JSON.stringify(payload),
+      success(response) {
+        if (response.status === 'success') {
+          Swal.fire({ icon: 'success', title: 'Done!', text: response.response || 'Payment action completed successfully.', confirmButtonText: 'OK', confirmButtonColor: '#17663a' })
+            .then(() => { window.location.href = base_url + 'transactions/approvals'; });
+        } else {
+          Swal.fire({ icon: 'error', title: 'Error', text: response.response || 'Unknown error occurred.', confirmButtonText: 'OK', confirmButtonColor: '#e03131' });
+          if (btn) { btn.disabled = false; applyPaymentActionBar(!isRelease && Boolean(paymentCapability.can_advise), isRelease, paymentCapability); }
+        }
+      },
+      error(xhr) {
+        let msg = 'Server error during submission.';
+        try { const resp = JSON.parse(xhr.responseText); if (resp.response) msg = resp.response; } catch (e) { }
+        Swal.fire({ icon: 'error', title: 'Server Error', text: msg, confirmButtonText: 'OK', confirmButtonColor: '#e03131' });
+        if (btn) { btn.disabled = false; applyPaymentActionBar(!isRelease && Boolean(paymentCapability.can_advise), isRelease, paymentCapability); }
+      }
+    });
+  });
 };
 
 const cacheReviewDom = () => {
@@ -1559,6 +1635,9 @@ const cacheReviewDom = () => {
   domReview.reviewTimeline = document.getElementById('reviewTimeline'); domReview.summaryReviewed = document.getElementById('summaryReviewed'); domReview.summaryApprovedAmount = document.getElementById('summaryApprovedAmount');
   domReview.summaryRejectedAmount = document.getElementById('summaryRejectedAmount'); domReview.reviewerRemarks = document.getElementById('reviewerRemarks'); domReview.btnSubmitDecision = document.getElementById('btnSubmitDecision');
   domReview.decisionSummary = document.getElementById('decisionSummary');
+  domReview.paymentActionBar = document.getElementById('paymentActionBar'); domReview.paymentActionStatus = document.getElementById('paymentActionStatus');
+  domReview.paymentActionRemarks = document.getElementById('paymentActionRemarks'); domReview.paymentActionRemarksLabel = document.getElementById('paymentActionRemarksLabel');
+  domReview.btnPaymentAction = document.getElementById('btnPaymentAction');
 
   reviewState.isPastMode = (domReview.reviewMode ? domReview.reviewMode.value : '') === 'past';
   if (reviewState.isPastMode && domReview.decisionSummary) {
@@ -1568,6 +1647,7 @@ const cacheReviewDom = () => {
   const lb = document.getElementById('knaLightbox');
   if (lb) { lb.addEventListener('click', e => { if (e.target === lb || e.target.id === 'knaLightboxClose') { lb.classList.add('d-none'); const img = document.getElementById('knaLightboxImg'); if (img) img.src = ''; } }); }
   if (domReview.btnSubmitDecision) domReview.btnSubmitDecision.addEventListener('click', submitDecisions);
+  if (domReview.btnPaymentAction) domReview.btnPaymentAction.addEventListener('click', submitPaymentAction);
   initHistoryModal();
 };
 

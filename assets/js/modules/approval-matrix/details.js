@@ -44,23 +44,44 @@ const detailsApproverRowMarkup = (detail = {}) => {
 	const approverId = String(detail.approver_id || '');
 	const order = Number(detail.approval_order || 1);
 	const type = String(detail.approval_type || 'SEQUENTIAL').toUpperCase() === 'PARALLEL' ? 'PARALLEL' : 'SEQUENTIAL';
+	const isPaymentAdvisory = Boolean(Number(detail.is_payment_advisory || 0));
+	const isPaymentRelease = Boolean(Number(detail.is_payment_release || 0));
+	const rowId = `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 	return `
 		<div class="kna-approver-row" data-approver-row style="position: relative;">
 			<div class="form-row align-items-end">
-				<div class="form-group col-md-6 mb-1 select2-parent-container">
+				<div class="form-group col-md-5 mb-1 select2-parent-container">
 					<label class="kna-form-label kna-small">Approver</label>
 					<select class="form-control form-control-sm kna-small js-approver-id">${buildApproverSelectMarkup(approverId)}</select>
 				</div>
-				<div class="form-group col-md-2 mb-1">
+				<div class="form-group col-md-1 mb-1">
 					<label class="kna-form-label kna-small">Order</label>
 					<input type="number" min="1" class="form-control form-control-sm kna-small js-approver-order" value="${escapeHtml(String(order))}" readonly>
 				</div>
-				<div class="form-group col-md-3 mb-1">
+				<div class="form-group col-md-2 mb-1">
 					<label class="kna-form-label kna-small">Approval Type</label>
 					<select class="form-control form-control-sm kna-small js-approver-type">
 						<option value="SEQUENTIAL" ${type === 'SEQUENTIAL' ? 'selected' : ''}>Sequential</option>
 						<option value="PARALLEL" ${type === 'PARALLEL' ? 'selected' : ''}>Parallel</option>
 					</select>
+				</div>
+				<div class="form-group col-md-3 mb-1">
+					<label class="kna-form-label kna-small">Payment Controls</label>
+					<div class="dropdown kna-payment-dropdown">
+						<button type="button" class="btn btn-outline-secondary btn-sm form-control form-control-sm kna-small text-left dropdown-toggle js-payment-dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+							<span class="js-payment-dropdown-label">None</span>
+						</button>
+						<div class="dropdown-menu kna-payment-dropdown-menu p-2">
+							<div class="custom-control custom-checkbox mb-1">
+								<input type="checkbox" class="custom-control-input js-approver-payment-advisory" id="paymentAdvisory_${rowId}" ${isPaymentAdvisory ? 'checked' : ''}>
+								<label class="custom-control-label kna-small" for="paymentAdvisory_${rowId}">Payment Advisory</label>
+							</div>
+							<div class="custom-control custom-checkbox mb-0">
+								<input type="checkbox" class="custom-control-input js-approver-payment-release" id="paymentRelease_${rowId}" ${isPaymentRelease ? 'checked' : ''}>
+								<label class="custom-control-label kna-small" for="paymentRelease_${rowId}">Payment Release</label>
+							</div>
+						</div>
+					</div>
 				</div>
 				<div class="form-group col-md-1 mb-1 text-right">
 					<button type="button" class="btn btn-outline-danger btn-sm kna-small" data-remove-approver>&times;</button>
@@ -70,20 +91,47 @@ const detailsApproverRowMarkup = (detail = {}) => {
 	`;
 };
 
+const updatePaymentDropdownLabel = (rowEl) => {
+	const label = rowEl.querySelector('.js-payment-dropdown-label');
+	if (!label) return;
+	const advisory = rowEl.querySelector('.js-approver-payment-advisory');
+	const release = rowEl.querySelector('.js-approver-payment-release');
+	const parts = [];
+	if (advisory && advisory.checked) parts.push('Advisory');
+	if (release && release.checked) parts.push('Release');
+	label.textContent = parts.length ? parts.join(' + ') : 'None';
+};
+
+const initPaymentDropdown = (rowEl) => {
+	const menu = rowEl.querySelector('.kna-payment-dropdown-menu');
+	if (!menu) return;
+
+	// Keep the dropdown open while checking/unchecking options.
+	menu.addEventListener('click', (event) => event.stopPropagation());
+
+	menu.querySelectorAll('.js-approver-payment-advisory, .js-approver-payment-release').forEach((checkbox) => {
+		checkbox.addEventListener('change', () => updatePaymentDropdownLabel(rowEl));
+	});
+
+	updatePaymentDropdownLabel(rowEl);
+};
+
 const initApproverRowSelect2 = (rowEl) => {
 	const $row = $(rowEl);
-	
-	$row.find('.js-approver-id').select2({ 
-		width: '100%', 
+
+	$row.find('.js-approver-id').select2({
+		width: '100%',
 		placeholder: 'Select approver',
-		dropdownParent: $row.find('.select2-parent-container') 
+		dropdownParent: $row.find('.select2-parent-container')
 	});
-	
-	$row.find('.js-approver-type').select2({ 
-		width: '100%', 
+
+	$row.find('.js-approver-type').select2({
+		width: '100%',
 		minimumResultsForSearch: Infinity,
-		dropdownParent: $row 
+		dropdownParent: $row
 	});
+
+	initPaymentDropdown(rowEl);
 };
 
 const getApproverRows = () => Array.from(document.querySelectorAll('[data-approver-row]'));
@@ -338,6 +386,8 @@ const collectApprovers = () => {
 		approver_id: String($(row).find('.js-approver-id').val() || ''),
 		approval_order: Number((row.querySelector('.js-approver-order') || {}).value || 0),
 		approval_type: String($(row).find('.js-approver-type').val() || 'SEQUENTIAL'),
+		is_payment_advisory: (row.querySelector('.js-approver-payment-advisory') || {}).checked ? 1 : 0,
+		is_payment_release: (row.querySelector('.js-approver-payment-release') || {}).checked ? 1 : 0,
 	})).filter((item) => item.approver_id && item.approval_order > 0);
 };
 

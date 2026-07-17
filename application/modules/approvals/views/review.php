@@ -889,6 +889,24 @@
                 </div>
             </div>
 
+            <div class="kna-review-submit-bar d-none" id="paymentActionBar">
+                <div class="kna-review-submit-stats">
+                    <div class="kna-review-stat-chip">
+                        <div class="kna-review-stat-chip-label">Current Status</div>
+                        <div class="kna-review-stat-chip-value" id="paymentActionStatus">—</div>
+                    </div>
+                </div>
+                <div class="kna-review-submit-remarks">
+                    <label class="kna-form-label kna-small font-weight-bold text-dark mb-1" id="paymentActionRemarksLabel">Remarks</label>
+                    <textarea class="form-control kna-small" id="paymentActionRemarks" rows="2" placeholder="Optional notes..."></textarea>
+                </div>
+                <div class="kna-review-submit-action">
+                    <button type="button" class="btn btn-success btn-sm kna-small font-weight-bold" id="btnPaymentAction">
+                        Action
+                    </button>
+                </div>
+            </div>
+
             <div class="kna-review-items-body" id="viewApprovalItems"></div>
         </div>
     </div>

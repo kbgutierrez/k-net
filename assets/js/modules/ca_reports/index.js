@@ -213,7 +213,7 @@ const refreshUI = () => {
 };
 
 const loadCashAdvances = () => {
-	const request = ajax_loader('ca_reports/api/get', { Take: 0 });
+	const request = ajax_loader('reports/ca_reports/api/get', { Take: 0 });
 
 	request.done((response) => {
 		const res = typeof response === 'string' ? JSON.parse(response) : response;
@@ -247,7 +247,7 @@ const applyFilters = () => {
 };
 
 const goToPath = (path) => {
-	window.location.href = `${base_url}${path}`;
+	window.location.href = `${base_url}reports/${path}`;
 };
 
 const cacheDom = () => {

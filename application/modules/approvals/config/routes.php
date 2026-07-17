@@ -14,3 +14,6 @@ $route['transactions/approvals/api/update/rmb-header'] = 'Approvals/api_update_r
 $route['transactions/approvals/consolidation'] = 'Approvals/consolidation';
 $route['transactions/approvals/api/get/consolidation-pivot'] = 'Approvals/api_get_consolidation_pivot';
 $route['transactions/approvals/api/bulk-decision'] = 'Approvals/api_bulk_decision';
+$route['transactions/approvals/api/get/payment-queue'] = 'Approvals/api_get_payment_queue';
+$route['transactions/approvals/api/payment/advise'] = 'Approvals/api_advise_payment';
+$route['transactions/approvals/api/payment/release'] = 'Approvals/api_release_payment';

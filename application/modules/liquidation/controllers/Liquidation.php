@@ -858,6 +858,10 @@ class Liquidation extends MY_Controller
                 }
             }
 
+            if ($statusCode === 'LQ_SUBMITTED') {
+                $this->notifyFirstApprover($liquidationId);
+            }
+
             $message = $statusCode === 'LQ_DRAFT'
                 ? 'Liquidation draft saved successfully'
                 : 'Liquidation submitted successfully';
@@ -866,6 +870,68 @@ class Liquidation extends MY_Controller
 
         } catch (Exception $e) {
             return $this->respondError("An error occurred: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Notify the first pending K-net approver once a liquidation is
+     * actually submitted (not a draft save). Never lets a notification
+     * failure affect the calling request's response.
+     */
+    private function notifyFirstApprover($liquidationId)
+    {
+        try {
+            if (!$this->sp || !$this->sp->db) {
+                return;
+            }
+
+            $header = $this->sp->db->get_where('tbl_approval_header', array('reference_id' => $liquidationId, 'is_active' => 1), 1)->row_array();
+            if (!is_array($header)) {
+                return;
+            }
+
+            $firstApprover = $this->sp->db->select('approver_id')
+                ->from('tbl_approval_details')
+                ->where('approval_header_id', $header['id'])
+                ->where('status', 'PENDING')
+                ->order_by('approval_order', 'ASC')
+                ->limit(1)
+                ->get()
+                ->row_array();
+
+            if (!is_array($firstApprover) || empty($firstApprover['approver_id'])) {
+                return;
+            }
+
+            $approverInfo = get_user_info((int) $firstApprover['approver_id']);
+            if (!is_array($approverInfo) || empty($approverInfo['email'])) {
+                return;
+            }
+
+            $lq = $this->sp->db->get_where('tbl_liquidation_header', array('liquidation_id' => $liquidationId), 1)->row_array();
+            $requesterInfo = (is_array($lq) && !empty($lq['created_by'])) ? get_user_info((int) $lq['created_by']) : null;
+
+            $approverName = trim((string) ($approverInfo['firstname'] ?? '') . ' ' . (string) ($approverInfo['lastname'] ?? ''));
+            $requesterName = is_array($requesterInfo)
+                ? trim((string) ($requesterInfo['firstname'] ?? '') . ' ' . (string) ($requesterInfo['lastname'] ?? ''))
+                : '';
+
+            $mergeData = array(
+                'amount' => number_format((float) ($lq['total_amount_spent'] ?? 0), 2),
+                'status' => 'PENDING',
+                'remarks' => '',
+                'action_date' => date('Y-m-d H:i:s'),
+                'requester_name' => $requesterName,
+                'requester_department' => is_array($requesterInfo) ? (string) ($requesterInfo['short_name'] ?? '') : '',
+                'approver_name' => $approverName,
+            );
+
+            notify_event('TXN_SUBMITTED', 'LIQUIDATION', $liquidationId, array(array(
+                'email' => $approverInfo['email'],
+                'name' => $approverName !== '' ? $approverName : $approverInfo['email'],
+            )), $mergeData);
+        } catch (Throwable $e) {
+            log_message('error', 'notifyFirstApprover failed for ' . $liquidationId . ': ' . $e->getMessage());
         }
     }
 

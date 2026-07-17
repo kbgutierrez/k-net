@@ -110,6 +110,11 @@
         color: #17663a;
     }
 
+    .kna-badge-partial {
+        background: #e9f3ff;
+        color: #1b4f88;
+    }
+
     .kna-badge-rejected {
         background: #fff5f5;
         color: #e03131;
@@ -212,6 +217,7 @@
         <div class="card-body py-2 d-flex align-items-center flex-wrap" style="gap:.5rem;">
             <button class="kna-tab is-active" data-approval-tab="pending">Pending Approvals</button>
             <button class="kna-tab" data-approval-tab="past">Past Approvals</button>
+            <button class="kna-tab" data-approval-tab="payment">For Payment</button>
         </div>
     </div>
 
@@ -256,6 +262,7 @@
                                 <th>Amount</th>
                                 <th>Submission Date</th>
                                 <th class="d-none" id="statusColumnHeader">Status</th>
+                                <th class="d-none" id="paymentActionColumnHeader">Payment Step</th>
                             </tr>
                         </thead>
                         <tbody id="matrixTbodyMain"></tbody>
