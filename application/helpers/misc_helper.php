@@ -205,7 +205,7 @@ if (!function_exists('get_user_info')) {
             'row'
           )
           );
-          
+
      return $result;
 
     }

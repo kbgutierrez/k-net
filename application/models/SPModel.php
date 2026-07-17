@@ -47,9 +47,25 @@ class SPModel extends CI_Model
     $cleaned = preg_replace('/^(?:\[[^\]]*\])+\s*/', '', $rawMessage);
     return ($cleaned !== null && trim($cleaned) !== '') ? trim($cleaned) : 'Something went wrong while saving. Please try again.';
   }
+  /**
+   * A stored proc that RAISERRORs/THROWs (e.g. a validation rule) makes
+   * the underlying driver query() call return FALSE instead of a query
+   * object (db_debug is suppressed in runQuerySafely so it doesn't hard-exit
+   * instead). Calling ->result_array()/->row_array() on that FALSE was a
+   * fatal "Call to a member function on boolean" rather than a normal
+   * catchable error - surface it the same clean way createData() does.
+   */
+  private function assertQuerySucceeded($query)
+  {
+    if (!$query) {
+      $db_error = $this->db->error();
+      throw new Exception($this->cleanErrorMessage($db_error['message']));
+    }
+  }
   public function fetchData($sp, $type = 'result')
   {
     $query = $this->runQuerySafely($sp);
+    $this->assertQuerySucceeded($query);
     return ($type == 'result') ? $query->result_array() : $query->row_array();
   }
   public function readData(
@@ -58,6 +74,7 @@ class SPModel extends CI_Model
     $type
   ) {
     $query = $this->runQuerySafely($sp, $data);
+    $this->assertQuerySucceeded($query);
     if ($type == 'result') {
       return $query->result_array();
     }
