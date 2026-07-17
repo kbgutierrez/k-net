@@ -201,7 +201,17 @@
 <div class="page-inner kna-page" id="approvalsListPage">
     <div class="d-flex align-items-center justify-content-between mb-2">
         <div>
-            <div class="kna-title">Pending Approvals</div>
+            <div class="kna-title" id="approvalsPageTitle">Pending Approvals</div>
+        </div>
+        <a href="<?= base_url('transactions/approvals/consolidation') ?>" class="btn btn-outline-primary btn-sm kna-small">
+            <i class="fas fa-table"></i> Batch Approval
+        </a>
+    </div>
+
+    <div class="card kna-card mb-2">
+        <div class="card-body py-2 d-flex align-items-center flex-wrap" style="gap:.5rem;">
+            <button class="kna-tab is-active" data-approval-tab="pending">Pending Approvals</button>
+            <button class="kna-tab" data-approval-tab="past">Past Approvals</button>
         </div>
     </div>
 
@@ -217,10 +227,7 @@
     <div class="card kna-card mb-2">
         <div class="card-body py-2 d-flex align-items-end flex-wrap" style="gap:.5rem;">
             <div>
-                <button type="button" class="kna-tab" id="btnMyTeamToggle" data-active="0">My Team</button>
-            </div>
-            <div>
-                <label class="kna-small kna-form-label mb-1">Submitted Date Range</label>
+                <label class="kna-small kna-form-label mb-1">Date Range</label>
                 <input type="text" class="form-control form-control-sm kna-small" id="filterDateRange" placeholder="Select date range" style="width:220px;">
             </div>
             <div>
@@ -234,7 +241,7 @@
     <div class="card kna-card">
         <div class="card-body">
             <div class="d-flex align-items-center justify-content-between mb-2">
-                <div class="kna-small text-muted">Awaiting Your Action</div>
+                <div class="kna-small text-muted" id="resultLabel">Awaiting Your Action</div>
                 <div class="kna-small text-muted" id="resultCount">0 Records</div>
             </div>
             <div class="kna-table-shell">
@@ -248,7 +255,7 @@
                                 <th>Department</th>
                                 <th>Amount</th>
                                 <th>Submission Date</th>
-                            
+                                <th class="d-none" id="statusColumnHeader">Status</th>
                             </tr>
                         </thead>
                         <tbody id="matrixTbodyMain"></tbody>
@@ -265,29 +272,8 @@
                     </table>
                 </div>
             </div>
-                    <div class="kna-mobile-list d-md-none">
-            <div class="kna-mobile-card">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <div class="font-weight-bold">CA-2026-0089</div>
-                        <div class="text-muted">Cash Advance</div>
-                    </div>
-  
-                </div>
-
-                <div class="mt-2 kna-small">
-                    <div><strong>Requestor:</strong> John Doe</div>
-                    <div><strong>Department:</strong> IT</div>
-                    <div><strong>Amount:</strong> ₱25,000.00</div>
-                    <div><strong>Date:</strong> Jun 10, 2026</div>
-                </div>
-
-                <div class="mt-2">
-                    <button class="btn btn-primary btn-sm btn-block">
-                        Review
-                    </button>
-                </div>
-            </div>
+                    <div class="kna-mobile-list d-md-none" id="approvalsMobileList">
+            <div class="text-center text-muted kna-small py-4">No Pending Approvals</div>
         </div>
             <div class="d-flex justify-content-end mt-2">
                 <nav aria-label="Approvals desktop pagination">

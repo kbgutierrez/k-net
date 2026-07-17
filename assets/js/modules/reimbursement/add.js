@@ -201,12 +201,6 @@ const renderExpenseItems = () => {
 				<div class="kna-item-row-fields">
 					${itemField('Doc Date', 'kna-f-date', `<input type="date" class="form-control form-control-sm" data-item-field="documentDate" data-item-id="${it.id}" value="${escapeHtml(it.documentDate)}">`)}
 					${itemField('Expense Type', 'kna-f-type', `<select class="form-control form-control-sm kna-expense-type-select" data-item-field="expenseType" data-item-id="${it.id}" data-current-value="${escapeHtml(it.expenseType)}" title="${escapeHtml(desc)}">${expenseTypeOptionsMarkup(it.expenseType)}</select>`)}
-					${itemField('Reference', 'kna-f-ref', `<input type="text" class="form-control form-control-sm" data-item-field="reference" data-item-id="${it.id}" value="${escapeHtml(it.reference)}" placeholder="Invoice / OR no.">`)}
-					${itemField('Amount', 'kna-f-amount', `<input type="number" min="0" step="0.01" class="form-control form-control-sm text-right" data-item-field="amount" data-item-id="${it.id}" value="${escapeHtml(it.amount)}" placeholder="0.00">`)}
-					${itemField('VAT', 'kna-f-vat', `<label class="kna-vat-wrap"><input type="checkbox" class="kna-vat-input" data-item-field="isVattable" data-item-id="${it.id}" ${it.isVattable ? 'checked' : ''}></label>`)}
-					${itemField('Vendor Name', 'kna-f-vendor', `<input type="text" class="form-control form-control-sm" data-item-field="vendorName" data-item-id="${it.id}" value="${escapeHtml(it.vendorName)}" placeholder="Vendor name">`)}
-					${itemField('Vendor Address', 'kna-f-vendor', `<input type="text" class="form-control form-control-sm" data-item-field="vendorAddress" data-item-id="${it.id}" value="${escapeHtml(it.vendorAddress)}" placeholder="Address">`)}
-					${itemField('TIN', 'kna-f-tin', `<input type="text" class="form-control form-control-sm" data-item-field="vendorTin" data-item-id="${it.id}" value="${escapeHtml(it.vendorTin)}" placeholder="TIN">`)}
 					<div class="kna-item-field kna-f-attach">
 						<span class="kna-item-field-label">Attachment</span>
 						<div class="kna-item-attach-inline">
@@ -217,6 +211,12 @@ const renderExpenseItems = () => {
 						</div>
 						${ocr.statusHtml(it.id)}
 					</div>
+					${itemField('Reference', 'kna-f-ref', `<input type="text" class="form-control form-control-sm" data-item-field="reference" data-item-id="${it.id}" value="${escapeHtml(it.reference)}" placeholder="Invoice / OR no.">`)}
+					${itemField('Amount', 'kna-f-amount', `<input type="number" min="0" step="0.01" class="form-control form-control-sm text-right" data-item-field="amount" data-item-id="${it.id}" value="${escapeHtml(it.amount)}" placeholder="0.00">`)}
+					${itemField('VAT', 'kna-f-vat', `<label class="kna-vat-wrap"><input type="checkbox" class="kna-vat-input" data-item-field="isVattable" data-item-id="${it.id}" ${it.isVattable ? 'checked' : ''}></label>`)}
+					${itemField('Vendor Name', 'kna-f-vendor', `<input type="text" class="form-control form-control-sm" data-item-field="vendorName" data-item-id="${it.id}" value="${escapeHtml(it.vendorName)}" placeholder="Vendor name">`)}
+					${itemField('Vendor Address', 'kna-f-vendor', `<input type="text" class="form-control form-control-sm" data-item-field="vendorAddress" data-item-id="${it.id}" value="${escapeHtml(it.vendorAddress)}" placeholder="Address">`)}
+					${itemField('TIN', 'kna-f-tin', `<input type="text" class="form-control form-control-sm" data-item-field="vendorTin" data-item-id="${it.id}" value="${escapeHtml(it.vendorTin)}" placeholder="TIN">`)}
 					${itemField('Remarks', 'kna-f-remarks', `<input type="text" class="form-control form-control-sm" data-item-field="remarks" data-item-id="${it.id}" value="${escapeHtml(it.remarks)}" placeholder="Remarks">`)}
 				</div>
 				<button type="button" class="kna-item-row-remove" data-item-action="remove" data-item-id="${it.id}" title="Remove item"><i class="fas fa-trash"></i></button>

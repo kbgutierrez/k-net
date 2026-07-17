@@ -23,7 +23,7 @@ class CA_Reports extends MY_Controller
             'module' => $this->module,
             'has_pending_ca' => !empty($pendingCa),
             'pending_ca_id' => $pendingCa ? $pendingCa['cash_advance_id'] : '',
-            'pending_ca_status' => $pendingCa ? $pendingCa['status_name'] : '',
+            'pending_ca_status' => $pendingCa ? $pendingCa['status'] : '',
             'scripts' => array(
                 '../ca_reports/index.js',
             ),
@@ -32,14 +32,14 @@ class CA_Reports extends MY_Controller
         $this->load->view('main', $data);
     }
 
-    private function getPendingCashAdvance($userId)
+    private function getCashAdvanceData($userId)
     {
         $params = array(
             'UserId' => $userId,
         );
 
         $result = $this->sp->readData(
-            build_sp('sp_fetch_pending_ca_by_user', count($params)),
+            build_sp('sp_fetch_ca_reports', count($params)),
             $params,
             'row'
         );

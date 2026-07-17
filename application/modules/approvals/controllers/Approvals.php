@@ -24,6 +24,159 @@ class Approvals extends MY_Controller
         $this->load->view('main', $data);
     }
 
+    /**
+     * Consolidation view — the pivot/batch page (GL Account rows x
+     * team-member columns) that digitizes the Accounting Excel
+     * reconciliation. Same page serves any approver at any level
+     * (Supervisor or Accounting): each only ever sees reimbursements
+     * currently pending at THEIR OWN approval step.
+     */
+    public function consolidation()
+    {
+        $data = array(
+            'title' => 'Batch Approval',
+            'main_view' => '../modules/approvals/views/consolidation',
+            'module_group' => $this->module_group,
+            'module' => $this->module,
+            'scripts' => array('consolidation.js'),
+        );
+        $this->load->view('main', $data);
+    }
+
+    /**
+     * Flat line-item rows for the consolidation pivot, scoped to
+     * whatever is currently pending at the logged-in user's own
+     * approval step. Client pivots into GL Account x person.
+     */
+    public function api_get_consolidation_pivot()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $dateFrom = isset($data['date_from']) ? trim((string) $data['date_from']) : '';
+            $dateTo = isset($data['date_to']) ? trim((string) $data['date_to']) : '';
+            $salesOfficeCode = !empty($data['sales_office_code']) ? trim((string) $data['sales_office_code']) : null;
+            $salesDistrictCode = !empty($data['sales_district_code']) ? trim((string) $data['sales_district_code']) : null;
+            $transactionType = !empty($data['transaction_type']) ? strtoupper(trim((string) $data['transaction_type'])) : 'REIMBURSEMENT';
+
+            if ($dateFrom === '' || $dateTo === '') {
+                throw new Exception('Date range is required.');
+            }
+
+            $userId = (int) $this->session->userdata('user_id');
+            if ($userId <= 0) {
+                throw new Exception('User not authenticated.');
+            }
+
+            $params = array(
+                'ApproverId' => $userId,
+                'DateFrom' => $dateFrom,
+                'DateTo' => $dateTo,
+                'SalesOfficeCode' => $salesOfficeCode,
+                'SalesDistrictCode' => $salesDistrictCode,
+                'TransactionType' => $transactionType,
+            );
+
+            $result = $this->sp->readData(
+                build_sp('sp_fetch_reimbursement_pivot_for_approver', count($params)),
+                $params,
+                'result'
+            );
+
+            return $this->respondSuccess('OK', is_array($result) ? $result : array());
+        } catch (Throwable $e) {
+            return $this->respondError($e->getMessage());
+        }
+    }
+
+    /**
+     * Bulk "Approve All" for the consolidation view — loops the
+     * SAME sp_approval_decision every single-transaction approval
+     * already uses (Approvals::api_submit_decisions), one call per
+     * reimbursement, so it fully respects the existing approval-order
+     * gate, per-item rollup, and rejection rules. Bulk REJECT is
+     * intentionally not supported here: rejecting a specific line
+     * still requires drilling into that one reimbursement via the
+     * existing review page, rather than an all-or-nothing bulk reject.
+     */
+    public function api_bulk_decision()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $referenceNumbers = isset($data['reference_numbers']) && is_array($data['reference_numbers'])
+                ? $data['reference_numbers']
+                : array();
+            $remarks = isset($data['remarks']) ? trim((string) $data['remarks']) : '';
+
+            if (count($referenceNumbers) === 0) {
+                throw new Exception('No reimbursements selected.');
+            }
+
+            $userId = (int) $this->session->userdata('user_id');
+            if ($userId <= 0) {
+                throw new Exception('User not authenticated.');
+            }
+
+            $approved = array();
+            $errors = array();
+
+            foreach ($referenceNumbers as $referenceNo) {
+                $referenceNo = trim((string) $referenceNo);
+                if ($referenceNo === '') {
+                    continue;
+                }
+
+                try {
+                    $spParams = array(
+                        'ReferenceId' => $referenceNo,
+                        'ApproverId' => $userId,
+                        'Status' => 'APPROVED',
+                        'Remarks' => $remarks,
+                        'RejectionReason' => null,
+                    );
+
+                    $result = $this->sp->readData(
+                        build_sp('sp_approval_decision', count($spParams)),
+                        $spParams,
+                        'result'
+                    );
+
+                    if (!is_array($result) || count($result) === 0) {
+                        throw new Exception('Decision processing returned no result.');
+                    }
+
+                    $this->logAuditTrail(
+                        'REIMBURSEMENT',
+                        $referenceNo,
+                        'APPROVED',
+                        'HEADER',
+                        $referenceNo,
+                        null,
+                        null,
+                        $remarks
+                    );
+
+                    $approved[] = $referenceNo;
+                } catch (Throwable $e) {
+                    $errors[] = array(
+                        'reference_no' => $referenceNo,
+                        'message' => $e->getMessage(),
+                    );
+                }
+            }
+
+            return $this->respondSuccess('Bulk decision processed.', array(
+                'approved' => $approved,
+                'errors' => $errors,
+            ));
+        } catch (Throwable $e) {
+            return $this->respondError($e->getMessage());
+        }
+    }
+
     public function review($approval_id = 0)
     {
         $costCenters = $this->sp->fetchData('sp_fetch_active_cost_centers');
@@ -36,12 +189,15 @@ class Approvals extends MY_Controller
             $expenseTypes = array();
         }
 
+        $reviewMode = ($this->input->get('mode') === 'past') ? 'past' : 'pending';
+
         $data = array(
             'title' => 'Review Approval',
             'main_view' => '../modules/approvals/views/review',
             'module_group' => $this->module_group,
             'module' => $this->module,
             'approval_id' => $approval_id,
+            'review_mode' => $reviewMode,
             'cost_centers' => $costCenters,
             'expense_types' => $expenseTypes,
             'scripts' => array('review.js'),
@@ -153,26 +309,44 @@ class Approvals extends MY_Controller
         }
     }
 
-    /**
-     * A supervisor's broader team (any designation, not just Salesman) —
-     * used for the "My Team" inbox filter. Reuses sp_fetch_supervisor_team_broad,
-     * the same lookup the Reimbursement module uses for proxy filing.
-     */
-    public function api_get_team()
+    public function api_get_past_header()
     {
         try {
             $this->output->set_content_type('application/json');
+            $userId = $this->session->userdata('user_id');
+            $cursorIdRaw = $this->input->post('CursorId');
+            $take = $this->resolvePaginationTake($this->input->post('Take'));
 
-            $userId = (int) $this->session->userdata('user_id');
-            $team = $this->sp->readData(
-                build_sp('sp_fetch_supervisor_team_broad', 1),
-                array('SupervisorUserId' => $userId),
+            $cursorId = null;
+            if ($cursorIdRaw !== null && $cursorIdRaw !== '') {
+                $cursorId = (int) $cursorIdRaw;
+            }
+
+            $params = array(
+                "UserId" => $userId,
+                "CursorId" => $cursorId,
+                "Take" => $take,
+            );
+
+            $result = $this->sp->readData(
+                build_sp('sp_fetch_past_approvals_header', count($params)),
+                $params,
                 'result'
             );
 
-            return $this->respondSuccess('OK', is_array($team) ? $team : array());
+            // Cursor column on this SP is approval_detail_id, not id.
+            $payload = $this->buildPaginationResult($result, $take, 'approval_detail_id');
+
+            echo json_encode(array(
+                'status' => 'success',
+                'data' => $payload['data'],
+                'pagination' => $payload['pagination'],
+            ));
         } catch (Exception $e) {
-            return $this->respondError('An error occurred: ' . $e->getMessage());
+            echo json_encode(array(
+                'status' => 'error',
+                'response' => "An error occurred: " . $e->getMessage(),
+            ));
         }
     }
 

@@ -1,4 +1,17 @@
 
+const APPROVALS_ENDPOINTS = {
+	pending: 'transactions/approvals/api/get/header',
+	past: 'transactions/approvals/api/get/past-header',
+};
+
+let selectedApprovalTab = 'pending';
+
+// Per-tab cache: rows already loaded, next cursor, and whether more rows exist.
+const approvalsTabState = {
+	pending: { rows: [], nextCursorId: null, hasMoreRows: false, loaded: false },
+	past: { rows: [], nextCursorId: null, hasMoreRows: false, loaded: false },
+};
+
 let approvals = [];
 let approvalsNextCursorId = null;
 let approvalsHasMoreRows = false;
@@ -7,8 +20,6 @@ let approvalsIsLoadingRows = false;
 let selectedTransactionType = 'ALL';
 let approvalsDesktopPage = 1;
 
-let myTeamActive = false;
-let teamMemberIds = [];
 let approvalsDateRangePicker = null;
 
 const APPROVALS_PAGE_SIZE = 10;
@@ -60,6 +71,8 @@ const normalizeApprovalRows = (rows) =>
 		department: normalizeDate(row.department),
 		amount: Number(row.ca_amount ?? row.lq_amount ?? 0),
 		submittedDate: normalizeDate(row.submitted_date).slice(0, 10),
+		decisionStatus: normalizeDate(row.decision_status).toUpperCase(),
+		decidedDate: normalizeDate(row.decided_date).slice(0, 10),
 	}));
 
 const loadApprovals = (reset = false) => {
@@ -67,10 +80,13 @@ const loadApprovals = (reset = false) => {
 		return;
 	}
 
+	const tabState = approvalsTabState[selectedApprovalTab];
+
 	if (reset) {
-		approvals = [];
-		approvalsNextCursorId = null;
-		approvalsHasMoreRows = false;
+		tabState.rows = [];
+		tabState.nextCursorId = null;
+		tabState.hasMoreRows = false;
+		tabState.loaded = false;
 		approvalsDesktopPage = 1;
 	}
 
@@ -82,11 +98,13 @@ const loadApprovals = (reset = false) => {
 		Take: reset ? 0 : APPROVALS_PAGE_SIZE,
 	};
 
-	if (approvalsNextCursorId !== null) {
-		payload.CursorId = approvalsNextCursorId;
+	if (tabState.nextCursorId !== null) {
+		payload.CursorId = tabState.nextCursorId;
 	}
 
-	ajax_loader('transactions/approvals/api/get/header', payload)
+	const requestedTab = selectedApprovalTab;
+
+	ajax_loader(APPROVALS_ENDPOINTS[requestedTab], payload)
 		.done((response) => {
 			const res = (typeof response === 'string')
 				? $.parseJSON(response)
@@ -98,33 +116,29 @@ const loadApprovals = (reset = false) => {
 			}
 
 			const newRows = normalizeApprovalRows(res.data || []);
+			const state = approvalsTabState[requestedTab];
 
-			approvals = reset
+			state.rows = reset
 				? newRows
-				: approvals.concat(newRows);
+				: state.rows.concat(newRows);
 
 			const pagination = res.pagination || {};
 
-			approvalsHasMoreRows = Boolean(pagination.hasMore);
-			approvalsNextCursorId = approvalsHasMoreRows
+			state.hasMoreRows = Boolean(pagination.hasMore);
+			state.nextCursorId = state.hasMoreRows
 				? (pagination.nextCursorId || null)
 				: null;
+			state.loaded = true;
 
 			approvalsIsLoadingRows = false;
 
-			refreshApprovalsList();
+			if (requestedTab === selectedApprovalTab) {
+				approvals = state.rows;
+				refreshApprovalsList();
+			}
 		})
 		.fail(() => {
 			approvalsIsLoadingRows = false;
-		});
-};
-
-const loadTeam = () => {
-	ajax_loader('transactions/approvals/api/get/team', {})
-		.done((response) => {
-			const res = (typeof response === 'string') ? $.parseJSON(response) : response;
-			if (res.status !== 'success') return;
-			teamMemberIds = (res.data || []).map((m) => Number(m.member_user_id || 0)).filter(Boolean);
 		});
 };
 
@@ -146,7 +160,6 @@ const matchesDateRange = (row) => {
 
 const getFilteredApprovals = () => approvals
 	.filter((row) => selectedTransactionType === 'ALL' || row.transactionType === selectedTransactionType)
-	.filter((row) => !myTeamActive || teamMemberIds.includes(row.userId))
 	.filter(matchesDateRange);
 
 const renderDesktopPagination = (rows) => {
@@ -195,6 +208,60 @@ const goToDesktopPage = (targetPage) => {
 	refreshApprovalsList();
 };
 
+const isPastTab = () => selectedApprovalTab === 'past';
+
+const getStatusBadgeHtml = (decisionStatus) => {
+	if (decisionStatus === 'APPROVED') {
+		return '<span class="kna-badge kna-badge-approved">Approved</span>';
+	}
+	if (decisionStatus === 'REJECTED') {
+		return '<span class="kna-badge kna-badge-rejected">Rejected</span>';
+	}
+	return '—';
+};
+
+const getReviewUrl = (row) => {
+	const base = `${base_url}transactions/approvals/review/${encodeURIComponent(row.referenceNo)}`;
+	return isPastTab() ? `${base}?mode=past` : base;
+};
+
+const renderMobileCards = (pageRows) => {
+	const mobileList = document.getElementById('approvalsMobileList');
+	if (!mobileList) {
+		return;
+	}
+
+	if (!pageRows.length) {
+		mobileList.innerHTML = `<div class="text-center text-muted kna-small py-4">No ${isPastTab() ? 'Past' : 'Pending'} Approvals</div>`;
+		return;
+	}
+
+	mobileList.innerHTML = pageRows.map((row) => `
+		<div class="kna-mobile-card">
+			<div class="d-flex justify-content-between align-items-start">
+				<div>
+					<div class="font-weight-bold">${escapeHtml(row.referenceNo)}</div>
+					<div class="text-muted kna-small">${escapeHtml(getTransactionTypeLabel(row.transactionType))}</div>
+				</div>
+				${isPastTab() ? `<div>${getStatusBadgeHtml(row.decisionStatus)}</div>` : ''}
+			</div>
+			<div class="mt-2 kna-small">
+				<div><strong>Requestor:</strong> ${escapeHtml(row.requestor)}</div>
+				<div><strong>Department:</strong> ${escapeHtml(row.department)}</div>
+				<div><strong>Amount:</strong> ${formatPHP(row.amount)}</div>
+				<div><strong>Date:</strong> ${formatDisplayDate(row.submittedDate)}</div>
+			</div>
+			<div class="mt-2">
+				<a
+					class="btn btn-primary btn-sm btn-block"
+					href="${getReviewUrl(row)}">
+					${isPastTab() ? 'View' : 'Review'}
+				</a>
+			</div>
+		</div>
+	`).join('');
+};
+
 const refreshApprovalsList = () => {
 	const tbodyMain = document.getElementById('matrixTbodyMain');
 	const tbodyAction = document.getElementById('matrixTbodyAction');
@@ -211,12 +278,13 @@ const refreshApprovalsList = () => {
 
 	const start = (approvalsDesktopPage - 1) * APPROVALS_PAGE_SIZE;
 	const pageRows = rows.slice(start, start + APPROVALS_PAGE_SIZE);
+	const colCount = isPastTab() ? 7 : 6;
 
 	if (!pageRows.length) {
 		tbodyMain.innerHTML = `
 		<tr>
-			<td colspan="6" class="text-center text-muted kna-small py-4">
-				No Pending Approvals
+			<td colspan="${colCount}" class="text-center text-muted kna-small py-4">
+				No ${isPastTab() ? 'Past' : 'Pending'} Approvals
 			</td>
 		</tr>
 	`;
@@ -231,6 +299,7 @@ const refreshApprovalsList = () => {
 			resultCount.textContent = '0 Records';
 		}
 
+		renderMobileCards([]);
 		renderDesktopPagination([]);
 		return;
 	}
@@ -243,6 +312,7 @@ const refreshApprovalsList = () => {
 			<td>${escapeHtml(row.department)}</td>
 			<td>${formatPHP(row.amount)}</td>
 			<td>${formatDisplayDate(row.submittedDate)}</td>
+			${isPastTab() ? `<td>${getStatusBadgeHtml(row.decisionStatus)}</td>` : ''}
 		</tr>
 	`).join('');
 
@@ -251,8 +321,8 @@ const refreshApprovalsList = () => {
 			<td>
 				<a
 					class="btn btn-outline-primary btn-xs kna-small py-1 px-2"
-					href="${base_url}transactions/approvals/review/${encodeURIComponent(row.referenceNo)}">
-					Review
+					href="${getReviewUrl(row)}">
+					${isPastTab() ? 'View' : 'Review'}
 				</a>
 			</td>
 		</tr>
@@ -262,7 +332,43 @@ const refreshApprovalsList = () => {
 		resultCount.textContent = `${rows.length} Record${rows.length === 1 ? '' : 's'}`;
 	}
 
+	renderMobileCards(pageRows);
 	renderDesktopPagination(rows);
+};
+
+const updateApprovalTabChrome = () => {
+	const pageTitle = document.getElementById('approvalsPageTitle');
+	const resultLabel = document.getElementById('resultLabel');
+	const statusColumnHeader = document.getElementById('statusColumnHeader');
+
+	if (pageTitle) {
+		pageTitle.textContent = isPastTab() ? 'Past Approvals' : 'Pending Approvals';
+	}
+	if (resultLabel) {
+		resultLabel.textContent = isPastTab() ? 'Already Reviewed' : 'Awaiting Your Action';
+	}
+	if (statusColumnHeader) {
+		statusColumnHeader.classList.toggle('d-none', !isPastTab());
+	}
+};
+
+const switchApprovalTab = (tab) => {
+	if (tab !== 'pending' && tab !== 'past') {
+		return;
+	}
+
+	selectedApprovalTab = tab;
+	approvalsDesktopPage = 1;
+	updateApprovalTabChrome();
+
+	const tabState = approvalsTabState[tab];
+	if (tabState.loaded) {
+		approvals = tabState.rows;
+		refreshApprovalsList();
+		return;
+	}
+
+	loadApprovals(true);
 };
 
 const initListPage = () => {
@@ -270,6 +376,16 @@ const initListPage = () => {
 	if (!listPage) {
 		return;
 	}
+
+	document.querySelectorAll('.kna-tab[data-approval-tab]').forEach((tab) => {
+		tab.addEventListener('click', () => {
+			document.querySelectorAll('.kna-tab[data-approval-tab]').forEach((el) => {
+				el.classList.remove('is-active');
+			});
+			tab.classList.add('is-active');
+			switchApprovalTab(tab.getAttribute('data-approval-tab') || 'pending');
+		});
+	});
 
 	document.querySelectorAll('.kna-tab[data-transaction-type]').forEach((tab) => {
 		tab.addEventListener('click', () => {
@@ -282,17 +398,6 @@ const initListPage = () => {
 			refreshApprovalsList();
 		});
 	});
-
-	const btnMyTeamToggle = document.getElementById('btnMyTeamToggle');
-	if (btnMyTeamToggle) {
-		btnMyTeamToggle.addEventListener('click', () => {
-			myTeamActive = !myTeamActive;
-			btnMyTeamToggle.classList.toggle('is-active', myTeamActive);
-			btnMyTeamToggle.setAttribute('data-active', myTeamActive ? '1' : '0');
-			approvalsDesktopPage = 1;
-			refreshApprovalsList();
-		});
-	}
 
 	const filterDateRange = document.getElementById('filterDateRange');
 	if (filterDateRange && typeof flatpickr !== 'undefined') {
@@ -312,11 +417,6 @@ const initListPage = () => {
 	const btnResetApprovalFilters = document.getElementById('btnResetApprovalFilters');
 	if (btnResetApprovalFilters) {
 		btnResetApprovalFilters.addEventListener('click', () => {
-			myTeamActive = false;
-			if (btnMyTeamToggle) {
-				btnMyTeamToggle.classList.remove('is-active');
-				btnMyTeamToggle.setAttribute('data-active', '0');
-			}
 			if (approvalsDateRangePicker) approvalsDateRangePicker.clear();
 			approvalsDesktopPage = 1;
 			refreshApprovalsList();
@@ -346,7 +446,6 @@ const initListPage = () => {
 		});
 	}
 
-	loadTeam();
 	loadApprovals(true);
 };
 

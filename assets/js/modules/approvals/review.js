@@ -1,8 +1,9 @@
 const domReview = {
-  approvalRef: null, currentUserId: null, reviewTitle: null,
+  approvalRef: null, currentUserId: null, reviewMode: null, reviewTitle: null,
   reviewStatusBadge: null, reviewHeaderFields: null, viewApprovalItems: null,
   reviewTimeline: null, summaryReviewed: null, summaryApprovedAmount: null,
-  summaryRejectedAmount: null, reviewerRemarks: null, btnSubmitDecision: null
+  summaryRejectedAmount: null, reviewerRemarks: null, btnSubmitDecision: null,
+  decisionSummary: null
 };
 
 const IMG_EXTS = /\.(jpg|jpeg|png|gif|webp)$/i;
@@ -10,7 +11,17 @@ const ATTACHMENTS_BASE = base_url + 'assets/uploads/attachments/';
 
 let reviewState = {
   transactionType: null, referenceNo: null, items: [], header: null,
-  decisions: {}, totalItems: 0, reviewedCount: 0, approvedAmount: 0, rejectedAmount: 0
+  decisions: {}, totalItems: 0, reviewedCount: 0, approvedAmount: 0, rejectedAmount: 0,
+  isPastMode: false
+};
+
+/* ─── Derive an overall Approved/Rejected badge from item outcomes, used
+   in past (read-only) mode since the header status coming back from the
+   SP for LQ/RMB is not reliable ("Pending Approval" is hardcoded at
+   render time regardless of actual state). ─── */
+const getPastOverallStatusBadge = (items) => {
+  const hasRejected = (items || []).some(item => (item.item_status || '').toUpperCase() === 'REJECTED');
+  return getStatusBadge(hasRejected ? 'Rejected' : 'Approved');
 };
 
 /* ─── AMOUNT TO WORDS (from add.js) ─── */
@@ -342,6 +353,13 @@ const initCaHeaderEditor = (referenceNo, options = {}) => {
   const addressInput = document.getElementById('reviewAddress');
   const ioInput = document.getElementById('reviewIo');
 
+  if (reviewState.isPastMode) {
+    [ccSelect, payableInput, addressInput, ioInput].forEach(el => { if (el) el.setAttribute('disabled', 'disabled'); });
+    if (ccSelect && window.jQuery && $.fn.select2) $(ccSelect).prop('disabled', true);
+    if (btn) btn.classList.add('d-none');
+    return;
+  }
+
   if (!btn) return;
 
   const checkDirty = () => {
@@ -507,13 +525,13 @@ const renderCashAdvance = (data, attachments = []) => {
         <div class="kna-overview-value kna-amount-approved" id="caApprovedAmountDisplay">${formatPHP(h.approved_amount || h.amount || h.ca_amount || 0)}</div>
         ${(h.approved_amount && Number(h.approved_amount) !== Number(h.amount || h.ca_amount)) ? `<div class="kna-amount-words" id="caApprovedAmountWords">${escapeHtml(h.approved_amount_in_words || amountToWords(h.approved_amount))}</div>` : ''}
       </div>
-      <div class="kna-overview-cell">
+      <div class="kna-overview-cell wide">
         <div class="kna-overview-label">Payable To</div>
         <div class="kna-overview-value">
           <input type="text" class="form-control form-control-sm kna-ca-field-input" id="reviewPayableTo" data-field="payable_to" data-original="${escapeHtml(h.payable_to || '')}" value="${escapeHtml(h.payable_to || '')}" placeholder="Enter payable to..." style="min-width:140px;">
         </div>
       </div>
-      <div class="kna-overview-cell">
+      <div class="kna-overview-cell wide">
         <div class="kna-overview-label">Cost Center</div>
         <div class="kna-overview-value">
           <select class="kna-cost-center-select" id="reviewCostCenter" data-field="cost_center_id" data-original="${escapeHtml(currentCostCenterId)}" style="min-width:140px;">
@@ -521,13 +539,13 @@ const renderCashAdvance = (data, attachments = []) => {
           </select>
         </div>
       </div>
-      <div class="kna-overview-cell">
+      <div class="kna-overview-cell wide">
         <div class="kna-overview-label">Address</div>
         <div class="kna-overview-value">
           <input type="text" class="form-control form-control-sm kna-ca-field-input" id="reviewAddress" data-field="address" data-original="${escapeHtml(h.address || '')}" value="${escapeHtml(h.address || '')}" placeholder="Enter address..." style="min-width:140px;">
         </div>
       </div>
-      <div class="kna-overview-cell">
+      <div class="kna-overview-cell wide">
         <div class="kna-overview-label">IO</div>
         <div class="kna-overview-value">
           <input type="text" class="form-control form-control-sm kna-ca-field-input" id="reviewIo" data-field="io" data-original="${escapeHtml(currentIo)}" value="${escapeHtml(currentIo)}" placeholder="Enter IO..." style="min-width:140px;">
@@ -615,6 +633,8 @@ const renderCashAdvance = (data, attachments = []) => {
   const originalAmount = Number(h.amount || h.ca_amount || 0);
   const approvedAmount = Number(h.approved_amount || 0);
   const displayAmount = approvedAmount > 0 ? approvedAmount : originalAmount;
+  const caIsReadOnly = reviewState.isPastMode;
+  const caDisabledAttr = caIsReadOnly ? 'disabled' : '';
 
   reviewState.decisions[caKey] = {
     decision: null,
@@ -628,21 +648,29 @@ const renderCashAdvance = (data, attachments = []) => {
     approval_per_item_id: null,
     item_status: 'PENDING',
     isOwnDecision: true,
-    isReadOnly: false
+    isReadOnly: caIsReadOnly
   };
 
+  const caActionCellHtml = caIsReadOnly
+    ? renderReadOnlyAction(h.status_name, '', h.rejection_reason || '')
+    : `<div class="kna-item-decision"><div class="kna-toggle-group"><button type="button" class="kna-toggle-btn is-approve" data-decision="approve" data-key="${caKey}" title="Approve"><i class="fas fa-check"></i></button><button type="button" class="kna-toggle-btn is-reject" data-decision="reject" data-key="${caKey}" title="Reject"><i class="fas fa-times"></i></button></div><textarea class="kna-item-remark d-none" data-key="${caKey}" placeholder="Remarks are required for rejection..."></textarea><button type="button" class="kna-cancel-reject d-none" data-cancel-reject data-key="${caKey}" title="Cancel rejection"><i class="fas fa-undo"></i> Cancel</button></div>`;
+
   const desktopHtml = `<div class="kna-review-desktop kna-review-desktop-ca"><div class="kna-review-table-shell">
-    <div class="kna-review-table-wrap-main"><table class="table table-sm kna-review-table-main"><thead><tr><th>Description</th><th class="text-right">Amount</th></tr></thead><tbody><tr data-item-key="${caKey}"><td><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-ca-description" data-key="${caKey}" value="${escapeHtml(caDescription)}" placeholder="Description"></td><td>
+    <div class="kna-review-table-wrap-main"><table class="table table-sm kna-review-table-main"><thead><tr><th>Description</th><th class="text-right">Amount</th></tr></thead><tbody><tr data-item-key="${caKey}"><td><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-ca-description" data-key="${caKey}" value="${escapeHtml(caDescription)}" placeholder="Description" ${caDisabledAttr}></td><td>
   <div class="kna-amount-input-wrap">
     ${approvedAmount > 0 && approvedAmount !== originalAmount ? `<div class="kna-original-amount-strike">${formatPHP(originalAmount)}</div>` : ''}
-    <input type="number" step="0.01" min="0" class="form-control form-control-sm kna-inline-edit-input kna-edit-ca-amount text-right" data-key="${caKey}" value="${escapeHtml(displayAmount)}" placeholder="0.00">
+    <input type="number" step="0.01" min="0" class="form-control form-control-sm kna-inline-edit-input kna-edit-ca-amount text-right" data-key="${caKey}" value="${escapeHtml(displayAmount)}" placeholder="0.00" ${caDisabledAttr}>
   </div>
 </td>
 </tr></tbody></table></div>
-    <div class="kna-review-table-wrap-action"><table class="table table-sm kna-review-table-action"><thead><tr><th>Action</th></tr></thead><tbody><tr data-item-key="${caKey}"><td class="kna-col-action"><div class="kna-item-decision"><div class="kna-toggle-group"><button type="button" class="kna-toggle-btn is-approve" data-decision="approve" data-key="${caKey}" title="Approve"><i class="fas fa-check"></i></button><button type="button" class="kna-toggle-btn is-reject" data-decision="reject" data-key="${caKey}" title="Reject"><i class="fas fa-times"></i></button></div><textarea class="kna-item-remark d-none" data-key="${caKey}" placeholder="Remarks are required for rejection..."></textarea><button type="button" class="kna-cancel-reject d-none" data-cancel-reject data-key="${caKey}" title="Cancel rejection"><i class="fas fa-undo"></i> Cancel</button></div></td></tr></tbody></table></div>
+    <div class="kna-review-table-wrap-action"><table class="table table-sm kna-review-table-action"><thead><tr><th>Action</th></tr></thead><tbody><tr data-item-key="${caKey}"><td class="kna-col-action">${caActionCellHtml}</td></tr></tbody></table></div>
   </div><div class="kna-review-footer"><div class="kna-review-footer-main"><span class="kna-review-footer-label">Total Requested</span><div class="kna-review-footer-amount kna-amount-main">${formatPHP(h.ca_amount || 0)}</div></div></div></div>`;
 
-  const mobileHtml = `<div class="kna-exp-mobile"><div class="kna-exp-card" data-item-key="${caKey}"><div class="kna-exp-card-head"><div><div class="kna-exp-card-title">${escapeHtml(h.description || 'Cash Advance')}</div><div class="kna-exp-card-meta">Ref: ${escapeHtml(h.reference_no || '-')}</div></div><div class="kna-exp-card-amount"><div class="kna-amount-main">${formatPHP(displayAmount)}</div>${approvedAmount > 0 && approvedAmount !== originalAmount ? `<div class="kna-amount-breakdown"><s>${formatPHP(originalAmount)}</s> original</div>` : ''}</div></div><div class="kna-exp-card-grid"><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Description</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-ca-description" data-key="${caKey}" value="${escapeHtml(caDescription)}" placeholder="Description"></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Amount</span><span class="kna-exp-card-value"><input type="number" step="0.01" min="0" class="form-control form-control-sm kna-inline-edit-input kna-edit-ca-amount text-right" data-key="${caKey}" value="${escapeHtml(displayAmount)}" placeholder="0.00"></span></div></div><div class="kna-item-decision"><div class="kna-toggle-group"><button type="button" class="kna-toggle-btn is-approve" data-decision="approve" data-key="${caKey}"><i class="fas fa-check"></i> Approve</button><button type="button" class="kna-toggle-btn is-reject" data-decision="reject" data-key="${caKey}"><i class="fas fa-times"></i> Reject</button></div><textarea class="kna-item-remark d-none" data-key="${caKey}" placeholder="Remarks are required for rejection..."></textarea><button type="button" class="kna-cancel-reject d-none" data-cancel-reject data-key="${caKey}"><i class="fas fa-undo"></i> Cancel</button></div></div></div>`;
+  const caMobileDecisionHtml = caIsReadOnly
+    ? `<div class="mt-2">${renderReadOnlyAction(h.status_name, '', h.rejection_reason || '')}</div>`
+    : `<div class="kna-item-decision"><div class="kna-toggle-group"><button type="button" class="kna-toggle-btn is-approve" data-decision="approve" data-key="${caKey}"><i class="fas fa-check"></i> Approve</button><button type="button" class="kna-toggle-btn is-reject" data-decision="reject" data-key="${caKey}"><i class="fas fa-times"></i> Reject</button></div><textarea class="kna-item-remark d-none" data-key="${caKey}" placeholder="Remarks are required for rejection..."></textarea><button type="button" class="kna-cancel-reject d-none" data-cancel-reject data-key="${caKey}"><i class="fas fa-undo"></i> Cancel</button></div>`;
+
+  const mobileHtml = `<div class="kna-exp-mobile"><div class="kna-exp-card" data-item-key="${caKey}"><div class="kna-exp-card-head"><div><div class="kna-exp-card-title">${escapeHtml(h.description || 'Cash Advance')}</div><div class="kna-exp-card-meta">Ref: ${escapeHtml(h.reference_no || '-')}</div></div><div class="kna-exp-card-amount"><div class="kna-amount-main">${formatPHP(displayAmount)}</div>${approvedAmount > 0 && approvedAmount !== originalAmount ? `<div class="kna-amount-breakdown"><s>${formatPHP(originalAmount)}</s> original</div>` : ''}</div></div><div class="kna-exp-card-grid"><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Description</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-ca-description" data-key="${caKey}" value="${escapeHtml(caDescription)}" placeholder="Description" ${caDisabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Amount</span><span class="kna-exp-card-value"><input type="number" step="0.01" min="0" class="form-control form-control-sm kna-inline-edit-input kna-edit-ca-amount text-right" data-key="${caKey}" value="${escapeHtml(displayAmount)}" placeholder="0.00" ${caDisabledAttr}></span></div></div>${caMobileDecisionHtml}</div></div>`;
 
   if (domReview.viewApprovalItems) domReview.viewApprovalItems.innerHTML = desktopHtml + mobileHtml;
   requestAnimationFrame(() => requestAnimationFrame(syncRowHeights));
@@ -653,7 +681,7 @@ const renderLiquidation = (data, attachments = []) => {
   const currentUserId = Number(domReview.currentUserId?.value || 0);
   reviewState.header = data[0]; reviewState.items = data; reviewState.totalItems = data.length; reviewState.decisions = {};
   if (domReview.reviewTitle) domReview.reviewTitle.textContent = 'Review Liquidation';
-  if (domReview.reviewStatusBadge) domReview.reviewStatusBadge.innerHTML = getStatusBadge('Pending Approval');
+  if (domReview.reviewStatusBadge) domReview.reviewStatusBadge.innerHTML = reviewState.isPastMode ? getPastOverallStatusBadge(data) : getStatusBadge('Pending Approval');
 
   const first = data[0], requesterName = first.user_name || '-', cashAdvanceAmount = Number(first.ca_amount) || 0;
   const totalLiquidated = data.reduce((s, item) => s + (Number(item.gross_amount ?? item.lq_amount) || 0), 0), varianceAmount = Number(first.variance) || 0;
@@ -698,7 +726,7 @@ const renderLiquidation = (data, attachments = []) => {
       <div class="kna-overview-label">Cost Center</div>
       <div class="kna-overview-value">${escapeHtml(first.cost_center_id)} - ${escapeHtml(first.cost_center_name || first.cost_center || '-')}</div>
     </div>
-    <div class="kna-overview-cell wide">
+    <div class="kna-overview-cell">
       <div class="kna-overview-label">Address</div>
       <div class="kna-overview-value kna-address">${escapeHtml(first.address || '-')}</div>
     </div>
@@ -840,7 +868,7 @@ const renderLiquidation = (data, attachments = []) => {
       </div>`;
     const vendorInputHtml = `<div class="kna-vendor-edit-wrap"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-name" data-key="${key}" value="${escapeHtml(initialVendorName)}" placeholder="Vendor name" ${disabledAttr}><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-address" data-key="${key}" value="${escapeHtml(initialVendorAddress)}" placeholder="Vendor address" ${disabledAttr}><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-tin" data-key="${key}" value="${escapeHtml(initialVendorTin)}" placeholder="TIN" ${disabledAttr}></div>`;
 
-    mainRows += `<tr data-item-key="${key}" class="${rowClass}"><td class="text-center kna-rownum">${idx + 1}</td><td class="kna-col-description">${descriptionInputHtml}</td><td class="kna-col-category">${categoryInputHtml}</td><td>${invoiceInputHtml}</td><td>${docDateInputHtml}</td><td class="text-right kna-amount-main">${grossInputHtml}</td><td class="text-center kna-vat-cell"><label class="kna-vat-indicator"><input type="checkbox" class="kna-vat-check kna-vat-approver" data-key="${key}" ${originalIsVatable ? 'checked' : ''} ${disabledAttr}></label></td><td class="text-right kna-net-cell">${formatPHP(vatCalc.netAmount)}</td><td class="text-right kna-vat-amt-cell">${formatPHP(vatCalc.vatAmount)}</td><td>${attachHtml}</td><td class="kna-col-vendor">${vendorInputHtml}</td></tr>`;
+    mainRows += `<tr data-item-key="${key}" class="${rowClass}"><td class="text-center kna-rownum">${idx + 1}</td><td class="kna-col-description">${descriptionInputHtml}</td><td class="kna-col-category">${categoryInputHtml}</td><td>${attachHtml}</td><td>${invoiceInputHtml}</td><td>${docDateInputHtml}</td><td class="text-right kna-amount-main">${grossInputHtml}</td><td class="text-center kna-vat-cell"><label class="kna-vat-indicator"><input type="checkbox" class="kna-vat-check kna-vat-approver" data-key="${key}" ${originalIsVatable ? 'checked' : ''} ${disabledAttr}></label></td><td class="text-right kna-net-cell">${formatPHP(vatCalc.netAmount)}</td><td class="text-right kna-vat-amt-cell">${formatPHP(vatCalc.vatAmount)}</td><td class="kna-col-vendor">${vendorInputHtml}</td></tr>`;
 
     const actionCellHtml = isReadOnly
       ? renderReadOnlyAction(itemStatus, decidedByName, item.item_remarks)
@@ -851,7 +879,7 @@ const renderLiquidation = (data, attachments = []) => {
       ? `<div class="kna-item-decision mt-2"><div class="kna-readonly-status"><i class="fas ${itemStatus === 'APPROVED' ? 'fa-check-circle' : 'fa-times-circle'}" style="color:${itemStatus === 'APPROVED' ? '#17663a' : '#e03131'};font-size:14px;"></i><span class="kna-badge ${itemStatus === 'APPROVED' ? 'kna-badge-approved' : 'kna-badge-rejected'}">${itemStatus}</span></div><div class="kna-readonly-by">by ${escapeHtml(decidedByName)}</div>${item.item_remarks ? `<div class="kna-readonly-remark">${escapeHtml(item.item_remarks)}</div>` : ''}</div>`
       : `<div class="kna-item-decision mt-2"><div class="kna-toggle-group"><button type="button" class="kna-toggle-btn is-approve ${preselectedApprove}" data-decision="approve" data-key="${key}" ${disabledAttr}><i class="fas fa-check"></i> Approve</button><button type="button" class="kna-toggle-btn is-reject ${preselectedReject}" data-decision="reject" data-key="${key}" ${disabledAttr}><i class="fas fa-times"></i> Reject</button></div><textarea class="kna-item-remark ${remarkVisible}" data-key="${key}" ${readonlyAttr} placeholder="Remarks are required for rejection...">${escapeHtml(item.item_remarks || '')}</textarea><button type="button" class="kna-cancel-reject ${remarkVisible === '' ? '' : 'd-none'}" data-cancel-reject data-key="${key}"><i class="fas fa-undo"></i> Cancel</button></div>`;
 
-    mobileCards += `<div class="kna-exp-card ${rowClass}" data-item-key="${key}"><div class="kna-exp-card-head"><div><div class="kna-exp-card-title">${escapeHtml(initialDescription || '-')}</div><div class="kna-exp-card-sub">${escapeHtml(item.category_name || '-')}</div><div class="kna-exp-card-meta">Inv#: ${escapeHtml(initialInvoice || '-')} \u2022 ${escapeHtml(initialDocDate || '—')}</div></div><div class="kna-exp-card-amount"><div class="kna-amount-main">${formatPHP(displayAmount)}</div></div></div><div class="kna-exp-card-grid"><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Description</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-description" data-key="${key}" value="${escapeHtml(initialDescription)}" placeholder="Description" ${disabledAttr}></span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Expense Type</span><span class="kna-exp-card-value"><select class="form-control form-control-sm kna-inline-edit-input kna-edit-category" data-key="${key}" ${disabledAttr}>${categoryOptionsHtml}</select></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Invoice/Receipt</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-invoice" data-key="${key}" value="${escapeHtml(initialInvoice)}" placeholder="Invoice/Receipt" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Doc Date</span><span class="kna-exp-card-value"><input type="date" class="form-control form-control-sm kna-inline-edit-input kna-edit-docdate" data-key="${key}" value="${escapeHtml(initialDocDate)}" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Gross</span><span class="kna-exp-card-value"><input type="number" step="0.01" min="0" class="form-control form-control-sm kna-inline-edit-input kna-edit-gross" data-key="${key}" value="${escapeHtml(displayAmount)}" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">VAT</span><span class="kna-exp-card-value"><input type="checkbox" class="kna-vat-check kna-vat-approver" data-key="${key}" ${originalIsVatable ? 'checked' : ''} ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Net / VAT</span><span class="kna-exp-card-value"><span class="kna-net-value">${formatPHP(vatCalc.netAmount)}</span> / <span class="kna-vat-value">${formatPHP(vatCalc.vatAmount)}</span></span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Attachment</span><span class="kna-exp-card-value">${attachNames.length ? attachNames.map(renderAttachment).join('') : '<span class="text-muted">—</span>'}</span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Vendor Name</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-name" data-key="${key}" value="${escapeHtml(initialVendorName)}" placeholder="Vendor name" ${disabledAttr}></span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Vendor Address</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-address" data-key="${key}" value="${escapeHtml(initialVendorAddress)}" placeholder="Vendor address" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Vendor TIN</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-tin" data-key="${key}" value="${escapeHtml(initialVendorTin)}" placeholder="TIN" ${disabledAttr}></span></div></div>${mobileDecisionHtml}</div>`;
+    mobileCards += `<div class="kna-exp-card ${rowClass}" data-item-key="${key}"><div class="kna-exp-card-head"><div><div class="kna-exp-card-title">${escapeHtml(initialDescription || '-')}</div><div class="kna-exp-card-sub">${escapeHtml(item.category_name || '-')}</div><div class="kna-exp-card-meta">Inv#: ${escapeHtml(initialInvoice || '-')} \u2022 ${escapeHtml(initialDocDate || '—')}</div></div><div class="kna-exp-card-amount"><div class="kna-amount-main">${formatPHP(displayAmount)}</div></div></div><div class="kna-exp-card-grid"><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Description</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-description" data-key="${key}" value="${escapeHtml(initialDescription)}" placeholder="Description" ${disabledAttr}></span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Expense Type</span><span class="kna-exp-card-value"><select class="form-control form-control-sm kna-inline-edit-input kna-edit-category" data-key="${key}" ${disabledAttr}>${categoryOptionsHtml}</select></span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Attachment</span><span class="kna-exp-card-value">${attachNames.length ? attachNames.map(renderAttachment).join('') : '<span class="text-muted">—</span>'}</span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Invoice/Receipt</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-invoice" data-key="${key}" value="${escapeHtml(initialInvoice)}" placeholder="Invoice/Receipt" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Doc Date</span><span class="kna-exp-card-value"><input type="date" class="form-control form-control-sm kna-inline-edit-input kna-edit-docdate" data-key="${key}" value="${escapeHtml(initialDocDate)}" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Gross</span><span class="kna-exp-card-value"><input type="number" step="0.01" min="0" class="form-control form-control-sm kna-inline-edit-input kna-edit-gross" data-key="${key}" value="${escapeHtml(displayAmount)}" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">VAT</span><span class="kna-exp-card-value"><input type="checkbox" class="kna-vat-check kna-vat-approver" data-key="${key}" ${originalIsVatable ? 'checked' : ''} ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Net / VAT</span><span class="kna-exp-card-value"><span class="kna-net-value">${formatPHP(vatCalc.netAmount)}</span> / <span class="kna-vat-value">${formatPHP(vatCalc.vatAmount)}</span></span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Vendor Name</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-name" data-key="${key}" value="${escapeHtml(initialVendorName)}" placeholder="Vendor name" ${disabledAttr}></span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Vendor Address</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-address" data-key="${key}" value="${escapeHtml(initialVendorAddress)}" placeholder="Vendor address" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Vendor TIN</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-tin" data-key="${key}" value="${escapeHtml(initialVendorTin)}" placeholder="TIN" ${disabledAttr}></span></div></div>${mobileDecisionHtml}</div>`;
 
     if (itemStatus === 'APPROVED') {
       reviewState.decisions[key].decision = 'approve';
@@ -862,7 +890,7 @@ const renderLiquidation = (data, attachments = []) => {
   });
 
   const desktopHtml = `<div class="kna-review-desktop kna-review-desktop-liquidation"><div class="kna-review-table-shell">
-    <div class="kna-review-table-wrap-main"><table class="table table-sm kna-review-table-main"><thead><tr><th>#</th><th>Description</th><th>Expense Type</th><th>Invoice/Receipt</th><th>Doc. Date</th><th class="text-right">Gross</th><th>VAT</th><th class="text-right">Net</th><th class="text-right">VAT Amt</th><th>Attachment</th><th>Vendor</th></tr></thead><tbody>${mainRows}</tbody></table></div>
+    <div class="kna-review-table-wrap-main"><table class="table table-sm kna-review-table-main"><thead><tr><th>#</th><th>Description</th><th>Expense Type</th><th>Attachment</th><th>Invoice/Receipt</th><th>Doc. Date</th><th class="text-right">Gross</th><th>VAT</th><th class="text-right">Net</th><th class="text-right">VAT Amt</th><th>Vendor</th></tr></thead><tbody>${mainRows}</tbody></table></div>
     <div class="kna-review-table-wrap-action"><table class="table table-sm kna-review-table-action"><thead><tr><th>Action</th></tr></thead><tbody>${actionRows}</tbody></table></div>
   </div><div class="kna-review-footer"><div class="kna-review-footer-main"><span class="kna-review-footer-label">Total Liquidated Amount</span><div class="kna-review-footer-amount kna-amount-main">${formatPHP(totalLiquidated)}</div></div></div></div>`;
 
@@ -878,7 +906,7 @@ const renderReimbursement = (data, attachments = []) => {
   const currentUserId = Number(domReview.currentUserId?.value || 0);
   reviewState.header = data[0]; reviewState.items = data; reviewState.totalItems = data.length; reviewState.decisions = {};
   if (domReview.reviewTitle) domReview.reviewTitle.textContent = 'Review Reimbursement';
-  if (domReview.reviewStatusBadge) domReview.reviewStatusBadge.innerHTML = getStatusBadge('Pending Approval');
+  if (domReview.reviewStatusBadge) domReview.reviewStatusBadge.innerHTML = reviewState.isPastMode ? getPastOverallStatusBadge(data) : getStatusBadge('Pending Approval');
 
   const first = data[0], requesterName = first.user_name || '-';
   const totalRequested = data.reduce((s, item) => s + (Number(item.actual_amount ?? item.lq_amount) || 0), 0);
@@ -911,13 +939,13 @@ const renderReimbursement = (data, attachments = []) => {
       <div class="kna-overview-label">Approved Total</div>
       <div class="kna-overview-value kna-amount">${formatPHP(totalApproved)}</div>
     </div>
-   <div class="kna-overview-cell">
+   <div class="kna-overview-cell wide">
       <div class="kna-overview-label">Payable To</div>
       <div class="kna-overview-value">
         <input type="text" class="form-control form-control-sm kna-ca-field-input" id="reviewPayableTo" data-field="payable_to" data-original="${escapeHtml(first.payable_to || '')}" value="${escapeHtml(first.payable_to || '')}" placeholder="Enter payable to..." style="min-width:140px;">
       </div>
     </div>
-    <div class="kna-overview-cell">
+    <div class="kna-overview-cell wide">
       <div class="kna-overview-label">Cost Center</div>
       <div class="kna-overview-value">
         <select class="kna-cost-center-select" id="reviewCostCenter" data-field="cost_center_id" data-original="${escapeHtml(rmbCostCenterId)}" style="min-width:140px;">
@@ -931,7 +959,7 @@ const renderReimbursement = (data, attachments = []) => {
         <input type="text" class="form-control form-control-sm kna-ca-field-input" id="reviewAddress" data-field="address" data-original="${escapeHtml(first.address || '')}" value="${escapeHtml(first.address || '')}" placeholder="Enter address..." style="min-width:140px;">
       </div>
     </div>
-    <div class="kna-overview-cell">
+    <div class="kna-overview-cell wide">
       <div class="kna-overview-label">IO</div>
       <div class="kna-overview-value">
         <input type="text" class="form-control form-control-sm kna-ca-field-input" id="reviewIo" data-field="io" data-original="${escapeHtml(reimbursementIo)}" value="${escapeHtml(reimbursementIo)}" placeholder="Enter IO..." style="min-width:140px;">
@@ -1095,7 +1123,7 @@ const renderReimbursement = (data, attachments = []) => {
       </div>`;
     const vendorInputHtml = `<div class="kna-vendor-edit-wrap"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-name" data-key="${key}" value="${escapeHtml(initialVendorName)}" placeholder="Vendor name" ${disabledAttr}><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-address" data-key="${key}" value="${escapeHtml(initialVendorAddress)}" placeholder="Vendor address" ${disabledAttr}><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-tin" data-key="${key}" value="${escapeHtml(initialVendorTin)}" placeholder="TIN" ${disabledAttr}></div>`;
 
-    mainRows += `<tr data-item-key="${key}" class="${rowClass}"><td class="text-center kna-rownum">${idx + 1}</td><td class="kna-col-description">${descriptionInputHtml}</td><td class="kna-col-category">${categoryInputHtml}</td><td>${invoiceInputHtml}</td><td>${docDateInputHtml}</td><td class="text-right kna-amount-main">${grossInputHtml}</td><td class="text-center kna-vat-cell"><label class="kna-vat-indicator"><input type="checkbox" class="kna-vat-check kna-vat-approver" data-key="${key}" ${originalIsVatable ? 'checked' : ''} ${disabledAttr}></label></td><td class="text-right kna-net-cell">${formatPHP(vatCalc.netAmount)}</td><td class="text-right kna-vat-amt-cell">${formatPHP(vatCalc.vatAmount)}</td><td>${attachHtml}</td><td class="kna-col-vendor">${vendorInputHtml}</td></tr>`;
+    mainRows += `<tr data-item-key="${key}" class="${rowClass}"><td class="text-center kna-rownum">${idx + 1}</td><td class="kna-col-description">${descriptionInputHtml}</td><td class="kna-col-category">${categoryInputHtml}</td><td>${attachHtml}</td><td>${invoiceInputHtml}</td><td>${docDateInputHtml}</td><td class="text-right kna-amount-main">${grossInputHtml}</td><td class="text-center kna-vat-cell"><label class="kna-vat-indicator"><input type="checkbox" class="kna-vat-check kna-vat-approver" data-key="${key}" ${originalIsVatable ? 'checked' : ''} ${disabledAttr}></label></td><td class="text-right kna-net-cell">${formatPHP(vatCalc.netAmount)}</td><td class="text-right kna-vat-amt-cell">${formatPHP(vatCalc.vatAmount)}</td><td class="kna-col-vendor">${vendorInputHtml}</td></tr>`;
 
     const actionCellHtml = isReadOnly
       ? renderReadOnlyAction(itemStatus, decidedByName, item.item_remarks)
@@ -1106,7 +1134,7 @@ const renderReimbursement = (data, attachments = []) => {
       ? `<div class="kna-item-decision mt-2"><div class="kna-readonly-status"><i class="fas ${itemStatus === 'APPROVED' ? 'fa-check-circle' : 'fa-times-circle'}" style="color:${itemStatus === 'APPROVED' ? '#17663a' : '#e03131'};font-size:14px;"></i><span class="kna-badge ${itemStatus === 'APPROVED' ? 'kna-badge-approved' : 'kna-badge-rejected'}">${itemStatus}</span></div><div class="kna-readonly-by">by ${escapeHtml(decidedByName)}</div>${item.item_remarks ? `<div class="kna-readonly-remark">${escapeHtml(item.item_remarks)}</div>` : ''}</div>`
       : `<div class="kna-item-decision mt-2"><div class="kna-toggle-group"><button type="button" class="kna-toggle-btn is-approve ${preselectedApprove}" data-decision="approve" data-key="${key}" ${disabledAttr}><i class="fas fa-check"></i> Approve</button><button type="button" class="kna-toggle-btn is-reject ${preselectedReject}" data-decision="reject" data-key="${key}" ${disabledAttr}><i class="fas fa-times"></i> Reject</button></div><textarea class="kna-item-remark ${remarkVisible}" data-key="${key}" ${readonlyAttr} placeholder="Remarks are required for rejection...">${escapeHtml(item.item_remarks || '')}</textarea><button type="button" class="kna-cancel-reject ${remarkVisible === '' ? '' : 'd-none'}" data-cancel-reject data-key="${key}"><i class="fas fa-undo"></i> Cancel</button></div>`;
 
-    mobileCards += `<div class="kna-exp-card ${rowClass}" data-item-key="${key}"><div class="kna-exp-card-head"><div><div class="kna-exp-card-title">${escapeHtml(initialDescription || '-')}</div><div class="kna-exp-card-sub">${escapeHtml(item.category_name || '-')}</div><div class="kna-exp-card-meta">Inv#: ${escapeHtml(initialInvoice || '-')} • ${escapeHtml(initialDocDate || '—')}</div></div><div class="kna-exp-card-amount"><div class="kna-amount-main">${formatPHP(displayAmount)}</div></div></div><div class="kna-exp-card-grid"><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Description</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-description" data-key="${key}" value="${escapeHtml(initialDescription)}" placeholder="Description" ${disabledAttr}></span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Expense Type</span><span class="kna-exp-card-value"><select class="form-control form-control-sm kna-inline-edit-input kna-edit-category" data-key="${key}" ${disabledAttr}>${categoryOptionsHtml}</select></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Invoice/Receipt</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-invoice" data-key="${key}" value="${escapeHtml(initialInvoice)}" placeholder="Invoice/Receipt" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Doc Date</span><span class="kna-exp-card-value"><input type="date" class="form-control form-control-sm kna-inline-edit-input kna-edit-docdate" data-key="${key}" value="${escapeHtml(initialDocDate)}" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Gross</span><span class="kna-exp-card-value"><input type="number" step="0.01" min="0" class="form-control form-control-sm kna-inline-edit-input kna-edit-gross" data-key="${key}" value="${escapeHtml(displayAmount)}" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">VAT</span><span class="kna-exp-card-value"><input type="checkbox" class="kna-vat-check kna-vat-approver" data-key="${key}" ${originalIsVatable ? 'checked' : ''} ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Net / VAT</span><span class="kna-exp-card-value"><span class="kna-net-value">${formatPHP(vatCalc.netAmount)}</span> / <span class="kna-vat-value">${formatPHP(vatCalc.vatAmount)}</span></span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Attachment</span><span class="kna-exp-card-value">${attachNames.length ? attachNames.map(renderAttachment).join('') : '<span class="text-muted">—</span>'}</span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Vendor Name</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-name" data-key="${key}" value="${escapeHtml(initialVendorName)}" placeholder="Vendor name" ${disabledAttr}></span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Vendor Address</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-address" data-key="${key}" value="${escapeHtml(initialVendorAddress)}" placeholder="Vendor address" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Vendor TIN</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-tin" data-key="${key}" value="${escapeHtml(initialVendorTin)}" placeholder="TIN" ${disabledAttr}></span></div></div>${mobileDecisionHtml}</div>`;
+    mobileCards += `<div class="kna-exp-card ${rowClass}" data-item-key="${key}"><div class="kna-exp-card-head"><div><div class="kna-exp-card-title">${escapeHtml(initialDescription || '-')}</div><div class="kna-exp-card-sub">${escapeHtml(item.category_name || '-')}</div><div class="kna-exp-card-meta">Inv#: ${escapeHtml(initialInvoice || '-')} • ${escapeHtml(initialDocDate || '—')}</div></div><div class="kna-exp-card-amount"><div class="kna-amount-main">${formatPHP(displayAmount)}</div></div></div><div class="kna-exp-card-grid"><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Description</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-description" data-key="${key}" value="${escapeHtml(initialDescription)}" placeholder="Description" ${disabledAttr}></span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Expense Type</span><span class="kna-exp-card-value"><select class="form-control form-control-sm kna-inline-edit-input kna-edit-category" data-key="${key}" ${disabledAttr}>${categoryOptionsHtml}</select></span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Attachment</span><span class="kna-exp-card-value">${attachNames.length ? attachNames.map(renderAttachment).join('') : '<span class="text-muted">—</span>'}</span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Invoice/Receipt</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-invoice" data-key="${key}" value="${escapeHtml(initialInvoice)}" placeholder="Invoice/Receipt" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Doc Date</span><span class="kna-exp-card-value"><input type="date" class="form-control form-control-sm kna-inline-edit-input kna-edit-docdate" data-key="${key}" value="${escapeHtml(initialDocDate)}" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Gross</span><span class="kna-exp-card-value"><input type="number" step="0.01" min="0" class="form-control form-control-sm kna-inline-edit-input kna-edit-gross" data-key="${key}" value="${escapeHtml(displayAmount)}" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">VAT</span><span class="kna-exp-card-value"><input type="checkbox" class="kna-vat-check kna-vat-approver" data-key="${key}" ${originalIsVatable ? 'checked' : ''} ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Net / VAT</span><span class="kna-exp-card-value"><span class="kna-net-value">${formatPHP(vatCalc.netAmount)}</span> / <span class="kna-vat-value">${formatPHP(vatCalc.vatAmount)}</span></span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Vendor Name</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-name" data-key="${key}" value="${escapeHtml(initialVendorName)}" placeholder="Vendor name" ${disabledAttr}></span></div><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Vendor Address</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-address" data-key="${key}" value="${escapeHtml(initialVendorAddress)}" placeholder="Vendor address" ${disabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Vendor TIN</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-vendor-tin" data-key="${key}" value="${escapeHtml(initialVendorTin)}" placeholder="TIN" ${disabledAttr}></span></div></div>${mobileDecisionHtml}</div>`;
 
     if (itemStatus === 'APPROVED') {
       reviewState.decisions[key].decision = 'approve';
@@ -1117,7 +1145,7 @@ const renderReimbursement = (data, attachments = []) => {
   });
 
   const desktopHtml = `<div class="kna-review-desktop kna-review-desktop-liquidation kna-review-desktop-reimbursement"><div class="kna-review-table-shell">
-    <div class="kna-review-table-wrap-main"><table class="table table-sm kna-review-table-main"><thead><tr><th>#</th><th>Description</th><th>Expense Type</th><th>Invoice/Receipt</th><th>Doc. Date</th><th class="text-right">Gross</th><th>VAT</th><th class="text-right">Net</th><th class="text-right">VAT Amt</th><th>Attachment</th><th>Vendor</th></tr></thead><tbody>${mainRows}</tbody></table></div>
+    <div class="kna-review-table-wrap-main"><table class="table table-sm kna-review-table-main"><thead><tr><th>#</th><th>Description</th><th>Expense Type</th><th>Attachment</th><th>Invoice/Receipt</th><th>Doc. Date</th><th class="text-right">Gross</th><th>VAT</th><th class="text-right">Net</th><th class="text-right">VAT Amt</th><th>Vendor</th></tr></thead><tbody>${mainRows}</tbody></table></div>
     <div class="kna-review-table-wrap-action"><table class="table table-sm kna-review-table-action"><thead><tr><th>Action</th></tr></thead><tbody>${actionRows}</tbody></table></div>
   </div><div class="kna-review-footer"><div class="kna-review-footer-main"><span class="kna-review-footer-label">Total Reimbursed Amount</span><div class="kna-review-footer-amount kna-amount-main">${formatPHP(totalRequested)}</div></div></div></div>`;
 
@@ -1526,10 +1554,17 @@ const loadReviewData = () => {
 };
 
 const cacheReviewDom = () => {
-  domReview.approvalRef = document.getElementById('approvalRef'); domReview.currentUserId = document.getElementById('currentUserId'); domReview.reviewTitle = document.getElementById('reviewTitle');
+  domReview.approvalRef = document.getElementById('approvalRef'); domReview.currentUserId = document.getElementById('currentUserId'); domReview.reviewMode = document.getElementById('reviewMode'); domReview.reviewTitle = document.getElementById('reviewTitle');
   domReview.reviewStatusBadge = document.getElementById('reviewStatusBadge'); domReview.reviewHeaderFields = document.getElementById('reviewHeaderFields'); domReview.viewApprovalItems = document.getElementById('viewApprovalItems');
   domReview.reviewTimeline = document.getElementById('reviewTimeline'); domReview.summaryReviewed = document.getElementById('summaryReviewed'); domReview.summaryApprovedAmount = document.getElementById('summaryApprovedAmount');
   domReview.summaryRejectedAmount = document.getElementById('summaryRejectedAmount'); domReview.reviewerRemarks = document.getElementById('reviewerRemarks'); domReview.btnSubmitDecision = document.getElementById('btnSubmitDecision');
+  domReview.decisionSummary = document.getElementById('decisionSummary');
+
+  reviewState.isPastMode = (domReview.reviewMode ? domReview.reviewMode.value : '') === 'past';
+  if (reviewState.isPastMode && domReview.decisionSummary) {
+    domReview.decisionSummary.classList.add('d-none');
+  }
+
   const lb = document.getElementById('knaLightbox');
   if (lb) { lb.addEventListener('click', e => { if (e.target === lb || e.target.id === 'knaLightboxClose') { lb.classList.add('d-none'); const img = document.getElementById('knaLightboxImg'); if (img) img.src = ''; } }); }
   if (domReview.btnSubmitDecision) domReview.btnSubmitDecision.addEventListener('click', submitDecisions);
@@ -1557,4 +1592,4 @@ const handleReviewResize = () => {
 };
 
 const initReviewPage = () => { cacheReviewDom(); loadReviewData(); bindDecisionEvents(); window.addEventListener('resize', handleReviewResize); };
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initReviewPage); else initReviewPage();
+if (document.readyState === 'loading') document.addEventListener(

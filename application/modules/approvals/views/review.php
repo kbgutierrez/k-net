@@ -533,28 +533,49 @@
     .kna-file-wrap a { color: #4f46e5; text-decoration: none; font-weight: 600; }
     .kna-file-wrap a:hover { text-decoration: underline; }
 
-    /* ─── Mobile Cards ─── */
+    /* ─── Mobile Cards (native-app style: bigger touch targets, clear
+       hierarchy - amount/title prominent, fields grouped in a 2-up grid
+       instead of one long stacked list, full-width thumb-friendly
+       Approve/Reject) ─── */
     .kna-exp-card {
-        border: 1px solid #e5e7eb; border-radius: 10px; background: #fff;
-        padding: 12px; margin-bottom: 10px; box-shadow: 0 1px 2px rgba(20, 30, 50, .04);
+        border: 1px solid #e5e7eb; border-radius: 14px; background: #fff;
+        padding: 14px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(20, 30, 50, .06);
     }
     .kna-exp-card.is-approved { border-color: #86efac; background: #f0fdf4; }
     .kna-exp-card.is-rejected { border-color: #fca5a5; background: #fef2f2; }
     .kna-exp-card-head {
         display: flex; justify-content: space-between; gap: 10px; align-items: flex-start;
-        padding-bottom: 10px; border-bottom: 1px solid #eef2f7; margin-bottom: 10px;
+        padding-bottom: 12px; border-bottom: 1px solid #eef2f7; margin-bottom: 12px;
     }
-    .kna-exp-card-title { font-size: 13px; font-weight: 700; color: #111827; line-height: 1.3; }
-    .kna-exp-card-sub { font-size: 11px; font-weight: 600; color: #6b7280; margin-left: 4px; }
-    .kna-exp-card-meta { font-size: 11px; color: #6b7280; margin-top: 3px; }
+    .kna-exp-card-title { font-size: 15px; font-weight: 700; color: #111827; line-height: 1.3; }
+    .kna-exp-card-sub { font-size: 12px; font-weight: 600; color: #6b7280; margin-left: 4px; }
+    .kna-exp-card-meta { font-size: 12px; color: #6b7280; margin-top: 4px; }
     .kna-exp-card-amount { text-align: right; flex: 0 0 auto; }
-    .kna-exp-card-field { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+    .kna-exp-card-amount .kna-amount-main { font-size: 17px; }
+    .kna-exp-card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 10px; }
+    .kna-exp-card-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .kna-exp-card-field-full { grid-column: 1 / -1; }
     .kna-exp-card-label {
-        font-size: 10px; font-weight: 700; text-transform: uppercase;
+        font-size: 10.5px; font-weight: 700; text-transform: uppercase;
         letter-spacing: .3px; color: #6b7280;
     }
-    .kna-exp-card-value { font-size: 12px; color: #1f2937; }
+    .kna-exp-card-value { font-size: 13px; color: #1f2937; }
     .kna-exp-card-attach { display: flex; flex-wrap: wrap; gap: 6px; }
+
+    /* Native-feeling form controls inside mobile cards specifically -
+       bigger than the compact desktop table inputs, easier to tap. */
+    .kna-exp-card-value input.form-control,
+    .kna-exp-card-value select.form-control {
+        font-size: 13px; padding: 9px 10px; height: 40px; border-radius: 8px;
+        border: 1px solid #dbe2ea; background: #fafbfc;
+    }
+    .kna-exp-card-value input.form-control:focus,
+    .kna-exp-card-value select.form-control:focus {
+        outline: none; border-color: #2f6eb4; background: #fff;
+        box-shadow: 0 0 0 3px rgba(47, 110, 180, 0.08);
+    }
+    .kna-exp-card-value .kna-vat-check { width: 20px; height: 20px; }
+    .kna-exp-card-value .kna-net-value, .kna-exp-card-value .kna-vat-value { font-weight: 600; }
 
     /* ─── Submit Bar ─── */
     .kna-review-items-card .card-body { padding: .75rem .85rem 0; }
@@ -614,13 +635,31 @@
     @media (max-width: 767.98px) {
         .kna-page { padding: 8px 8px 12px; }
         .kna-title { font-size: 18px; }
-        .kna-overview-compact { grid-template-columns: repeat(2, 1fr); }
-        .kna-overview-cell:nth-child(3n) { border-right: 1px solid #f1f5f9; }
-        .kna-overview-cell:nth-child(2n) { border-right: none; }
-        .kna-overview-cell.wide { grid-column: span 2; }
-        .kna-overview-cell.full { grid-column: span 2; }
-        .kna-overview-cell:nth-last-child(-n+3) { border-bottom: 1px solid #f1f5f9; }
-        .kna-overview-cell:nth-last-child(-n+2) { border-bottom: none; }
+
+        /* Requester overview: ditch the bordered multi-column grid AND
+           the one-row-per-field stacked list (both ate too much vertical
+           space, pushing Line Items below the fold) for a compact native
+           "settings row" pattern - label left, value right, same line.
+           Nothing is hidden, it just takes half the height. Only the
+           long-form Purpose/Description text stays stacked, since a
+           paragraph can't sit next to its label on one line. */
+        .kna-overview-wrapper { border: none; }
+        .kna-overview-compact { display: block; }
+        .kna-overview-cell {
+            display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between;
+            gap: 4px 10px; grid-column: auto; min-height: 0;
+            padding: 7px 0; border: none !important;
+        }
+        .kna-overview-label { margin-bottom: 0; flex: 0 0 auto; }
+        .kna-overview-value { flex: 1 1 auto; text-align: right; }
+        .kna-overview-value input, .kna-overview-value select { width: 100%; }
+        .kna-overview-value.kna-amount { font-size: 14px; }
+        .kna-amount-words { flex-basis: 100%; text-align: right; }
+
+        .kna-overview-cell.wide { display: block; padding: 8px 0; }
+        .kna-overview-cell.wide .kna-overview-label { margin-bottom: 4px; }
+        .kna-overview-cell.wide .kna-overview-value { text-align: left; }
+
         .kna-doc-viewer-frame { height: 320px; }
         .kna-review-desktop { display: none !important; }
         .kna-exp-mobile { display: block; }
@@ -630,14 +669,12 @@
         .kna-thumb-wrap { max-width: 68px; margin-right: 4px; }
         .kna-thumb { width: 52px; height: 46px; }
         .kna-timeline-item { min-width: 0; flex-basis: 100%; }
-    }
-    @media (max-width: 479.98px) {
-        .kna-overview-compact { grid-template-columns: 1fr; }
-        .kna-overview-cell { border-right: none !important; }
-        .kna-overview-cell.wide { grid-column: span 1; }
-        .kna-overview-cell.full { grid-column: span 1; }
-        .kna-overview-cell { border-bottom: 1px solid #f1f5f9 !important; }
-        .kna-overview-cell:last-child { border-bottom: none !important; }
+
+        /* Slightly bigger tap targets for Approve/Reject inside mobile
+           cards - not oversized, just enough to comfortably tap. */
+        .kna-exp-card .kna-toggle-btn { padding: 9px 8px; font-size: 12.5px; min-height: 38px; }
+        .kna-exp-card .kna-item-remark { font-size: 13px; padding: 9px 11px; min-height: 56px; }
+        .kna-exp-card .kna-cancel-reject { padding: 7px 12px; font-size: 12px; }
     }
 
     /* ─── Remark required shake animation ─── */
@@ -771,6 +808,7 @@
 <div class="page-inner kna-page">
     <input type="hidden" id="approvalRef" value="<?=html_escape($approval_id);?>">
     <input type="hidden" id="currentUserId" value="<?=(int)$this->session->userdata('user_id');?>">
+    <input type="hidden" id="reviewMode" value="<?=html_escape($review_mode);?>">
     <?php
     $ccData = array();
     if (!empty($cost_centers) && is_array($cost_centers)) {

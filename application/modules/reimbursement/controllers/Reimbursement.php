@@ -112,6 +112,244 @@ class Reimbursement extends MY_Controller
         return is_array($team) ? $team : array();
     }
 
+    /* ------------------------------------------------------------
+       TEAM VIEW + CORRECTION (a supervisor viewing / fixing data
+       filed by their team - a plain data correction, NOT an
+       approval decision; status/routing is never touched here)
+       ------------------------------------------------------------ */
+
+    private function isOwnerInSupervisorsTeam($supervisorUserId, $ownerUserId)
+    {
+        $team = $this->getTeamForUser($supervisorUserId);
+        foreach ($team as $member) {
+            if ((int) ($member['member_user_id'] ?? 0) === (int) $ownerUserId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function team_view($reimbursement_no = '')
+    {
+        $ref = trim((string) $reimbursement_no);
+        if ($ref === '') {
+            redirect('transactions/reimbursement');
+            return;
+        }
+
+        $expenseTypes = $this->sp->fetchData('sp_fetch_expense_types');
+        if (!is_array($expenseTypes)) {
+            $expenseTypes = array();
+        }
+
+        $departmentId = $this->session->userdata('user_info')['department_id'];
+        $costCenters = $this->sp->readData(
+            build_sp('sp_fetch_cost_center_by_deptid', 1),
+            array('departmentId' => $departmentId),
+            'result'
+        );
+        if (!is_array($costCenters)) {
+            $costCenters = array();
+        }
+
+        $data = array(
+            'title' => 'Team Reimbursement Details',
+            'main_view' => '../modules/reimbursement/views/team-view',
+            'module_group' => $this->module_group,
+            'module' => $this->module,
+            'reimbursement_no' => $ref,
+            'expense_types' => $expenseTypes,
+            'cost_centers' => $costCenters,
+            'scripts' => array(
+                '../shared/pdfjs/pdf.min.js',
+                '../shared/receipt-ocr.js',
+                '../reimbursement/team-view.js',
+            ),
+        );
+
+        $this->load->view('main', $data);
+    }
+
+    public function api_get_team_reimbursement_full()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $reimbursementId = isset($data['ReimbursementId']) ? trim((string) $data['ReimbursementId']) : '';
+            if ($reimbursementId === '') {
+                return $this->respondError('Missing required field: ReimbursementId');
+            }
+
+            $header = $this->getDraftHeaderByReimbursementId($reimbursementId);
+            if (!$header) {
+                return $this->respondError('Reimbursement not found.');
+            }
+
+            $supervisorUserId = (int) $this->session->userdata('user_id');
+            $ownerUserId = isset($header['user_id']) ? (int) $header['user_id'] : (int) ($header['created_by_id'] ?? 0);
+
+            if (!$this->isOwnerInSupervisorsTeam($supervisorUserId, $ownerUserId)) {
+                return $this->respondError('You are not allowed to access this reimbursement.');
+            }
+
+            $detailParams = array('ReimbursementId' => $reimbursementId);
+            $details = $this->sp->readData(
+                build_sp('sp_fetch_reimbursement_details', count($detailParams)),
+                $detailParams,
+                'result'
+            );
+
+            $statusCode = isset($header['status_code']) ? trim((string) $header['status_code']) : '';
+            $canCorrect = in_array($statusCode, array('RMB_SUBMITTED', 'RMB_PENDING'), true);
+
+            return $this->respondSuccess('success', array(
+                'header' => $header,
+                'details' => is_array($details) ? $details : array(),
+                'canCorrect' => $canCorrect,
+            ));
+        } catch (Exception $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Guard shared by both correction endpoints: only the reimbursement
+     * owner's Supervisor may correct it, and only while it's still
+     * awaiting a decision - never after it's been approved/rejected/
+     * paid, so a correction can never silently overwrite an amount
+     * Accounting already acted on.
+     */
+    private function assertTeamReimbursementCorrectable($reimbursementId, $supervisorUserId)
+    {
+        $header = $this->getDraftHeaderByReimbursementId($reimbursementId);
+        if (!$header) {
+            throw new Exception('Reimbursement not found.');
+        }
+
+        $ownerUserId = isset($header['user_id']) ? (int) $header['user_id'] : (int) ($header['created_by_id'] ?? 0);
+        if (!$this->isOwnerInSupervisorsTeam($supervisorUserId, $ownerUserId)) {
+            throw new Exception('You are not allowed to modify this reimbursement.');
+        }
+
+        $statusCode = isset($header['status_code']) ? trim((string) $header['status_code']) : '';
+        if (!in_array($statusCode, array('RMB_SUBMITTED', 'RMB_PENDING'), true)) {
+            throw new Exception('This reimbursement has already been finalized and can no longer be corrected.');
+        }
+
+        return $header;
+    }
+
+    public function api_update_team_reimbursement_item()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $reimbursementId = isset($data['ReimbursementId']) ? trim((string) $data['ReimbursementId']) : '';
+            $detailId = isset($data['DetailId']) ? (int) $data['DetailId'] : 0;
+
+            if ($reimbursementId === '' || $detailId <= 0) {
+                return $this->respondError('Missing required field.');
+            }
+
+            $supervisorUserId = (int) $this->session->userdata('user_id');
+            $this->assertTeamReimbursementCorrectable($reimbursementId, $supervisorUserId);
+
+            $newAttachment = null;
+            if (isset($_FILES['Attachment']) && isset($_FILES['Attachment']['error']) && (int) $_FILES['Attachment']['error'] === UPLOAD_ERR_OK) {
+                list($targetDir, $absoluteDir) = $this->ensureAttachmentDir();
+                $newAttachment = $this->saveUploadedFile($_FILES['Attachment'], $targetDir, $absoluteDir);
+            }
+
+            $params = array(
+                'DetailId' => $detailId,
+                'Description' => trim((string) ($data['Description'] ?? '')),
+                'InvoiceReceiptNo' => trim((string) ($data['InvoiceReceiptNo'] ?? '')),
+                'ActualAmount' => (float) ($data['ActualAmount'] ?? 0),
+                'DocumentDate' => trim((string) ($data['DocumentDate'] ?? '')),
+                'ExpenseCategory' => trim((string) ($data['ExpenseCategory'] ?? '')),
+                'IsVatable' => (int) (bool) ($data['IsVatable'] ?? 0),
+                'NetAmount' => (float) ($data['NetAmount'] ?? 0),
+                'VatAmount' => (float) ($data['VatAmount'] ?? 0),
+                'VendorName' => trim((string) ($data['VendorName'] ?? '')),
+                'VendorAddress' => trim((string) ($data['VendorAddress'] ?? '')),
+                'VendorTin' => trim((string) ($data['VendorTin'] ?? '')),
+                'ApprovedGrossAmount' => null,
+                'Attachment' => $newAttachment,
+            );
+
+            $result = $this->sp->createData(
+                build_sp('sp_update_reimbursement_detail_review', count($params)),
+                $params
+            );
+
+            if ($result !== true) {
+                return $this->respondError(is_string($result) ? $result : 'Failed to update line item.');
+            }
+
+            $this->logAuditTrail(
+                'REIMBURSEMENT',
+                $reimbursementId,
+                'CORRECTED_ITEM',
+                'ITEM',
+                $detailId,
+                null,
+                null,
+                'Corrected by supervisor: ' . $params['Description']
+            );
+
+            return $this->respondSuccess('Line item corrected successfully.');
+        } catch (Throwable $e) {
+            return $this->respondError($e->getMessage());
+        }
+    }
+
+    public function api_update_team_reimbursement_header()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $reimbursementId = isset($data['ReimbursementId']) ? trim((string) $data['ReimbursementId']) : '';
+            if ($reimbursementId === '') {
+                return $this->respondError('Missing required field: ReimbursementId');
+            }
+
+            $supervisorUserId = (int) $this->session->userdata('user_id');
+            $this->assertTeamReimbursementCorrectable($reimbursementId, $supervisorUserId);
+
+            $params = array(
+                'ReferenceNo' => $reimbursementId,
+                'CostCenterId' => trim((string) ($data['CostCenterId'] ?? '')),
+                'PayableTo' => trim((string) ($data['PayableTo'] ?? '')),
+                'Address' => trim((string) ($data['Address'] ?? '')),
+                'UpdatedBy' => $supervisorUserId,
+                'IO' => trim((string) ($data['IO'] ?? '')),
+            );
+
+            $this->sp->createData(
+                build_sp('sp_update_reimbursement_header_fields', count($params)),
+                $params
+            );
+
+            $this->logAuditTrail(
+                'REIMBURSEMENT',
+                $reimbursementId,
+                'CORRECTED_HEADER',
+                'HEADER',
+                $reimbursementId,
+                null,
+                null,
+                'Header corrected by supervisor'
+            );
+
+            return $this->respondSuccess('Reimbursement details corrected successfully.');
+        } catch (Throwable $e) {
+            return $this->respondError($e->getMessage());
+        }
+    }
+
     public function add($reimbursement_no = '')
     {
         $ref = trim((string) $reimbursement_no);

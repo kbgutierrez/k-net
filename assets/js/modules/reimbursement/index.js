@@ -467,7 +467,6 @@ const domTeam = {
 	mobileList: null,
 	resultCount: null,
 	resultCountMobile: null,
-	detailItemsTbody: null,
 };
 
 let teamItemRows = []; // flat, one row per expense line — the source of truth (and export shape)
@@ -582,21 +581,7 @@ const renderTeamMobileCards = (groups) => {
 };
 
 const openTeamReimbursementDetails = (reimbursementId) => {
-	const group = teamGroups.find((g) => g.reimbursementId === reimbursementId);
-	if (!group || !domTeam.detailItemsTbody) return;
-
-	document.getElementById('modalTeamReimbursementDetailsLabel').textContent = `Reimbursement Details — ${reimbursementId}`;
-	domTeam.detailItemsTbody.innerHTML = group.items.map((it) => `
-		<tr>
-			<td>${escapeHtml(getExpenseTypeDisplay(it))}</td>
-			<td class="text-truncate" style="max-width:220px;" title="${escapeHtml(it.description)}">${escapeHtml(it.description || '-')}</td>
-			<td class="text-right">${formatPHP(it.approvedAmount !== null ? it.approvedAmount : it.actualAmount)}</td>
-			<td>${escapeHtml(it.documentDate || '-')}</td>
-			<td>${escapeHtml(it.vendorName || '-')}</td>
-		</tr>
-	`).join('');
-
-	$('#modalTeamReimbursementDetails').modal('show');
+	window.location.href = `${base_url}transactions/reimbursement/team/view/${encodeURIComponent(reimbursementId)}`;
 };
 
 const refreshTeamUI = () => {
@@ -670,7 +655,6 @@ const initTeamTab = () => {
 	domTeam.mobileList = document.getElementById('teamReportMobileList');
 	domTeam.resultCount = document.getElementById('teamResultCount');
 	domTeam.resultCountMobile = document.getElementById('teamResultCountMobile');
-	domTeam.detailItemsTbody = document.getElementById('teamReimbursementDetailItemsTbody');
 
 	if (typeof flatpickr !== 'undefined') {
 		domTeam.dateRangePicker = flatpickr(domTeam.dateRange, { mode: 'range', dateFormat: 'Y-m-d', allowInput: true });

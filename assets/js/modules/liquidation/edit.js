@@ -211,12 +211,6 @@ const buildItemRow = (item, summary, index) => {
       <div class="kna-item-row-fields">
         ${editItemField('Doc Date', 'kna-f-date', `<input type="date" class="kna-edit-input" data-edit-field="documentDate" data-edit-id="${item._editId}" value="${escapeHtml(summary.docDate)}" ${summary.disabledAttr}>`)}
         ${editItemField('Expense Type', 'kna-f-type', `<select class="kna-edit-select" data-edit-field="expenseCategory" data-edit-id="${item._editId}" title="${escapeHtml(summary.selectedExpenseTypeText)}" ${summary.disabledAttr}>${editExpenseTypeOptionsMarkup(summary.category)}</select>`)}
-        ${editItemField('Reference', 'kna-f-ref', `<input type="text" class="kna-edit-input" data-edit-field="reference" data-edit-id="${item._editId}" value="${escapeHtml(summary.reference)}" placeholder="Invoice / OR no." ${summary.disabledAttr}>`)}
-        ${editItemField('Amount', 'kna-f-amount', `<input type="number" min="0" step="0.01" class="kna-edit-input kna-edit-number" data-edit-field="amount" data-edit-id="${item._editId}" value="${escapeHtml(summary.amount)}" placeholder="0.00" ${summary.disabledAttr}>`)}
-        ${editItemField('VAT', 'kna-f-vat', `<label class="kna-vat-wrap"><input type="checkbox" class="kna-edit-checkbox" data-edit-field="isVattable" data-edit-id="${item._editId}" ${summary.isVattable ? 'checked' : ''} ${summary.disabledAttr}></label>`)}
-        ${editItemField('Vendor Name', 'kna-f-vendor', `<input type="text" class="kna-edit-input" data-edit-field="vendorName" data-edit-id="${item._editId}" value="${escapeHtml(item.vendor_name || '')}" placeholder="Vendor name" ${summary.disabledAttr}>`)}
-        ${editItemField('Vendor Address', 'kna-f-vendor', `<input type="text" class="kna-edit-input" data-edit-field="vendorAddress" data-edit-id="${item._editId}" value="${escapeHtml(item.vendor_address || '')}" placeholder="Address" ${summary.disabledAttr}>`)}
-        ${editItemField('TIN', 'kna-f-tin', `<input type="text" class="kna-edit-input" data-edit-field="vendorTin" data-edit-id="${item._editId}" value="${escapeHtml(item.vendor_tin || '')}" placeholder="TIN" ${summary.disabledAttr}>`)}
         <div class="kna-item-field kna-f-attach">
           <span class="kna-item-field-label">Attachment</span>
           <div class="kna-item-attach-inline">
@@ -227,6 +221,12 @@ const buildItemRow = (item, summary, index) => {
           </div>
           ${buildEditOcrStatusHtml(item._editId)}
         </div>
+        ${editItemField('Reference', 'kna-f-ref', `<input type="text" class="kna-edit-input" data-edit-field="reference" data-edit-id="${item._editId}" value="${escapeHtml(summary.reference)}" placeholder="Invoice / OR no." ${summary.disabledAttr}>`)}
+        ${editItemField('Amount', 'kna-f-amount', `<input type="number" min="0" step="0.01" class="kna-edit-input kna-edit-number" data-edit-field="amount" data-edit-id="${item._editId}" value="${escapeHtml(summary.amount)}" placeholder="0.00" ${summary.disabledAttr}>`)}
+        ${editItemField('VAT', 'kna-f-vat', `<label class="kna-vat-wrap"><input type="checkbox" class="kna-edit-checkbox" data-edit-field="isVattable" data-edit-id="${item._editId}" ${summary.isVattable ? 'checked' : ''} ${summary.disabledAttr}></label>`)}
+        ${editItemField('Vendor Name', 'kna-f-vendor', `<input type="text" class="kna-edit-input" data-edit-field="vendorName" data-edit-id="${item._editId}" value="${escapeHtml(item.vendor_name || '')}" placeholder="Vendor name" ${summary.disabledAttr}>`)}
+        ${editItemField('Vendor Address', 'kna-f-vendor', `<input type="text" class="kna-edit-input" data-edit-field="vendorAddress" data-edit-id="${item._editId}" value="${escapeHtml(item.vendor_address || '')}" placeholder="Address" ${summary.disabledAttr}>`)}
+        ${editItemField('TIN', 'kna-f-tin', `<input type="text" class="kna-edit-input" data-edit-field="vendorTin" data-edit-id="${item._editId}" value="${escapeHtml(item.vendor_tin || '')}" placeholder="TIN" ${summary.disabledAttr}>`)}
         ${editItemField('Remarks', 'kna-f-remarks', `<input type="text" class="kna-edit-input" data-edit-field="description" data-edit-id="${item._editId}" value="${escapeHtml(summary.description)}" placeholder="Remarks" ${summary.disabledAttr}>`)}
       </div>
       ${!summary.isLocked

@@ -346,7 +346,7 @@
 		<div class="card kna-card d-none d-md-block">
 			<div class="card-body">
 				<div class="d-flex align-items-center justify-content-between mb-2">
-					<div class="kna-small text-muted">Team Approved Reimbursements</div>
+					<div class="kna-small text-muted">Team Reimbursements</div>
 					<div class="kna-small text-muted" id="teamResultCount">0 record(s)</div>
 				</div>
 				<div class="table-responsive">
@@ -372,7 +372,7 @@
 		<div class="card kna-card d-md-none">
 			<div class="card-body">
 				<div class="d-flex align-items-center justify-content-between mb-2">
-					<div class="kna-small text-muted">Team Approved Reimbursements</div>
+					<div class="kna-small text-muted">Team Reimbursements</div>
 					<div class="kna-small text-muted" id="teamResultCountMobile">0 record(s)</div>
 				</div>
 				<div class="kna-mobile-list" id="teamReportMobileList"></div>
@@ -383,35 +383,4 @@
 
 	</div>
 </div>
-
-<div class="modal fade" id="modalTeamReimbursementDetails" tabindex="-1" role="dialog" aria-labelledby="modalTeamReimbursementDetailsLabel" aria-hidden="true">
-	<div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" role="document">
-		<div class="modal-content">
-			<div class="modal-header">
-				<h5 class="modal-title kna-small" id="modalTeamReimbursementDetailsLabel">Reimbursement Details</h5>
-				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
-					<span aria-hidden="true">&times;</span>
-				</button>
-			</div>
-			<div class="modal-body">
-				<div class="table-responsive">
-					<table class="table table-sm kna-table" style="width:100%">
-						<thead>
-							<tr>
-								<th>Expense Type</th>
-								<th>Description</th>
-								<th class="text-right">Amount</th>
-								<th>Document Date</th>
-								<th>Vendor</th>
-							</tr>
-						</thead>
-						<tbody id="teamReimbursementDetailItemsTbody"></tbody>
-					</table>
-				</div>
-			</div>
-			<div class="modal-footer py-2">
-				<button type="button" class="btn btn-outline-secondary btn-sm kna-small" data-dismiss="modal">Close</button>
-			</div>
-		</div>
-	</div>
 </div>
