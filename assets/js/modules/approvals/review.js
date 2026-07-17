@@ -806,7 +806,7 @@ const renderLiquidation = (data, attachments = []) => {
     const isMyItem = Number(item.is_my_item || 0) === 1;
     const isOwnDecision = decidedBy ? Number(decidedBy) === currentUserId : false;
     const isAlreadyDecided = itemStatus === 'APPROVED' || itemStatus === 'REJECTED';
-    const isReadOnly = (isAlreadyDecided && !isOwnDecision) || (!isMyItem && isAlreadyDecided);
+    const isReadOnly = reviewState.isPastMode || (isAlreadyDecided && !isOwnDecision) || (!isMyItem && isAlreadyDecided);
 
     const initialDescription = normalizeDate(item.description || '');
     const initialInvoice = normalizeDate(item.invoice_receipt_no || '');
@@ -1061,7 +1061,7 @@ const renderReimbursement = (data, attachments = []) => {
     const isMyItem = Number(item.is_my_item || 0) === 1;
     const isOwnDecision = decidedBy ? Number(decidedBy) === currentUserId : false;
     const isAlreadyDecided = itemStatus === 'APPROVED' || itemStatus === 'REJECTED';
-    const isReadOnly = (isAlreadyDecided && !isOwnDecision) || (!isMyItem && isAlreadyDecided);
+    const isReadOnly = reviewState.isPastMode || (isAlreadyDecided && !isOwnDecision) || (!isMyItem && isAlreadyDecided);
 
     const initialDescription = normalizeDate(item.description || '');
     const initialInvoice = normalizeDate(item.invoice_receipt_no || '');
@@ -1592,4 +1592,4 @@ const handleReviewResize = () => {
 };
 
 const initReviewPage = () => { cacheReviewDom(); loadReviewData(); bindDecisionEvents(); window.addEventListener('resize', handleReviewResize); };
-if (document.readyState === 'loading') document.addEventListener(
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initReviewPage); else initReviewPage();
