@@ -806,11 +806,6 @@ class Approvals extends MY_Controller
         }
     }
 
-    /**
-     * user_ids of approvers flagged is_payment_release=1 on this
-     * transaction's approval matrix (used to alert them once a payment
-     * has been advised and is ready for them to release).
-     */
     private function getPaymentReleaseApproverIds($referenceNo)
     {
         if (!$this->sp || !$this->sp->db) {
