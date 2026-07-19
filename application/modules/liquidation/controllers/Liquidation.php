@@ -761,7 +761,7 @@ class Liquidation extends MY_Controller
                 $this->logAuditTrail(
                     'LIQUIDATION',
                     $liquidationId,
-                    'SAVED_DRAFT',
+                    $statusCode === 'LQ_SUBMITTED' ? 'SUBMITTED' : 'SAVED_DRAFT',
                     'HEADER',
                     $liquidationId
                 );
@@ -809,7 +809,7 @@ class Liquidation extends MY_Controller
                 $this->logAuditTrail(
                     'LIQUIDATION',
                     $liquidationId,
-                    'SUBMITTED',
+                    $statusCode === 'LQ_SUBMITTED' ? 'SUBMITTED' : 'SAVED_DRAFT',
                     'HEADER',
                     $liquidationId,
                     null,

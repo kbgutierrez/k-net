@@ -692,13 +692,15 @@ class Reimbursement extends MY_Controller
 
                 $reimbursementId = $headerResult['GeneratedReimbursementID'];
 
-                $this->logAuditTrail(
-                    'REIMBURSEMENT',
-                    $reimbursementId,
-                    'SAVED_DRAFT',
-                    'HEADER',
-                    $reimbursementId
-                );
+                if ($statusCode === 'RMB_DRAFT') {
+                    $this->logAuditTrail(
+                        'REIMBURSEMENT',
+                        $reimbursementId,
+                        'SAVED_DRAFT',
+                        'HEADER',
+                        $reimbursementId
+                    );
+                }
             }
 
             // Insert details
