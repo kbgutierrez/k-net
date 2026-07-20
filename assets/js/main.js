@@ -278,6 +278,173 @@
     });
   };
 
+  // Header notification bell — a general activity feed (submissions
+  // routed to you as an approver, decisions on your own requests,
+  // payment advised/released), loaded globally on every page since
+  // the bell lives in the shared header. Backed by tbl_notification_log,
+  // the same log every notify_event() call across the system already
+  // writes to — so this isn't a separate feature to keep in sync, it's
+  // just surfacing data that already exists.
+  const NOTIF_EVENT_META = {
+    TXN_SUBMITTED: { icon: 'fa-paper-plane', cls: 'notif-primary' },
+    TXN_STEP_APPROVED: { icon: 'fa-check', cls: 'notif-info' },
+    TXN_FULLY_APPROVED: { icon: 'fa-check-circle', cls: 'notif-success' },
+    TXN_REJECTED: { icon: 'fa-times-circle', cls: 'notif-danger' },
+    PAYMENT_ADVISED: { icon: 'fa-hand-holding-usd', cls: 'notif-warning' },
+    PAYMENT_RELEASED: { icon: 'fa-money-bill-wave', cls: 'notif-success' },
+  };
+  const NOTIF_DEFAULT_META = { icon: 'fa-bell', cls: 'notif-secondary' };
+
+  const escapeHtmlNotif = (value) => String(value === null || value === undefined ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+  const notifRouteForReference = (referenceNo, isApprover, isPending) => {
+    const ref = String(referenceNo || '');
+
+    // Whether THIS user is currently an approver on THIS specific
+    // reference decides the destination, not the event type alone —
+    // the same event (e.g. fully approved) is sent both to the
+    // original requester (no approver rights on their own request —
+    // Approvals review returns nothing for them; must use their own
+    // module's view page, which checks ownership instead) and, for
+    // other events, to approvers further down the chain (who have no
+    // ownership row and must use Approvals review instead).
+    if (isApprover) {
+      const base = `transactions/approvals/review/${encodeURIComponent(ref)}`;
+      // Anything other than the live "it's your turn" entry is a
+      // decided/historical item — Approvals review needs ?mode=past
+      // to load it read-only, same as the Past Approvals tab's own
+      // View button does.
+      return isPending ? base : `${base}?mode=past`;
+    }
+
+    if (ref.startsWith('CA')) return `transactions/cash-advance/view/${encodeURIComponent(ref)}`;
+    if (ref.startsWith('RPL')) return `transactions/replenishment/view/${encodeURIComponent(ref)}`;
+    if (ref.startsWith('RMB')) return `transactions/reimbursement/view/${encodeURIComponent(ref)}`;
+    if (ref.startsWith('LQ')) return `transactions/liquidation/view/${encodeURIComponent(ref)}`;
+    return `transactions/approvals/review/${encodeURIComponent(ref)}`;
+  };
+
+  const notifRelativeTime = (rawDate) => {
+    if (!rawDate) return '';
+    const then = new Date(String(rawDate).replace(' ', 'T'));
+    if (Number.isNaN(then.getTime())) return '';
+    const diffMs = Date.now() - then.getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days < 7) return `${days}d ago`;
+    return then.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+  };
+
+  const NOTIF_LAST_SEEN_KEY = 'knet_notif_last_seen';
+
+  const getNotifLastSeen = () => {
+    try {
+      const raw = window.localStorage.getItem(NOTIF_LAST_SEEN_KEY);
+      if (!raw) return null;
+      const d = new Date(raw);
+      return Number.isNaN(d.getTime()) ? null : d;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const setNotifLastSeen = (isoString) => {
+    try {
+      window.localStorage.setItem(NOTIF_LAST_SEEN_KEY, isoString);
+    } catch (e) {
+      // Storage unavailable (private mode, quota, etc.) — badge just
+      // won't persist across reloads, not worth failing over.
+    }
+  };
+
+  let notifState = { rows: [] };
+
+  const renderHeaderNotifications = (rows) => {
+    const badge = document.getElementById('notifBadgeCount');
+    const titleCount = document.getElementById('notifTitleCount');
+    const center = document.getElementById('notif-center');
+    if (!center) return;
+
+    notifState.rows = rows;
+
+    const count = rows.length;
+    const lastSeen = getNotifLastSeen();
+    const unseenCount = lastSeen
+      ? rows.filter((row) => {
+        const d = new Date(String(row.sent_date || '').replace(' ', 'T'));
+        return !Number.isNaN(d.getTime()) && d > lastSeen;
+      }).length
+      : count;
+
+    if (badge) {
+      badge.textContent = String(unseenCount);
+      badge.classList.toggle('d-none', unseenCount === 0);
+    }
+    if (titleCount) {
+      titleCount.textContent = String(count);
+    }
+
+    if (count === 0) {
+      center.innerHTML = '<div class="text-center kna-small text-muted py-3">No recent notifications.</div>';
+      return;
+    }
+
+    center.innerHTML = rows.map((row) => {
+      const meta = NOTIF_EVENT_META[row.event_code] || NOTIF_DEFAULT_META;
+      const referenceNo = escapeHtmlNotif(row.reference_no || '');
+      const subject = escapeHtmlNotif(row.subject || row.event_code || 'Notification');
+      const url = `${base_url}${notifRouteForReference(row.reference_no, Number(row.is_approver) === 1, Number(row.is_pending) === 1)}`;
+      return `
+        <a href="${url}">
+          <div class="notif-icon ${meta.cls}"><i class="fas ${meta.icon}"></i></div>
+          <div class="notif-content">
+            <span class="block">
+              <span class="notif-requester">${subject}</span>
+            </span>
+            <span class="time">${escapeHtmlNotif(notifRelativeTime(row.sent_date))}</span>
+          </div>
+        </a>
+      `;
+    }).join('');
+  };
+
+  const loadHeaderNotifications = () => {
+    if (typeof ajax_loader !== 'function' || !document.getElementById('notif-center')) {
+      return;
+    }
+    ajax_loader('notifications/api/get/recent', {}).done((response) => {
+      const res = (typeof response === 'string') ? JSON.parse(response) : response;
+      if (!res || res.status !== 'success') return;
+      const rows = Array.isArray(res.data) ? res.data : [];
+      renderHeaderNotifications(rows);
+    }).fail(() => {});
+  };
+
+  // Opening the bell marks everything currently loaded as "seen" —
+  // the badge clears immediately and stays cleared on the next visit
+  // until a newer notification arrives.
+  $(document).on('shown.bs.dropdown', '.nav-item.dropdown:has(#notifDropdown)', () => {
+    const latest = notifState.rows.reduce((max, row) => {
+      const d = new Date(String(row.sent_date || '').replace(' ', 'T'));
+      if (Number.isNaN(d.getTime())) return max;
+      return (!max || d > max) ? d : max;
+    }, null);
+    setNotifLastSeen((latest || new Date()).toISOString());
+    const badge = document.getElementById('notifBadgeCount');
+    if (badge) {
+      badge.textContent = '0';
+      badge.classList.add('d-none');
+    }
+  });
+
   // Force-hide scrollbar via injected style (catches any template overrides)
   const hideScrollbarStyle = document.createElement('style');
   hideScrollbarStyle.textContent = `
@@ -291,6 +458,14 @@
   closeMobileDrawer();
   updateFabVisibility();
   initActiveAccordion();
+
+  // Deferred to DOMContentLoaded: helper.ajax.loader.js (defines
+  // ajax_loader) is included further down in main.php's body than
+  // this script, so it isn't defined yet at this point in main.js's
+  // own top-to-bottom execution. By DOMContentLoaded every
+  // synchronous script in the page — including that one — has
+  // already run.
+  document.addEventListener('DOMContentLoaded', loadHeaderNotifications);
 
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', () => updateFabVisibility());

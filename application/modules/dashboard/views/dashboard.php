@@ -573,23 +573,6 @@
         <?php endif; ?>
     </div>
 
-    <div class="row mb-2 d-none" id="pendingApprovalRow">
-        <div class="col-12">
-            <div class="card kna-card kna-approval-card">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h3 class="kna-section-title">Awaiting My Approval</h3>
-                        <div class="d-flex align-items-center" style="gap:8px;">
-                            <div class="kna-small text-muted" id="pendingApprovalCount">0 item(s)</div>
-                            <a href="<?= base_url('transactions/approvals') ?>" class="btn btn-outline-secondary btn-sm kna-small">Review All</a>
-                        </div>
-                    </div>
-                    <div id="pendingApprovalList"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <div class="row mb-2">
         <div class="col-lg-7 mb-2 mb-lg-0">
             <div class="card kna-card h-100">

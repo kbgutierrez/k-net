@@ -951,6 +951,7 @@ class Cash_Advance extends MY_Controller
             notify_event('TXN_SUBMITTED', 'CASH_ADVANCE', $caRef, array(array(
                 'email' => $approverInfo['email'],
                 'name' => $approverName !== '' ? $approverName : $approverInfo['email'],
+                'user_id' => (int) $firstApprover['approver_id'],
             )), $mergeData);
         } catch (Throwable $e) {
             log_message('error', 'notifyFirstKnetApprover failed for ' . $caRef . ': ' . $e->getMessage());

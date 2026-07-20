@@ -1,3 +1,7 @@
+const goToPath = (path) => {
+	window.location.href = `${base_url}${path}`;
+};
+
 const formatPHP = (amount) => {
 	const value = Number(amount || 0);
 	return value.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' });
@@ -35,15 +39,25 @@ const loadReplenishmentList = () => {
 		tbody.innerHTML = rows.map((row) => {
 			const statusName = normalizeDate(row.status_name);
 			const badgeClass = STATUS_BADGE_CLASS[statusName] || 'kna-badge-draft';
+			const ref = normalizeDate(row.replenishment_id);
 			return `
-				<tr>
-					<td>${normalizeDate(row.replenishment_id)}</td>
+				<tr class="kna-row-clickable" data-ref="${ref}" style="cursor:pointer;">
+					<td>${ref}</td>
 					<td class="text-right">${formatPHP(row.total_amount)}</td>
 					<td>${normalizeDate(row.created_date).slice(0, 10)}</td>
 					<td><span class="kna-badge ${badgeClass}">${statusName}</span></td>
 				</tr>
 			`;
 		}).join('');
+
+		tbody.querySelectorAll('tr[data-ref]').forEach((tr) => {
+			tr.addEventListener('click', () => {
+				const ref = tr.getAttribute('data-ref');
+				if (ref) {
+					goToPath(`transactions/replenishment/view/${encodeURIComponent(ref)}`);
+				}
+			});
+		});
 	});
 };
 

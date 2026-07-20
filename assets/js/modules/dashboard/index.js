@@ -17,8 +17,6 @@ const dashboardDom = {
 	monthCashAdvance: null,
 	monthLiquidated: null,
 	monthReimbursed: null,
-	pendingApprovalCount: null,
-	pendingApprovalList: null,
 	statusOverviewChart: null,
 };
 
@@ -98,7 +96,7 @@ const ATTENTION_META = {
 const routeForReference = (referenceNo, mode) => {
 	const ref = normalizeDate(referenceNo);
 	if (ref.startsWith('CA')) return mode === 'add' ? 'transactions/cash-advance/add' : 'transactions/cash-advance';
-	if (ref.startsWith('RPL')) return 'transactions/replenishment';
+	if (ref.startsWith('RPL')) return mode === 'add' ? 'transactions/replenishment/add' : `transactions/replenishment/view/${ref}`;
 	if (ref.startsWith('RMB')) return mode === 'add' ? 'transactions/reimbursement/add' : `transactions/reimbursement/view/${ref}`;
 	if (ref.startsWith('LQ')) return 'transactions/liquidation';
 	return '';
@@ -106,7 +104,7 @@ const routeForReference = (referenceNo, mode) => {
 
 const stateConfig = {
 	loading: { text: 'Loading dashboard data...', cls: '' },
-	empty: { text: 'No data found for this scope.', cls: '' },
+	empty: { text: 'No data available', cls: '' },
 	error: { text: 'Unable to load dashboard data.', cls: 'kna-state-error' },
 };
 
@@ -318,44 +316,6 @@ const renderStatusOverview = () => {
 	});
 };
 
-const renderPendingApprovals = () => {
-	const items = (dashboardState.data && dashboardState.data.pending_approvals) || [];
-	const totalCount = (dashboardState.data && dashboardState.data.pending_approvals_count) || 0;
-	const hasMore = Boolean(dashboardState.data && dashboardState.data.pending_approvals_has_more);
-
-	const row = document.getElementById('pendingApprovalRow');
-	if (row) {
-		// Not an approver on anything right now — don't show an empty
-		// card for a feature that doesn't apply to this user at all.
-		row.classList.toggle('d-none', totalCount === 0);
-	}
-
-	if (dashboardDom.pendingApprovalCount) {
-		dashboardDom.pendingApprovalCount.textContent = hasMore ? `${totalCount}+ item(s)` : `${totalCount} item(s)`;
-	}
-	if (!dashboardDom.pendingApprovalList || totalCount === 0) {
-		return;
-	}
-
-	dashboardDom.pendingApprovalList.innerHTML = items.map((row) => {
-		const typeLabel = TYPE_LABELS[row.transaction_type] || row.transaction_type || 'Transaction';
-		const amount = row.amount ?? row.ca_amount ?? row.lq_amount ?? 0;
-		const requester = normalizeDate(row.requester_name || row.user_name || '');
-		const referenceNo = normalizeDate(row.reference_no || row.reference_id || '');
-		const reviewUrl = `${base_url}transactions/approvals/review/${encodeURIComponent(referenceNo)}`;
-		return `
-			<div class="kna-approval-item">
-				<div class="kna-approval-main">
-					<div class="kna-approval-ref">${escapeHtml(referenceNo)}</div>
-					<p class="kna-approval-meta">${escapeHtml(typeLabel)}${requester ? ` · ${escapeHtml(requester)}` : ''}</p>
-				</div>
-				<div class="kna-approval-amount">${formatPHP(amount)}</div>
-				<a href="${reviewUrl}" class="btn btn-primary btn-sm kna-small">Review</a>
-			</div>
-		`;
-	}).join('');
-};
-
 const renderStatusChart = () => {
 	const canvas = dashboardDom.statusOverviewChart;
 	if (!canvas || typeof Chart === 'undefined') {
@@ -459,14 +419,12 @@ const loadDashboard = async (scope) => {
 		}
 		dashboardState.data = data;
 		renderSummary();
-		renderPendingApprovals();
 
 		const hasRecent = data && Array.isArray(data.recent) && data.recent.length > 0;
 		const hasAttention = data && Array.isArray(data.attention) && data.attention.length > 0;
 		const hasStatus = data && Array.isArray(data.status_overview) && data.status_overview.length > 0;
-		const hasApprovals = data && Number(data.pending_approvals_count || 0) > 0;
 
-		if (!hasRecent && !hasAttention && !hasStatus && !hasApprovals) {
+		if (!hasRecent && !hasAttention && !hasStatus) {
 			setSectionState('empty');
 			return;
 		}
@@ -504,8 +462,6 @@ const cacheDom = () => {
 	dashboardDom.monthCashAdvance = document.getElementById('monthCashAdvance');
 	dashboardDom.monthLiquidated = document.getElementById('monthLiquidated');
 	dashboardDom.monthReimbursed = document.getElementById('monthReimbursed');
-	dashboardDom.pendingApprovalCount = document.getElementById('pendingApprovalCount');
-	dashboardDom.pendingApprovalList = document.getElementById('pendingApprovalList');
 	dashboardDom.statusOverviewChart = document.getElementById('statusOverviewChart');
 };
 

@@ -44,7 +44,7 @@ if (!function_exists('render_notification_template')) {
 }
 
 if (!function_exists('send_notification_email')) {
-    function send_notification_email($toEmail, $toName, $subject, $bodyHtml, $eventCode, $referenceNo = null, $transactionType = null)
+    function send_notification_email($toEmail, $toName, $subject, $bodyHtml, $eventCode, $referenceNo = null, $transactionType = null, $recipientUserId = null)
     {
         $ci = &get_instance();
         $toEmail = trim((string) $toEmail);
@@ -101,6 +101,7 @@ if (!function_exists('send_notification_email')) {
                 'subject' => $subject,
                 'status' => $status,
                 'error_message' => $errorMessage,
+                'recipient_user_id' => $recipientUserId,
             );
             $ci->sp->createData(build_sp('sp_insert_notification_log', count($logParams)), $logParams);
         } catch (\Throwable $e) {
@@ -147,12 +148,13 @@ if (!function_exists('notify_event')) {
         foreach ($recipients as $recipient) {
             $email = isset($recipient['email']) ? trim((string) $recipient['email']) : '';
             $name = isset($recipient['name']) ? $recipient['name'] : '';
+            $recipientUserId = isset($recipient['user_id']) ? (int) $recipient['user_id'] : null;
             if ($email === '' || isset($seen[strtolower($email)])) {
                 continue;
             }
             $seen[strtolower($email)] = true;
 
-            send_notification_email($email, $name, $rendered['subject'], $rendered['body'], $eventCode, $referenceNo, $transactionType);
+            send_notification_email($email, $name, $rendered['subject'], $rendered['body'], $eventCode, $referenceNo, $transactionType, $recipientUserId);
         }
     }
 }

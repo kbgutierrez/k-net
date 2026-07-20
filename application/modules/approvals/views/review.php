@@ -854,6 +854,9 @@
             <span class="kna-badge kna-badge-pending mt-1" id="reviewStatusBadge">Awaiting Your Action</span>
         </div>
         <div class="d-flex align-items-center" style="gap: 8px;">
+            <a href="#" target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm kna-small d-none" id="btnDownloadPettyCashSlip" title="Download Petty Cash Slip">
+                <i class="fas fa-file-download mr-1"></i> Petty Cash Slip
+            </a>
             <button type="button" class="kna-history-btn" id="btnShowHistory" title="View History">
                 <i class="fas fa-history"></i>
             </button>

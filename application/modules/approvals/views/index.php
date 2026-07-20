@@ -218,7 +218,9 @@
             <div class="d-flex align-items-center flex-wrap" style="gap:.5rem;">
                 <button class="kna-tab is-active" data-approval-tab="pending">Pending Approvals</button>
                 <button class="kna-tab" data-approval-tab="past">Past Approvals</button>
+                <?php if (!empty($hasPaymentCapability)): ?>
                 <button class="kna-tab" data-approval-tab="payment">For Payment</button>
+                <?php endif; ?>
             </div>
             <div>
                 <label class="kna-small kna-form-label mb-1">Type</label>

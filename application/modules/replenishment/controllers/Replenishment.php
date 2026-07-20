@@ -54,6 +54,28 @@ class Replenishment extends MY_Controller
         $this->load->view('main', $data);
     }
 
+    public function view($replenishment_no = '')
+    {
+        $ref = trim((string) $replenishment_no);
+        if ($ref === '') {
+            redirect('transactions/replenishment');
+            return;
+        }
+
+        $data = array(
+            'title' => 'Replenishment Details',
+            'main_view' => '../modules/replenishment/views/detail',
+            'module_group' => $this->module_group,
+            'module' => $this->module,
+            'replenishment_no' => $ref,
+            'scripts' => array(
+                '../replenishment/detail.js',
+            ),
+        );
+
+        $this->load->view('main', $data);
+    }
+
     private function getActiveFundForUser($userId)
     {
         $row = $this->sp->readData(
@@ -222,6 +244,34 @@ class Replenishment extends MY_Controller
         }
     }
 
+    public function api_get_timeline()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $referenceNo = isset($data['ReferenceNo']) ? trim((string) $data['ReferenceNo']) : '';
+            if ($referenceNo === '') {
+                return $this->respondError('Missing ReferenceNo');
+            }
+
+            $auditParams = array(
+                'TransactionId' => $referenceNo,
+            );
+            $auditTrail = $this->sp->readData(
+                build_sp('sp_fetch_audit_trail', count($auditParams)),
+                $auditParams,
+                'result'
+            );
+
+            return $this->respondSuccess('Timeline fetched', array(
+                'audit_trail' => is_array($auditTrail) ? $auditTrail : array(),
+            ));
+        } catch (Throwable $e) {
+            return $this->respondError($e->getMessage());
+        }
+    }
+
     /**
      * Mirrors Reimbursement::notifyFirstApprover() — never lets a
      * notification failure affect the calling request's response.
@@ -274,6 +324,7 @@ class Replenishment extends MY_Controller
             notify_event('TXN_SUBMITTED', 'REPLENISHMENT', $replenishmentId, array(array(
                 'email' => $approverInfo['email'],
                 'name' => $approverName !== '' ? $approverName : $approverInfo['email'],
+                'user_id' => (int) $firstApprover['approver_id'],
             )), $mergeData);
         } catch (Exception $e) {
             log_message('error', 'notifyFirstApprover (Replenishment) failed for ' . $replenishmentId . ': ' . $e->getMessage());

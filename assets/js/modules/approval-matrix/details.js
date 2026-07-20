@@ -46,6 +46,7 @@ const detailsApproverRowMarkup = (detail = {}) => {
 	const type = String(detail.approval_type || 'SEQUENTIAL').toUpperCase() === 'PARALLEL' ? 'PARALLEL' : 'SEQUENTIAL';
 	const isPaymentAdvisory = Boolean(Number(detail.is_payment_advisory || 0));
 	const isPaymentRelease = Boolean(Number(detail.is_payment_release || 0));
+	const isPettyCashSlip = Boolean(Number(detail.is_petty_cash_slip || 0));
 	const rowId = `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 	return `
 		<div class="kna-approver-row" data-approver-row style="position: relative;">
@@ -76,9 +77,13 @@ const detailsApproverRowMarkup = (detail = {}) => {
 								<input type="checkbox" class="custom-control-input js-approver-payment-advisory" id="paymentAdvisory_${rowId}" ${isPaymentAdvisory ? 'checked' : ''}>
 								<label class="custom-control-label kna-small" for="paymentAdvisory_${rowId}">Payment Advisory</label>
 							</div>
-							<div class="custom-control custom-checkbox mb-0">
+							<div class="custom-control custom-checkbox mb-1">
 								<input type="checkbox" class="custom-control-input js-approver-payment-release" id="paymentRelease_${rowId}" ${isPaymentRelease ? 'checked' : ''}>
 								<label class="custom-control-label kna-small" for="paymentRelease_${rowId}">Payment Release</label>
+							</div>
+							<div class="custom-control custom-checkbox mb-0">
+								<input type="checkbox" class="custom-control-input js-approver-petty-cash-slip" id="pettyCashSlip_${rowId}" ${isPettyCashSlip ? 'checked' : ''}>
+								<label class="custom-control-label kna-small" for="pettyCashSlip_${rowId}">Petty Cash Slip</label>
 							</div>
 						</div>
 					</div>
@@ -96,9 +101,11 @@ const updatePaymentDropdownLabel = (rowEl) => {
 	if (!label) return;
 	const advisory = rowEl.querySelector('.js-approver-payment-advisory');
 	const release = rowEl.querySelector('.js-approver-payment-release');
+	const pettyCashSlip = rowEl.querySelector('.js-approver-petty-cash-slip');
 	const parts = [];
 	if (advisory && advisory.checked) parts.push('Advisory');
 	if (release && release.checked) parts.push('Release');
+	if (pettyCashSlip && pettyCashSlip.checked) parts.push('Petty Cash Slip');
 	label.textContent = parts.length ? parts.join(' + ') : 'None';
 };
 
@@ -109,7 +116,7 @@ const initPaymentDropdown = (rowEl) => {
 	// Keep the dropdown open while checking/unchecking options.
 	menu.addEventListener('click', (event) => event.stopPropagation());
 
-	menu.querySelectorAll('.js-approver-payment-advisory, .js-approver-payment-release').forEach((checkbox) => {
+	menu.querySelectorAll('.js-approver-payment-advisory, .js-approver-payment-release, .js-approver-petty-cash-slip').forEach((checkbox) => {
 		checkbox.addEventListener('change', () => updatePaymentDropdownLabel(rowEl));
 	});
 
@@ -388,6 +395,7 @@ const collectApprovers = () => {
 		approval_type: String($(row).find('.js-approver-type').val() || 'SEQUENTIAL'),
 		is_payment_advisory: (row.querySelector('.js-approver-payment-advisory') || {}).checked ? 1 : 0,
 		is_payment_release: (row.querySelector('.js-approver-payment-release') || {}).checked ? 1 : 0,
+		is_petty_cash_slip: (row.querySelector('.js-approver-petty-cash-slip') || {}).checked ? 1 : 0,
 	})).filter((item) => item.approver_id && item.approval_order > 0);
 };
 

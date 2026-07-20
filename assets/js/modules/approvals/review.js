@@ -1574,6 +1574,16 @@ const loadReviewData = () => {
     else { if (domReview.viewApprovalItems) domReview.viewApprovalItems.innerHTML = '<div class="alert alert-danger kna-small">Unknown transaction type: ' + escapeHtml(reviewState.transactionType) + '</div>'; return; }
     renderReviewTimeline(); updateSummary();
     applyPaymentActionBar(canAdvise, canRelease, paymentCapability);
+
+    const btnPettyCashSlip = document.getElementById('btnDownloadPettyCashSlip');
+    if (btnPettyCashSlip) {
+      if (responseData.petty_cash_slip_capability) {
+        btnPettyCashSlip.href = `${base_url}transactions/approvals/petty-cash-slip/${encodeURIComponent(reviewState.referenceNo)}`;
+        btnPettyCashSlip.classList.remove('d-none');
+      } else {
+        btnPettyCashSlip.classList.add('d-none');
+      }
+    }
   }).fail(() => { if (domReview.viewApprovalItems) domReview.viewApprovalItems.innerHTML = '<div class="alert alert-danger kna-small">Server error while fetching details.</div>'; });
 };
 

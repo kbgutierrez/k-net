@@ -1,6 +1,10 @@
 let rplClaimable = [];
 let rplSelectedIds = new Set();
 
+const goToPath = (path) => {
+	window.location.href = `${base_url}${path}`;
+};
+
 const formatPHP = (amount) => {
 	const value = Number(amount || 0);
 	return value.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' });
@@ -18,7 +22,7 @@ const renderClaimable = () => {
 		tbody.innerHTML = rplClaimable.map((row) => `
 			<tr>
 				<td><input type="checkbox" class="rpl-claim-checkbox" data-id="${row.reimbursementId}" data-amount="${row.totalAmount}" ${rplSelectedIds.has(row.reimbursementId) ? 'checked' : ''}></td>
-				<td>${row.reimbursementId}</td>
+				<td><a href="${base_url}transactions/reimbursement/team/view/${encodeURIComponent(row.reimbursementId)}" target="_blank" rel="noopener">${row.reimbursementId}</a></td>
 				<td>${row.salesman}</td>
 				<td>${row.description}</td>
 				<td class="text-right">${formatPHP(row.totalAmount)}</td>

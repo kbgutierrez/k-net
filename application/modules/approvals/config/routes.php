@@ -17,3 +17,4 @@ $route['transactions/approvals/api/bulk-decision'] = 'Approvals/api_bulk_decisio
 $route['transactions/approvals/api/get/payment-queue'] = 'Approvals/api_get_payment_queue';
 $route['transactions/approvals/api/payment/advise'] = 'Approvals/api_advise_payment';
 $route['transactions/approvals/api/payment/release'] = 'Approvals/api_release_payment';
+$route['transactions/approvals/petty-cash-slip/(:any)'] = 'Approvals/download_petty_cash_slip/$1';

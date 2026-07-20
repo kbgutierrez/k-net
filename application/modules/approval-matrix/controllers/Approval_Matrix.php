@@ -151,6 +151,7 @@ class Approval_Matrix extends MY_Controller
                     'approval_type' => $detail['approval_type'],
                     'is_payment_advisory' => !empty($detail['is_payment_advisory']) ? 1 : 0,
                     'is_payment_release' => !empty($detail['is_payment_release']) ? 1 : 0,
+                    'is_petty_cash_slip' => !empty($detail['is_petty_cash_slip']) ? 1 : 0,
                 );
                 $this->sp->createData(build_sp('sp_insert_approval_matrix_details', count($detailParams)), $detailParams);
             }
@@ -210,6 +211,7 @@ class Approval_Matrix extends MY_Controller
                     'approval_type' => $detail['approval_type'],
                     'is_payment_advisory' => !empty($detail['is_payment_advisory']) ? 1 : 0,
                     'is_payment_release' => !empty($detail['is_payment_release']) ? 1 : 0,
+                    'is_petty_cash_slip' => !empty($detail['is_petty_cash_slip']) ? 1 : 0,
                 );
                 $this->sp->createData(
                     build_sp('sp_insert_approval_matrix_details', count($detailParams)),

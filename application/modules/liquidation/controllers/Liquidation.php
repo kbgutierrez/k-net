@@ -887,6 +887,7 @@ class Liquidation extends MY_Controller
             notify_event('TXN_SUBMITTED', 'LIQUIDATION', $liquidationId, array(array(
                 'email' => $approverInfo['email'],
                 'name' => $approverName !== '' ? $approverName : $approverInfo['email'],
+                'user_id' => (int) $firstApprover['approver_id'],
             )), $mergeData);
         } catch (Throwable $e) {
             log_message('error', 'notifyFirstApprover failed for ' . $liquidationId . ': ' . $e->getMessage());

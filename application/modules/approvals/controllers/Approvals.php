@@ -19,9 +19,38 @@ class Approvals extends MY_Controller
             'main_view' => '../modules/approvals/views/index',
             'module_group' => $this->module_group,
             'module' => $this->module,
+            'hasPaymentCapability' => $this->userHasAnyPaymentCapability(),
             'scripts' => array('index.js'),
         );
         $this->load->view('main', $data);
+    }
+
+    /**
+     * Whether this user is ticked as a payment advisor/releaser on any
+     * active approval matrix row. Drives whether the "For Payment" tab
+     * is shown at all — sp_fetch_payment_queue_header already filters
+     * its results correctly by this same flag, but the tab itself was
+     * always rendered regardless, so approvers with zero payment
+     * authority still saw a (permanently empty) "For Payment" tab.
+     */
+    private function userHasAnyPaymentCapability()
+    {
+        $userId = (int) $this->session->userdata('user_id');
+
+        $row = $this->sp->db->select('D.id')
+            ->from('tbl_approval_matrix_details D')
+            ->join('tbl_approval_matrix_header H', 'H.id = D.matrix_header_id')
+            ->where('D.approver_id', $userId)
+            ->where('H.is_active', 1)
+            ->group_start()
+                ->where('D.is_payment_advisory', 1)
+                ->or_where('D.is_payment_release', 1)
+            ->group_end()
+            ->limit(1)
+            ->get()
+            ->row_array();
+
+        return !empty($row);
     }
 
     /**
@@ -426,11 +455,21 @@ class Approvals extends MY_Controller
                 $paymentCapability = is_array($capResult) ? $capResult : null;
             }
 
+            $pettyCashSlipCapability = false;
+            if (is_array($result) && count($result) > 0) {
+                $firstRow = $result[0];
+                $txnType = isset($firstRow['transaction_type']) ? strtoupper(trim((string) $firstRow['transaction_type'])) : '';
+                if ($txnType === 'REIMBURSEMENT') {
+                    $pettyCashSlipCapability = $this->userHasPettyCashSlipCapability($refereceNo, $this->session->userdata('user_id'));
+                }
+            }
+
             return $this->respondSuccess("Details fetched successfully.", array(
                 'items' => $result,
                 'attachments' => $attachments,
                 'has_attachments' => $hasAttachments,
                 'payment_capability' => $paymentCapability,
+                'petty_cash_slip_capability' => $pettyCashSlipCapability,
             ));
         } catch (Exception $e) {
             return $this->respondError("An error occurred: " . $e->getMessage());
@@ -583,6 +622,71 @@ class Approvals extends MY_Controller
         } catch (Throwable $e) {
             return $this->respondError($e->getMessage());
         }
+    }
+
+    /**
+     * Whether $userId is ticked as the petty-cash-slip approver on the
+     * reimbursement's active approval matrix row.
+     */
+    private function userHasPettyCashSlipCapability($referenceNo, $userId)
+    {
+        $row = $this->sp->db->select('D.id')
+            ->from('tbl_approval_matrix_details D')
+            ->join('tbl_approval_header H', 'H.approval_matrix_id = D.matrix_header_id')
+            ->where('H.reference_id', $referenceNo)
+            ->where('H.is_active', 1)
+            ->where('D.approver_id', (int) $userId)
+            ->where('D.is_petty_cash_slip', 1)
+            ->limit(1)
+            ->get()
+            ->row_array();
+
+        return !empty($row);
+    }
+
+    /**
+     * Streams a filled-out Petty Cash Request Form for a reimbursement,
+     * auto-populated from its own details. Only downloadable by an
+     * approver ticked "Petty Cash Slip" on that reimbursement's
+     * approval matrix.
+     */
+    public function download_petty_cash_slip($referenceNo = '')
+    {
+        $referenceNo = trim((string) $referenceNo);
+        $userId = (int) $this->session->userdata('user_id');
+
+        if ($referenceNo === '' || !$this->userHasPettyCashSlipCapability($referenceNo, $userId)) {
+            show_error('You are not authorized to download this slip.', 403);
+            return;
+        }
+
+        $slipData = $this->sp->readData(
+            build_sp('sp_fetch_reimbursement_petty_cash_data', 1),
+            array('ReimbursementId' => $referenceNo),
+            'row'
+        );
+
+        if (!is_array($slipData) || empty($slipData)) {
+            show_error('Reimbursement not found.', 404);
+            return;
+        }
+
+        $approverInfo = get_user_info($userId);
+        $approverName = trim((string) ($approverInfo['firstname'] ?? '') . ' ' . (string) ($approverInfo['lastname'] ?? ''));
+
+        $this->load->helper('petty_cash_slip');
+        $html = build_petty_cash_slip_html($slipData, array(
+            'name' => $approverName,
+            'date' => date('M d, Y'),
+        ));
+
+        $this->load->library('pdf_generator', null, 'pdf');
+        $pdfContent = $this->pdf->generateInline($html);
+
+        $this->output
+            ->set_content_type('application/pdf')
+            ->set_header('Content-Disposition: attachment; filename="PettyCashSlip_' . $referenceNo . '.pdf"')
+            ->set_output($pdfContent);
     }
 
     private function resolveTransactionTypeFromReference($referenceNo)
@@ -777,6 +881,7 @@ class Approvals extends MY_Controller
             'email' => $info['email'],
             'name' => $name !== '' ? $name : $info['email'],
             'department' => (string) ($info['short_name'] ?? ''),
+            'user_id' => $userId,
         );
     }
 

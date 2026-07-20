@@ -36,7 +36,7 @@
   <link rel="stylesheet" href="<?=base_url('assets/css/atlantis.css');?>">
   <link rel="stylesheet" href="<?=base_url('assets/css/dragula.css');?>">
   <link rel="stylesheet" href="<?=base_url('assets/css/dragula.min.css');?>">
-  <link rel="stylesheet" href="<?=base_url('assets/css/main.css');?>">
+  <link rel="stylesheet" href="<?= base_url('assets/css/main.css?v=' . (file_exists(FCPATH . 'assets/css/main.css') ? filemtime(FCPATH . 'assets/css/main.css') : time())); ?>">
   <!-- <link rel="stylesheet"
     href="https://cdn.jsdelivr.net/npm/@ttskch/select2-bootstrap4-theme@x.x.x/dist/select2-bootstrap4.min.css"> -->
       <link rel="stylesheet" href="<?=base_url('assets/css/select2-bootstrap4.min.css');?>">
@@ -78,31 +78,26 @@
       <nav class="navbar navbar-header navbar-expand-lg bg-primary">
         <div class="container-fluid">
           <ul class="navbar-nav topbar-nav ml-md-auto align-items-center ">
-              <li class="nav-item dropdown hidden-caret d-none">
+              <li class="nav-item dropdown hidden-caret">
                 <a class="nav-link dropdown-toggle" href="#" id="notifDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                   <i class="fa fa-bell"></i>
-                  <span class="notification notification-count"></span>
+                  <span class="notification notification-count d-none" id="notifBadgeCount"></span>
                 </a>
                 <ul class="dropdown-menu notif-box animated fadeIn" aria-labelledby="notifDropdown">
                   <li>
-                    <div class="dropdown-title">You have <span class="notification-count"> 0 </span> new notification</div>
+                    <div class="dropdown-title">Notifications (<span id="notifTitleCount">0</span>)</div>
                   </li>
                   <li>
-                    <div class="notif-scroll scrollbar-outer ">
+                    <div class="notif-scroll">
                       <div class="notif-center" id="notif-center">
-                        <a href="#">
-                          <div class="notif-icon notif-success"> <i class="fas fa-ticket-alt"></i> </div>
-                          <div class="notif-content">
-                            <span class="block">
-                              <span class="notif-ticket-number"></span><br>
-                              <span class="notif-requester"></span>
-
-                            </span>
-                            <span class="time notif-created-date"></span>
-                          </div>
-                        </a>
+                        <div class="text-center kna-small text-muted py-3" id="notifEmptyState">No recent notifications.</div>
                       </div>
                     </div>
+                  </li>
+                  <li>
+                    <a href="<?=base_url('transactions/approvals');?>" class="dropdown-item text-center kna-small font-weight-bold" style="color:#5f2a8a;">
+                      View All
+                    </a>
                   </li>
                 </ul>
               </li>
@@ -280,7 +275,7 @@
   <script src="<?=base_url('assets/js/dragula.js');?>"></script>
   <script src="<?=base_url('assets/js/dragula.min.js');?>"></script>
   <script src="<?=base_url('assets/js/pubnub.7.1.2.min.js');?>"></script>
-  <script src="<?=base_url('assets/js/main.js');?>"></script>
+  <script src="<?= base_url('assets/js/main.js?v=' . (file_exists(FCPATH . 'assets/js/main.js') ? filemtime(FCPATH . 'assets/js/main.js') : time())); ?>"></script>
   <!-- jQuery UI -->
   <script src="<?=base_url('assets/js/plugin/jquery-ui-1.12.1.custom/jquery-ui.min.js');?>"></script>
   <script src="<?=base_url('assets/js/plugin/jquery-ui-touch-punch/jquery.ui.touch-punch.min.js');?>"></script>
