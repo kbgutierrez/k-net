@@ -27,6 +27,11 @@
 		line-height: 1.35;
 	}
 
+	.kna-form-label {
+		margin-bottom: .3rem;
+		font-weight: 600;
+	}
+
 	.kna-kpi {
 		font-size: 19px;
 		line-height: 1.15;
@@ -51,30 +56,14 @@
 		padding: .5rem .45rem;
 		vertical-align: middle;
 	}
-
-	.kna-badge {
-		padding: .2rem .4rem;
-		border-radius: 3px;
-		font-size: 11px;
-		font-weight: 600;
-		display: inline-block;
-	}
-
-	.kna-badge-pending { background: #fff5d9; color: #7a5b00; }
-	.kna-badge-approved { background: #e8f7ee; color: #17663a; }
-	.kna-badge-rejected { background: #fdeaea; color: #8a2121; }
-	.kna-badge-draft { background: #eef2f7; color: #495869; }
-	.kna-badge-paid { background: #e0e7ff; color: #3730a3; }
 </style>
 
 <div class="page-inner kna-page">
 	<div class="d-flex align-items-center justify-content-between mb-2">
-		<div class="kna-title">Revolving Fund Replenishment</div>
-		<?php if (!empty($hasActiveFund)): ?>
-		<button type="button" class="btn btn-primary btn-sm kna-small" id="btnOpenNewReplenishment">
-			New Replenishment
-		</button>
-		<?php endif; ?>
+		<div class="kna-title">New Replenishment</div>
+		<a href="<?= base_url('transactions/replenishment') ?>" class="btn btn-outline-secondary btn-sm kna-small">
+			<i class="fas fa-arrow-left mr-1"></i> Back
+		</a>
 	</div>
 
 	<?php if (empty($hasActiveFund)): ?>
@@ -99,21 +88,36 @@
 	<div class="card kna-card">
 		<div class="card-body">
 			<div class="d-flex align-items-center justify-content-between mb-2">
-				<div class="kna-small text-muted">My Replenishment Requests</div>
-				<div class="kna-small text-muted" id="resultCount">—</div>
+				<div class="kna-small text-muted">Claim your team's paid reimbursements as proof of expense to replenish your fund.</div>
+				<div class="kna-small text-muted" id="claimableCount">—</div>
 			</div>
+
 			<div class="table-responsive">
-				<table class="table table-sm kna-table" id="replenishmentListTable" style="width:100%">
+				<table class="table table-sm kna-table" id="claimableTable" style="width:100%">
 					<thead>
 						<tr>
-							<th>Replenishment No</th>
-							<th class="text-right">Total Amount</th>
-							<th>Submitted</th>
-							<th>Status</th>
+							<th style="width:32px;"><input type="checkbox" id="claimAll"></th>
+							<th>Reimbursement No</th>
+							<th>Filed By</th>
+							<th>Description</th>
+							<th class="text-right">Amount</th>
 						</tr>
 					</thead>
-					<tbody id="replenishmentListTbody"></tbody>
+					<tbody id="claimableTbody"></tbody>
 				</table>
+			</div>
+
+			<div class="mt-2">
+				<label class="kna-small kna-form-label mb-1">Remarks</label>
+				<textarea class="form-control form-control-sm kna-small" id="rplRemarks" rows="2" placeholder="Notes for the approver (optional)"></textarea>
+			</div>
+
+			<div class="d-flex align-items-center justify-content-between mt-2">
+				<div class="kna-small">Total claimed: <strong id="claimedTotal">₱0.00</strong></div>
+				<div>
+					<button type="button" class="btn btn-outline-secondary btn-sm kna-small" id="btnSaveDraft">Save Draft</button>
+					<button type="button" class="btn btn-primary btn-sm kna-small" id="btnSubmitReplenishment">Submit for Approval</button>
+				</div>
 			</div>
 		</div>
 	</div>

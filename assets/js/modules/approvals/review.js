@@ -517,6 +517,8 @@ const renderCashAdvance = (data, attachments = []) => {
         <div class="kna-overview-label">Submission Date</div>
         <div class="kna-overview-value">${normalizeDate(h.created_date).slice(0, 10) || '-'}</div>
       </div>
+    </div>
+    <div class="kna-overview-fields">
       <div class="kna-overview-cell">
         <div class="kna-overview-label">Requested Amount</div>
         <div class="kna-overview-value kna-amount">${formatPHP(h.amount || h.ca_amount || 0)}</div>
@@ -526,13 +528,13 @@ const renderCashAdvance = (data, attachments = []) => {
         <div class="kna-overview-value kna-amount-approved" id="caApprovedAmountDisplay">${formatPHP(h.approved_amount || h.amount || h.ca_amount || 0)}</div>
         ${(h.approved_amount && Number(h.approved_amount) !== Number(h.amount || h.ca_amount)) ? `<div class="kna-amount-words" id="caApprovedAmountWords">${escapeHtml(h.approved_amount_in_words || amountToWords(h.approved_amount))}</div>` : ''}
       </div>
-      <div class="kna-overview-cell wide">
+      <div class="kna-overview-cell">
         <div class="kna-overview-label">Payable To</div>
         <div class="kna-overview-value">
           <input type="text" class="form-control form-control-sm kna-ca-field-input" id="reviewPayableTo" data-field="payable_to" data-original="${escapeHtml(h.payable_to || '')}" value="${escapeHtml(h.payable_to || '')}" placeholder="Enter payable to..." style="min-width:140px;">
         </div>
       </div>
-      <div class="kna-overview-cell wide">
+      <div class="kna-overview-cell">
         <div class="kna-overview-label">Cost Center</div>
         <div class="kna-overview-value">
           <select class="kna-cost-center-select" id="reviewCostCenter" data-field="cost_center_id" data-original="${escapeHtml(currentCostCenterId)}" style="min-width:140px;">
@@ -540,19 +542,21 @@ const renderCashAdvance = (data, attachments = []) => {
           </select>
         </div>
       </div>
-      <div class="kna-overview-cell wide">
+    </div>
+    <div class="kna-overview-fields">
+      <div class="kna-overview-cell">
         <div class="kna-overview-label">Address</div>
         <div class="kna-overview-value">
           <input type="text" class="form-control form-control-sm kna-ca-field-input" id="reviewAddress" data-field="address" data-original="${escapeHtml(h.address || '')}" value="${escapeHtml(h.address || '')}" placeholder="Enter address..." style="min-width:140px;">
         </div>
       </div>
-      <div class="kna-overview-cell wide">
+      <div class="kna-overview-cell">
         <div class="kna-overview-label">IO</div>
         <div class="kna-overview-value">
           <input type="text" class="form-control form-control-sm kna-ca-field-input" id="reviewIo" data-field="io" data-original="${escapeHtml(currentIo)}" value="${escapeHtml(currentIo)}" placeholder="Enter IO..." style="min-width:140px;">
         </div>
       </div>
-      <div class="kna-overview-cell wide">
+      <div class="kna-overview-cell full" style="grid-column: span 2;">
         <div class="kna-overview-label">Purpose / Description</div>
         <div class="kna-overview-value kna-purpose">${escapeHtml(h.description || '-')}</div>
       </div>
@@ -703,6 +707,8 @@ const renderLiquidation = (data, attachments = []) => {
       <div class="kna-overview-label">CA Reference</div>
       <div class="kna-overview-value">${escapeHtml(first.cash_advance_id || '-')}</div>
     </div>
+  </div>
+  <div class="kna-overview-fields">
     <div class="kna-overview-cell">
       <div class="kna-overview-label">Total Items</div>
       <div class="kna-overview-value">${data.length}</div>
@@ -719,6 +725,8 @@ const renderLiquidation = (data, attachments = []) => {
       <div class="kna-overview-label">Variance</div>
       <div class="kna-overview-value kna-amount">${formatPHP(varianceAmount)}</div>
     </div>
+  </div>
+  <div class="kna-overview-fields">
    <div class="kna-overview-cell">
       <div class="kna-overview-label">Payable To</div>
       <div class="kna-overview-value">${escapeHtml(first.payable_to || first.vendor_name || '-')}</div>
@@ -891,7 +899,7 @@ const renderLiquidation = (data, attachments = []) => {
   });
 
   const desktopHtml = `<div class="kna-review-desktop kna-review-desktop-liquidation"><div class="kna-review-table-shell">
-    <div class="kna-review-table-wrap-main"><table class="table table-sm kna-review-table-main"><thead><tr><th>#</th><th>Description</th><th>Expense Type</th><th>Attachment</th><th>Invoice/Receipt</th><th>Doc. Date</th><th class="text-right">Gross</th><th>VAT</th><th class="text-right">Net</th><th class="text-right">VAT Amt</th><th>Vendor</th></tr></thead><tbody>${mainRows}</tbody></table></div>
+    <div class="kna-review-table-wrap-main"><table class="table table-sm kna-review-table-main"><thead><tr><th>#</th><th>Description</th><th>Expense Type</th><th>Attachment</th><th>Invoice/Receipt</th><th>Doc. Date</th><th class="text-right">Gross</th><th class="text-center">VAT</th><th class="text-right">Net</th><th class="text-right">VAT Amt</th><th>Vendor</th></tr></thead><tbody>${mainRows}</tbody></table></div>
     <div class="kna-review-table-wrap-action"><table class="table table-sm kna-review-table-action"><thead><tr><th>Action</th></tr></thead><tbody>${actionRows}</tbody></table></div>
   </div><div class="kna-review-footer"><div class="kna-review-footer-main"><span class="kna-review-footer-label">Total Liquidated Amount</span><div class="kna-review-footer-amount kna-amount-main">${formatPHP(totalLiquidated)}</div></div></div></div>`;
 
@@ -936,17 +944,19 @@ const renderReimbursement = (data, attachments = []) => {
       <div class="kna-overview-label">Requested Total</div>
       <div class="kna-overview-value kna-amount">${formatPHP(totalRequested)}</div>
     </div>
+  </div>
+  <div class="kna-overview-fields">
     <div class="kna-overview-cell">
       <div class="kna-overview-label">Approved Total</div>
       <div class="kna-overview-value kna-amount">${formatPHP(totalApproved)}</div>
     </div>
-   <div class="kna-overview-cell wide">
+   <div class="kna-overview-cell">
       <div class="kna-overview-label">Payable To</div>
       <div class="kna-overview-value">
         <input type="text" class="form-control form-control-sm kna-ca-field-input" id="reviewPayableTo" data-field="payable_to" data-original="${escapeHtml(first.payable_to || '')}" value="${escapeHtml(first.payable_to || '')}" placeholder="Enter payable to..." style="min-width:140px;">
       </div>
     </div>
-    <div class="kna-overview-cell wide">
+    <div class="kna-overview-cell">
       <div class="kna-overview-label">Cost Center</div>
       <div class="kna-overview-value">
         <select class="kna-cost-center-select" id="reviewCostCenter" data-field="cost_center_id" data-original="${escapeHtml(rmbCostCenterId)}" style="min-width:140px;">
@@ -954,13 +964,15 @@ const renderReimbursement = (data, attachments = []) => {
         </select>
       </div>
     </div>
-    <div class="kna-overview-cell wide">
+    <div class="kna-overview-cell">
       <div class="kna-overview-label">Address</div>
       <div class="kna-overview-value">
         <input type="text" class="form-control form-control-sm kna-ca-field-input" id="reviewAddress" data-field="address" data-original="${escapeHtml(first.address || '')}" value="${escapeHtml(first.address || '')}" placeholder="Enter address..." style="min-width:140px;">
       </div>
     </div>
-    <div class="kna-overview-cell wide">
+  </div>
+  <div class="kna-overview-fields">
+    <div class="kna-overview-cell">
       <div class="kna-overview-label">IO</div>
       <div class="kna-overview-value">
         <input type="text" class="form-control form-control-sm kna-ca-field-input" id="reviewIo" data-field="io" data-original="${escapeHtml(reimbursementIo)}" value="${escapeHtml(reimbursementIo)}" placeholder="Enter IO..." style="min-width:140px;">
@@ -1146,7 +1158,7 @@ const renderReimbursement = (data, attachments = []) => {
   });
 
   const desktopHtml = `<div class="kna-review-desktop kna-review-desktop-liquidation kna-review-desktop-reimbursement"><div class="kna-review-table-shell">
-    <div class="kna-review-table-wrap-main"><table class="table table-sm kna-review-table-main"><thead><tr><th>#</th><th>Description</th><th>Expense Type</th><th>Attachment</th><th>Invoice/Receipt</th><th>Doc. Date</th><th class="text-right">Gross</th><th>VAT</th><th class="text-right">Net</th><th class="text-right">VAT Amt</th><th>Vendor</th></tr></thead><tbody>${mainRows}</tbody></table></div>
+    <div class="kna-review-table-wrap-main"><table class="table table-sm kna-review-table-main"><thead><tr><th>#</th><th>Description</th><th>Expense Type</th><th>Attachment</th><th>Invoice/Receipt</th><th>Doc. Date</th><th class="text-right">Gross</th><th class="text-center">VAT</th><th class="text-right">Net</th><th class="text-right">VAT Amt</th><th>Vendor</th></tr></thead><tbody>${mainRows}</tbody></table></div>
     <div class="kna-review-table-wrap-action"><table class="table table-sm kna-review-table-action"><thead><tr><th>Action</th></tr></thead><tbody>${actionRows}</tbody></table></div>
   </div><div class="kna-review-footer"><div class="kna-review-footer-main"><span class="kna-review-footer-label">Total Reimbursed Amount</span><div class="kna-review-footer-amount kna-amount-main">${formatPHP(totalRequested)}</div></div></div></div>`;
 

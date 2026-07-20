@@ -33,6 +33,27 @@ class Replenishment extends MY_Controller
         $this->load->view('main', $data);
     }
 
+    public function add()
+    {
+        $userId = (int) $this->session->userdata('user_id');
+        $activeFund = $this->getActiveFundForUser($userId);
+
+        $data = array(
+            'title' => 'New Replenishment',
+            'main_view' => '../modules/replenishment/views/add',
+            'module_group' => $this->module_group,
+            'module' => $this->module,
+            'hasActiveFund' => $activeFund !== null,
+            'revolvingFundBalance' => $activeFund['available_balance'] ?? null,
+            'revolvingFundCode' => $activeFund['fund_code'] ?? null,
+            'scripts' => array(
+                '../replenishment/add.js',
+            ),
+        );
+
+        $this->load->view('main', $data);
+    }
+
     private function getActiveFundForUser($userId)
     {
         $row = $this->sp->readData(

@@ -686,7 +686,14 @@ class Reimbursement extends MY_Controller
                 );
 
                 if (!is_array($headerResult) || !isset($headerResult['GeneratedReimbursementID']) || $headerResult['GeneratedReimbursementID'] === '') {
-                    return $this->respondError("Failed to create reimbursement");
+                    $dbMessage = is_array($headerResult) && isset($headerResult['message']) ? (string) $headerResult['message'] : '';
+                    log_message('error', 'sp_insert_reimbursement_header failed for user ' . $ownerUserId . ': ' . json_encode($headerResult));
+
+                    if (stripos($dbMessage, 'No approval matrix found') !== false) {
+                        return $this->respondError('No approval workflow is set up yet for your department/amount range. Please contact your administrator.');
+                    }
+
+                    return $this->respondError('Failed to create reimbursement. Please try again or contact support.');
                 }
 
                 $reimbursementId = $headerResult['GeneratedReimbursementID'];

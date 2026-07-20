@@ -83,7 +83,7 @@
         overflow: hidden;
         background: #fff;
     }
-    .kna-overview-compact {
+    .kna-overview-compact, .kna-overview-fields {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
         gap: 0;
@@ -91,6 +91,9 @@
         border-radius: 0;
         overflow: hidden;
         background: #fff;
+    }
+    .kna-overview-fields {
+        border-top: 1px solid #f1f5f9;
     }
     .kna-overview-cell {
         padding: 10px 12px;
@@ -375,7 +378,7 @@
         border-collapse: separate; border-spacing: 0;
     }
     .kna-review-desktop-liquidation .kna-review-table-main {
-        min-width: 1540px;
+        min-width: 2040px;
     }
     .kna-review-desktop-liquidation .kna-review-table-main th:nth-child(2), .kna-review-desktop-liquidation .kna-review-table-main td.kna-col-description {
         min-width: 340px;
@@ -401,7 +404,10 @@
         min-width: 150px;
         width: 150px;
     }
-    .kna-review-desktop-liquidation .kna-review-table-main th:nth-child(8), .kna-review-desktop-liquidation .kna-review-table-main th:nth-child(9) {
+    .kna-review-desktop-liquidation .kna-review-table-main th:nth-child(7),
+    .kna-review-desktop-liquidation .kna-review-table-main th:nth-child(8),
+    .kna-review-desktop-liquidation .kna-review-table-main th:nth-child(9),
+    .kna-review-desktop-liquidation .kna-review-table-main th:nth-child(10) {
         min-width: 130px;
         width: 130px;
     }
@@ -428,6 +434,15 @@
     .kna-review-table-main th {
         background: #f8fbff; font-size: 11px; font-weight: 700; color: #475569;
         text-transform: uppercase; letter-spacing: .3px; white-space: nowrap;
+    }
+    .kna-review-table-main th.text-right {
+        text-align: right !important;
+    }
+    .kna-review-table-main th.text-center {
+        text-align: center !important;
+    }
+    .kna-review-table-main .kna-edit-gross {
+        text-align: right !important;
     }
     .kna-review-table-main tbody tr:nth-child(odd) td { background: #ffffff; }
     .kna-review-table-main tbody tr:nth-child(even) td { background: #f8fafc; }
@@ -624,7 +639,7 @@
 
     /* ─── Responsive ─── */
     @media (max-width: 991.98px) {
-        .kna-overview-compact { grid-template-columns: repeat(3, 1fr); }
+        .kna-overview-compact, .kna-overview-fields { grid-template-columns: repeat(3, 1fr); }
         .kna-overview-cell:nth-child(4n) { border-right: 1px solid #f1f5f9; }
         .kna-overview-cell:nth-child(3n) { border-right: none; }
         .kna-overview-cell.wide { grid-column: span 2; }
@@ -644,7 +659,7 @@
            long-form Purpose/Description text stays stacked, since a
            paragraph can't sit next to its label on one line. */
         .kna-overview-wrapper { border: none; }
-        .kna-overview-compact { display: block; }
+        .kna-overview-compact, .kna-overview-fields { display: block; }
         .kna-overview-cell {
             display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between;
             gap: 4px 10px; grid-column: auto; min-height: 0;

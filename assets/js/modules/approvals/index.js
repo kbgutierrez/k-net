@@ -411,17 +411,14 @@ const initListPage = () => {
 		});
 	});
 
-	document.querySelectorAll('.kna-tab[data-transaction-type]').forEach((tab) => {
-		tab.addEventListener('click', () => {
-			document.querySelectorAll('.kna-tab[data-transaction-type]').forEach((el) => {
-				el.classList.remove('is-active');
-			});
-			tab.classList.add('is-active');
-			selectedTransactionType = tab.getAttribute('data-transaction-type') || 'ALL';
+	const filterTransactionType = document.getElementById('filterTransactionType');
+	if (filterTransactionType) {
+		filterTransactionType.addEventListener('change', () => {
+			selectedTransactionType = filterTransactionType.value || 'ALL';
 			approvalsDesktopPage = 1;
 			refreshApprovalsList();
 		});
-	});
+	}
 
 	const filterDateRange = document.getElementById('filterDateRange');
 	if (filterDateRange && typeof flatpickr !== 'undefined') {
@@ -442,6 +439,8 @@ const initListPage = () => {
 	if (btnResetApprovalFilters) {
 		btnResetApprovalFilters.addEventListener('click', () => {
 			if (approvalsDateRangePicker) approvalsDateRangePicker.clear();
+			if (filterTransactionType) filterTransactionType.value = 'ALL';
+			selectedTransactionType = 'ALL';
 			approvalsDesktopPage = 1;
 			refreshApprovalsList();
 		});
