@@ -590,6 +590,9 @@ class Approvals extends MY_Controller
         if (strpos($referenceNo, 'RMB') === 0) {
             return 'REIMBURSEMENT';
         }
+        if (strpos($referenceNo, 'RPL') === 0) {
+            return 'REPLENISHMENT';
+        }
         if (strpos($referenceNo, 'LQ') === 0) {
             return 'LIQUIDATION';
         }
@@ -734,6 +737,18 @@ class Approvals extends MY_Controller
                 'user_id' => (int) ($row['user_id'] ?? 0),
                 'amount' => (float) ($row['total_amount'] ?? 0),
                 'description' => (string) ($row['description'] ?? ''),
+            );
+        }
+
+        if ($transactionType === 'REPLENISHMENT') {
+            $row = $this->sp->db->get_where('tbl_replenishment_header', array('replenishment_id' => $referenceNo), 1)->row_array();
+            if (!is_array($row)) {
+                return $default;
+            }
+            return array(
+                'user_id' => (int) ($row['user_id'] ?? 0),
+                'amount' => (float) ($row['total_amount'] ?? 0),
+                'description' => (string) ($row['remarks'] ?? ''),
             );
         }
 
@@ -1037,7 +1052,7 @@ class Approvals extends MY_Controller
 
         $fieldMap = array(
             'description' => 'description',
-            'amount' => 'ca_amount',
+            'amount' => 'amount',
         );
 
         foreach ($fieldMap as $auditField => $rowField) {
@@ -1537,6 +1552,8 @@ class Approvals extends MY_Controller
                 $transactionType = 'LIQUIDATION';
             } elseif (strpos($referenceNo, 'RMB') === 0) {
                 $transactionType = 'REIMBURSEMENT';
+            } elseif (strpos($referenceNo, 'RPL') === 0) {
+                $transactionType = 'REPLENISHMENT';
             }
 
             $auditParams = array(

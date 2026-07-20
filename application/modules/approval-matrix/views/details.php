@@ -72,6 +72,7 @@
 						<option value="CASH_ADVANCE">Cash Advance</option>
 						<option value="LIQUIDATION">Liquidation</option>
 						<option value="REIMBURSEMENT">Reimbursement</option>
+						<option value="REPLENISHMENT">Replenishment</option>
 					</select>
 				</div>
 				<div class="form-group col-md-3">

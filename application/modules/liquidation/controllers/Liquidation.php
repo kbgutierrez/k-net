@@ -484,7 +484,8 @@ class Liquidation extends MY_Controller
 
             $apiKey = $this->getGroqApiKey();
             if ($apiKey === '') {
-                return $this->respondError('OCR is not configured. Missing GROQ_API_KEY.');
+                log_message('error', 'Groq OCR: GROQ_API_KEY is not configured.');
+                return $this->respondError("Receipt scanning isn't available right now. Please enter the details manually.");
             }
 
             if (!isset($_FILES['image'])) {
@@ -512,71 +513,28 @@ class Liquidation extends MY_Controller
 
             $imageDataUrl = 'data:' . $mimeType . ';base64,' . base64_encode($binary);
 
-          $prompt = "Extract receipt fields and respond with STRICT JSON only. Use keys: 
-                    document_date, invoice_receipt_no, actual_amount, description, expense_category_name, 
-                    is_vatable, vendor_name, vendor_address, vendor_tin. 
-                    document_date must be YYYY-MM-DD if possible. 
-                    actual_amount must be number only. 
-                    is_vatable must be true or false. 
+          $prompt = "Extract receipt fields and respond with STRICT JSON only. Use keys:
+                    document_date, invoice_receipt_no, actual_amount, description, expense_category_name,
+                    is_vatable, vendor_name, vendor_address, vendor_tin.
+                    document_date must be YYYY-MM-DD if possible.
+                    actual_amount must be number only.
+                    is_vatable must be true or false.
                     vendor_tin should be numeric TIN with dashes if present (e.g., 123-456-789-000).
                     If unknown, return empty string for text fields and 0 for amount.";
-            $payload = array(
-                'model' => 'meta-llama/llama-4-scout-17b-16e-instruct',
-                'temperature' => 0.2,
-                'max_completion_tokens' => 700,
-                'top_p' => 1,
-                'stream' => false,
-                'messages' => array(
-                    array(
-                        'role' => 'user',
-                        'content' => array(
-                            array(
-                                'type' => 'text',
-                                'text' => $prompt,
-                            ),
-                            array(
-                                'type' => 'image_url',
-                                'image_url' => array(
-                                    'url' => $imageDataUrl,
-                                ),
-                            ),
-                        ),
-                    ),
-                ),
-            );
 
-            $ch = curl_init('https://api.groq.com/openai/v1/chat/completions');
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-                'Content-Type: application/json',
-                'Authorization: Bearer ' . $apiKey,
+            $ocrResult = groq_ocr_extract($imageDataUrl, $prompt, $apiKey, array(
+                'endpoint' => 'transactions/liquidation/api/ocr',
+                'user_id' => (int) $this->session->userdata('user_id'),
             ));
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-            curl_setopt($ch, CURLOPT_TIMEOUT, 60);
 
-            $rawResponse = curl_exec($ch);
-            $curlError = curl_error($ch);
-            $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
-
-            if ($rawResponse === false || $curlError) {
-                return $this->respondError('OCR provider request failed: ' . $curlError);
+            if (!$ocrResult['ok']) {
+                return $this->respondError($ocrResult['user_message']);
             }
 
-            $response = json_decode($rawResponse, true);
-            if (!is_array($response) || $httpCode >= 400) {
-                return $this->respondError('OCR provider returned an error.');
-            }
-
-            $content = '';
-            if (isset($response['choices'][0]['message']['content']) && is_string($response['choices'][0]['message']['content'])) {
-                $content = $response['choices'][0]['message']['content'];
-            }
-
-            $ocr = $this->parseOcrJsonFromText($content);
+            $ocr = $this->parseOcrJsonFromText($ocrResult['content']);
             if (!is_array($ocr)) {
-                return $this->respondError('OCR response could not be parsed.');
+                log_message('error', 'Groq OCR: response could not be parsed as JSON. Raw content: ' . $ocrResult['content']);
+                return $this->respondError("We couldn't read this receipt clearly. Please try again, or enter the details manually.");
             }
 
             $result = array(

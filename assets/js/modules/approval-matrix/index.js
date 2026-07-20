@@ -44,6 +44,7 @@ const getTransactionTypeLabel = (type) => {
 	if (type === 'CASH_ADVANCE') return 'Cash Advance';
 	if (type === 'LIQUIDATION') return 'Liquidation';
 	if (type === 'REIMBURSEMENT') return 'Reimbursement';
+	if (type === 'REPLENISHMENT') return 'Replenishment';
 	return escapeHtml(normalizeText(type));
 };
 
@@ -52,6 +53,7 @@ const getTransactionTypeBadge = (type) => {
 	if (type === 'CASH_ADVANCE') return `<span class="kna-badge kna-badge-cash-advance">${label}</span>`;
 	if (type === 'LIQUIDATION') return `<span class="kna-badge kna-badge-liquidation">${label}</span>`;
 	if (type === 'REIMBURSEMENT') return `<span class="kna-badge kna-badge-reimbursement">${label}</span>`;
+	if (type === 'REPLENISHMENT') return `<span class="kna-badge kna-badge-replenishment">${label}</span>`;
 	return `<span class="kna-badge kna-badge-inactive">${label}</span>`;
 };
 
@@ -86,7 +88,7 @@ const matchesKeyword = (row, keyword) => {
 	return haystack.indexOf(keyword) !== -1;
 };
 
-const TRANSACTION_TYPE_ORDER = { CASH_ADVANCE: 0, LIQUIDATION: 1, REIMBURSEMENT: 2 };
+const TRANSACTION_TYPE_ORDER = { CASH_ADVANCE: 0, LIQUIDATION: 1, REIMBURSEMENT: 2, REPLENISHMENT: 3 };
 
 const sortRows = (rows) => {
 	const sorted = rows.slice();

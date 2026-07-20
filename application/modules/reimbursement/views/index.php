@@ -172,6 +172,15 @@
 	.kna-rmb-tabs .nav-link { font-size: 13px; font-weight: 600; color: #4a5a6a; border: none; border-bottom: 2px solid transparent; padding: .55rem .9rem; white-space: nowrap; }
 	.kna-rmb-tabs .nav-link.active { color: #2f6eb4; border-bottom-color: #2f6eb4; background: transparent; }
 	.kna-rmb-tabs .nav-link i { margin-right: 5px; }
+
+	.kna-kpi-row { display: flex; flex-wrap: wrap; gap: .65rem; margin-bottom: .85rem; }
+	.kna-kpi-row > div { flex: 1 1 160px; min-width: 140px; }
+	.kna-kpi-row .kna-kpi-fund { border-left: 3px solid #2f6eb4; }
+
+	@media (max-width: 575.98px) {
+		.kna-kpi-row { gap: .5rem; }
+		.kna-kpi-row > div { flex: 1 1 calc(50% - .5rem); min-width: 0; }
+	}
 </style>
 
 <div class="page-inner kna-page">
@@ -202,8 +211,18 @@
 	<div class="tab-content" id="rmbTabsContent">
 	<div class="tab-pane fade show active" id="rmb-pane-mine" role="tabpanel" aria-labelledby="rmb-tab-mine">
 
-	<div class="row mb-2">
-		<div class="col-md-3 col-6 pr-md-2 mb-2 mb-md-0">
+	<div class="kna-kpi-row">
+		<?php if (!empty($hasActiveFund)): ?>
+		<div>
+			<div class="card kna-card kna-kpi-fund h-100">
+				<div class="card-body">
+					<p class="kna-kpi-caption">Remaining Revolving Fund</p>
+					<p class="kna-kpi" id="mineRevolvingFundBalance">₱<?= number_format((float) ($revolvingFundBalance ?? 0), 2) ?></p>
+				</div>
+			</div>
+		</div>
+		<?php endif; ?>
+		<div>
 			<div class="card kna-card h-100">
 				<div class="card-body">
 					<p class="kna-kpi-caption">Total Reimbursement</p>
@@ -211,7 +230,7 @@
 				</div>
 			</div>
 		</div>
-		<div class="col-md-3 col-6 px-md-2 mb-2 mb-md-0">
+		<div>
 			<div class="card kna-card h-100">
 				<div class="card-body">
 					<p class="kna-kpi-caption">Pending</p>
@@ -219,7 +238,7 @@
 				</div>
 			</div>
 		</div>
-		<div class="col-md-3 col-6 px-md-2">
+		<div>
 			<div class="card kna-card h-100">
 				<div class="card-body">
 					<p class="kna-kpi-caption">Approved</p>
@@ -227,7 +246,7 @@
 				</div>
 			</div>
 		</div>
-		<div class="col-md-3 col-6 pl-md-2">
+		<div>
 			<div class="card kna-card h-100">
 				<div class="card-body">
 					<p class="kna-kpi-caption">Rejected</p>

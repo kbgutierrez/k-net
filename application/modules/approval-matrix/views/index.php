@@ -21,6 +21,7 @@
 	.kna-badge-cash-advance { background: #e6f4ff; color: #0056b3; }
 	.kna-badge-liquidation { background: #fff4e0; color: #8a5a00; }
 	.kna-badge-reimbursement { background: #f3e8ff; color: #6b21a8; }
+	.kna-badge-replenishment { background: #e0f7f4; color: #0f766e; }
 	.kna-form-label { margin-bottom: .3rem; font-weight: 600; }
 </style>
 
@@ -39,6 +40,7 @@
 			<button class="kna-tab" data-transaction-type="CASH_ADVANCE">Cash Advance</button>
 			<button class="kna-tab" data-transaction-type="LIQUIDATION">Liquidation</button>
 			<button class="kna-tab" data-transaction-type="REIMBURSEMENT">Reimbursement</button>
+			<button class="kna-tab" data-transaction-type="REPLENISHMENT">Replenishment</button>
 		</div>
 	</div>
 
