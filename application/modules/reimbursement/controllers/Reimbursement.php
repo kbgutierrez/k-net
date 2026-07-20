@@ -572,9 +572,6 @@ class Reimbursement extends MY_Controller
             $reimbursementId = '';
             $currentUserId = (int) $this->session->userdata('user_id');
 
-            // Payable To is no longer manually typed - it's always the expense
-            // owner's own name (never something a filer could mistype or leave
-            // pointing at the wrong person).
             $userInfo = $this->session->userdata('user_info');
             $payableTo = trim(
                 trim((string) ($userInfo['lastname'] ?? '')) . ', ' . trim((string) ($userInfo['firstname'] ?? '')),

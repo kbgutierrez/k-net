@@ -120,7 +120,15 @@
     <!-- Sidebar -->
 
     <div class="sidebar  sidebar-style-2 ">
-      <div class="sidebar-wrapper  scrollbar scrollbar-inner " >
+      <!-- "scrollbar"/"scrollbar-inner" classes intentionally omitted:
+           they trigger the Atlantis template's jQuery Scrollbar plugin
+           (atlantis.min.js), which fakes scrolling via a transformed
+           inner wrapper instead of real browser scrolling. That broke
+           position:sticky on the Dashboard/Modules nav items, since
+           sticky depends on genuine native scroll. Real scrolling is
+           already handled natively by .nav.nav-primary's own
+           overflow-y:auto below, so the plugin isn't needed here. -->
+      <div class="sidebar-wrapper" >
         <div class="sidebar-content" >
           <div class="user">
             <div class="avatar-sm float-left mr-2">
@@ -138,8 +146,6 @@
               </a>
               <div class="clearfix"></div>
             </div>
-
-
           </div>
           <ul class="nav nav-primary">
             <li class="nav-item ">
@@ -168,7 +174,7 @@
                         <ul class="nav nav-collapse" role="none">
                           <li>
                           <?php foreach ($module as $module_key => $module_value) { ?>
-                             <?php if ($module_value['module_group'] == $group_value['module_group']) { ?> 
+                             <?php if ($module_value['module_group'] == $group_value['module_group']) { ?>
                             <a class="module-submenu-link" href="<?=base_url(). $module_value['route']?>" role="menuitem" tabindex="-1">
                               <span class="sub-item"><?= $module_value['module'] ?></span>
                             </a>
@@ -181,14 +187,14 @@
             <?php } ?>
           </ul>
         </div>
-        <div class="logout border text-center mt-5 " >
+        <div class="logout border text-center mt-4 " >
             <a class="text-decoration-none" href="https://lsbizportal.lemonsquare.com.ph/testportal/">
               <button type="button" data-toggle="tooltip" data-placement="bottom" title="lsbizportal"
                 class="btn-logout btn btn-link text-white text-decoration-none" id="btn-logout"
                 data-original-title="lsbizportal"><i class="far fa-arrow-alt-circle-left px-1 text-white"></i>Back to
                 Lsbiz</button></a>
           </div>
-        <div class="version-container text-center sticky-bottom ">
+        <div class="version-container text-center ">
             <p>version 1.0.0.0</p>
         </div>
       </div>

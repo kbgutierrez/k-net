@@ -7,7 +7,6 @@ const dashboardDom = {
 	scopeButtons: [],
 	kpiLinks: [],
 	recentRequestCount: null,
-	recentRequestsTbody: null,
 	recentRequestsMobile: null,
 	recentRequestsState: null,
 	attentionCount: null,
@@ -18,90 +17,18 @@ const dashboardDom = {
 	monthCashAdvance: null,
 	monthLiquidated: null,
 	monthReimbursed: null,
+	pendingApprovalCount: null,
+	pendingApprovalList: null,
+	statusOverviewChart: null,
 };
+
+let statusOverviewChartInstance = null;
 
 const dashboardRoutes = {
 	'cash-advance': 'transactions/cash-advance',
 	liquidation: 'transactions/liquidation',
-	reimburse: 'transactions/liquidation',
+	reimburse: 'transactions/reimbursement',
 	'month-summary': 'transactions/cash-advance',
-};
-
-const dashboardMockBase = {
-	summary: {
-		openCashAdvance: { count: 2 },
-		forLiquidation: { amount: 18450 },
-		pendingReimbursements: { amount: 3250 },
-		monthTotal: { amount: 42680 },
-	},
-	monthBreakdown: {
-		cashAdvance: 28500,
-		liquidated: 10930,
-		reimbursed: 3250,
-	},
-	attention: [
-		{
-			title: 'Liquidate CA-2026-014 before June 02',
-			detail: 'PHP 9,800 still tagged for liquidation.',
-			status: 'For Liquidation',
-			actionPath: 'transactions/liquidation/add',
-			actionLabel: 'Liquidate',
-		},
-		{
-			title: 'Cash advance request CA-2026-018 is pending approval',
-			detail: 'Requested last May 27 for client visit expenses.',
-			status: 'Pending Approval',
-			actionPath: 'transactions/cash-advance',
-			actionLabel: 'View request',
-		},
-		{
-			title: 'Reimbursement RB-2026-004 was submitted',
-			detail: 'Waiting for release after finance review.',
-			status: 'Submitted',
-			actionPath: '',
-			actionLabel: 'Tracking soon',
-		},
-	],
-	statusOverview: [
-		{ label: 'Pending Approval', count: 1, total: 4, tone: 'pending' },
-		{ label: 'For Liquidation', count: 2, total: 4, tone: 'liquidation' },
-		{ label: 'Submitted', count: 1, total: 4, tone: 'submitted' },
-		{ label: 'Approved', count: 3, total: 6, tone: 'approved' },
-	],
-	recentRequests: [
-		{
-			type: 'Cash Advance',
-			reference: 'CA-2026-018',
-			purpose: 'Trade visit in Laguna',
-			amount: 6500,
-			status: 'Pending Approval',
-			updated: '2026-05-29',
-		},
-		{
-			type: 'Liquidation',
-			reference: 'LIQ-2026-006',
-			purpose: 'Distributor meeting expenses',
-			amount: 9800,
-			status: 'Submitted',
-			updated: '2026-05-28',
-		},
-		{
-			type: 'Reimbursement',
-			reference: 'RB-2026-004',
-			purpose: 'Emergency transport reimbursement',
-			amount: 3250,
-			status: 'Submitted',
-			updated: '2026-05-27',
-		},
-		{
-			type: 'Cash Advance',
-			reference: 'CA-2026-014',
-			purpose: 'Client lunch and field travel',
-			amount: 11800,
-			status: 'For Liquidation',
-			updated: '2026-05-24',
-		},
-	],
 };
 
 const dashboardState = {
@@ -123,33 +50,58 @@ const escapeHtml = (value = '') =>
 		.replace(/"/g, '&quot;')
 		.replace(/'/g, '&#39;');
 
-const badgeClassForStatus = (status) => {
-	if (status === 'Pending Approval') {
-		return 'kna-badge kna-badge-pending';
-	}
-	if (status === 'For Liquidation') {
-		return 'kna-badge kna-badge-liquidation';
-	}
-	if (status === 'Approved') {
-		return 'kna-badge kna-badge-approved';
-	}
-	if (status === 'Reimbursement') {
-		return 'kna-badge kna-badge-reimburse';
-	}
+const normalizeDate = (value) => (value ? String(value) : '');
+
+/* Status codes differ per module (CA_*, LQ_*, RMB_*) but share the same
+   DRAFT -> SUBMITTED/PENDING -> APPROVED -> FOR_RELEASE -> COMPLETED/PAID
+   (or REJECTED) shape — bucket by suffix, mirroring the SQL side. */
+const statusCategory = (statusCode) => {
+	const code = normalizeDate(statusCode).toUpperCase();
+	if (code.endsWith('DRAFT')) return 'Draft';
+	if (code.endsWith('SUBMITTED') || code.endsWith('PENDING')) return 'Pending Approval';
+	if (code.endsWith('APPROVED')) return 'Approved';
+	if (code.endsWith('FOR_RELEASE')) return 'For Release';
+	if (code.endsWith('PAID') || code.endsWith('COMPLETED')) return 'Completed';
+	if (code.endsWith('REJECTED')) return 'Rejected';
+	return code || 'Unknown';
+};
+
+const TYPE_LABELS = {
+	CASH_ADVANCE: 'Cash Advance',
+	LIQUIDATION: 'Liquidation',
+	REIMBURSEMENT: 'Reimbursement',
+};
+
+const badgeClassForCategory = (category) => {
+	if (category === 'Pending Approval') return 'kna-badge kna-badge-pending';
+	if (category === 'For Release') return 'kna-badge kna-badge-liquidation';
+	if (category === 'Approved' || category === 'Completed') return 'kna-badge kna-badge-approved';
+	if (category === 'Rejected') return 'kna-badge kna-badge-reimburse';
 	return 'kna-badge kna-badge-submitted';
 };
 
-const statusBarColor = (tone) => {
-	if (tone === 'pending') {
-		return 'linear-gradient(90deg, #f0b429, #f7c95c)';
-	}
-	if (tone === 'liquidation') {
-		return 'linear-gradient(90deg, #1b4f88, #4e8dd0)';
-	}
-	if (tone === 'approved') {
-		return 'linear-gradient(90deg, #17663a, #3fa45e)';
-	}
-	return 'linear-gradient(90deg, #607080, #94a3b8)';
+const STATUS_TONE_COLOR = {
+	'Draft': 'linear-gradient(90deg, #94a3b8, #cbd5e1)',
+	'Pending Approval': 'linear-gradient(90deg, #f0b429, #f7c95c)',
+	'Approved': 'linear-gradient(90deg, #17663a, #3fa45e)',
+	'For Release': 'linear-gradient(90deg, #1b4f88, #4e8dd0)',
+	'Completed': 'linear-gradient(90deg, #17663a, #3fa45e)',
+	'Rejected': 'linear-gradient(90deg, #c0392b, #e57368)',
+};
+
+const ATTENTION_META = {
+	DRAFT_AGING: { status: 'Draft', route: (ref) => routeForReference(ref, 'add') },
+	REJECTED: { status: 'Rejected', route: (ref) => routeForReference(ref, 'view') },
+	LIQUIDATION_OVERDUE: { status: 'For Liquidation', route: () => 'transactions/liquidation/add' },
+};
+
+const routeForReference = (referenceNo, mode) => {
+	const ref = normalizeDate(referenceNo);
+	if (ref.startsWith('CA')) return mode === 'add' ? 'transactions/cash-advance/add' : 'transactions/cash-advance';
+	if (ref.startsWith('RPL')) return 'transactions/replenishment';
+	if (ref.startsWith('RMB')) return mode === 'add' ? 'transactions/reimbursement/add' : `transactions/reimbursement/view/${ref}`;
+	if (ref.startsWith('LQ')) return 'transactions/liquidation';
+	return '';
 };
 
 const stateConfig = {
@@ -176,9 +128,6 @@ const setSectionState = (stateName, message) => {
 	});
 
 	const showContent = stateName === 'ready';
-	if (dashboardDom.recentRequestsTbody) {
-		dashboardDom.recentRequestsTbody.closest('.kna-table-wrap').classList.toggle('d-none', !showContent);
-	}
 	if (dashboardDom.recentRequestsMobile) {
 		dashboardDom.recentRequestsMobile.classList.toggle('d-none', !showContent);
 	}
@@ -215,105 +164,93 @@ const setLastUpdated = () => {
 	});
 };
 
-const cloneMockBase = () => JSON.parse(JSON.stringify(dashboardMockBase));
-
-const buildDataByScope = (scope) => {
-	const data = cloneMockBase();
-	const multipliers = { today: 0.35, week: 0.75, month: 1 };
-	const m = multipliers[scope] || 1;
-
-	data.summary.openCashAdvance.count = Math.max(0, Math.round(data.summary.openCashAdvance.count * m));
-	data.summary.forLiquidation.amount = Math.round(data.summary.forLiquidation.amount * m);
-	data.summary.pendingReimbursements.amount = Math.round(data.summary.pendingReimbursements.amount * m);
-	data.summary.monthTotal.amount = Math.round(data.summary.monthTotal.amount * m);
-
-	data.monthBreakdown.cashAdvance = Math.round(data.monthBreakdown.cashAdvance * m);
-	data.monthBreakdown.liquidated = Math.round(data.monthBreakdown.liquidated * m);
-	data.monthBreakdown.reimbursed = Math.round(data.monthBreakdown.reimbursed * m);
-
-	data.statusOverview = data.statusOverview.map((item) => {
-		const next = { ...item };
-		next.count = Math.min(item.total, Math.round(item.count * m));
-		return next;
-	});
-
-	const rowCount = scope === 'today' ? 2 : (scope === 'week' ? 3 : 4);
-	data.recentRequests = data.recentRequests.slice(0, rowCount).map((item) => ({
-		...item,
-		amount: Math.round(item.amount * m),
-	}));
-
-	const attentionCount = scope === 'today' ? 1 : (scope === 'week' ? 2 : 3);
-	data.attention = data.attention.slice(0, attentionCount);
-
-	return data;
-};
-
 const fetchDashboardData = (scope) =>
 	new Promise((resolve, reject) => {
-		setTimeout(() => {
-			resolve(buildDataByScope(scope));
-		}, 220);
+		ajax_loader('dashboard/api/get/summary', { Scope: scope }).done((response) => {
+			const res = (typeof response === 'string') ? $.parseJSON(response) : response;
+			if (res.status !== 'success') {
+				reject(new Error(res.response || 'Failed to load dashboard data.'));
+				return;
+			}
+			resolve(res.data || {});
+		}).fail(() => {
+			reject(new Error('Failed to load dashboard data.'));
+		});
 	});
 
 const renderSummary = () => {
-	const data = dashboardState.data;
-	dashboardDom.metricOpenCashAdvance.textContent = data.summary.openCashAdvance.count;
+	const summaryRows = (dashboardState.data && dashboardState.data.summary) || [];
+	const s = Array.isArray(summaryRows) ? (summaryRows[0] || {}) : summaryRows;
 
-	dashboardDom.metricForLiquidation.textContent = formatPHP(data.summary.forLiquidation.amount);
+	dashboardDom.metricOpenCashAdvance.textContent = s.open_cash_advance_count ?? 0;
+	dashboardDom.metricForLiquidation.textContent = s.for_liquidation_count ?? 0;
+	dashboardDom.metricPendingReimbursements.textContent = s.pending_reimbursement_count ?? 0;
+	dashboardDom.metricMonthTotal.textContent = formatPHP(s.scope_total_amount);
 
-	dashboardDom.metricPendingReimbursements.textContent = formatPHP(data.summary.pendingReimbursements.amount);
-
-	dashboardDom.metricMonthTotal.textContent = formatPHP(data.summary.monthTotal.amount);
-
-	dashboardDom.monthCashAdvance.textContent = formatPHP(data.monthBreakdown.cashAdvance);
-	dashboardDom.monthLiquidated.textContent = formatPHP(data.monthBreakdown.liquidated);
-	dashboardDom.monthReimbursed.textContent = formatPHP(data.monthBreakdown.reimbursed);
+	dashboardDom.monthCashAdvance.textContent = formatPHP(s.month_ca_released);
+	dashboardDom.monthLiquidated.textContent = formatPHP(s.month_liquidated);
+	dashboardDom.monthReimbursed.textContent = formatPHP(s.month_reimbursed);
 };
 
+const TYPE_ICON_CLASS = {
+	CASH_ADVANCE: 'type-cash-advance',
+	LIQUIDATION: 'type-liquidation',
+	REIMBURSEMENT: 'type-reimbursement',
+};
+
+const TYPE_ICON_GLYPH = {
+	CASH_ADVANCE: '<i class="fas fa-hand-holding-usd"></i>',
+	LIQUIDATION: '<i class="fas fa-receipt"></i>',
+	REIMBURSEMENT: '<i class="fas fa-wallet"></i>',
+};
+
+const routeForRecentRow = (row) => routeForReference(row.reference_no, 'view');
+
 const renderRecentRequests = () => {
-	const rows = (dashboardState.data && dashboardState.data.recentRequests) || [];
+	const rows = (dashboardState.data && dashboardState.data.recent) || [];
 	dashboardDom.recentRequestCount.textContent = `${rows.length} item(s)`;
-	dashboardDom.recentRequestsTbody.innerHTML = '';
 	dashboardDom.recentRequestsMobile.innerHTML = '';
 
 	if (!rows.length) {
-		dashboardDom.recentRequestsTbody.innerHTML = '<tr><td colspan="6" class="kna-empty">No recent requests.</td></tr>';
 		dashboardDom.recentRequestsMobile.innerHTML = '<div class="kna-empty">No recent requests.</div>';
 		return;
 	}
 
-	rows.forEach((row) => {
-		const tr = document.createElement('tr');
-		tr.innerHTML = `
-			<td>${escapeHtml(row.type)}</td>
-			<td>${escapeHtml(row.reference)}</td>
-			<td class="text-truncate" style="max-width:260px;" title="${escapeHtml(row.purpose)}">${escapeHtml(row.purpose)}</td>
-			<td class="text-right">${formatPHP(row.amount)}</td>
-			<td><span class="${badgeClassForStatus(row.status)}">${escapeHtml(row.status)}</span></td>
-			<td>${escapeHtml(row.updated)}</td>
-		`;
-		dashboardDom.recentRequestsTbody.appendChild(tr);
+	dashboardDom.recentRequestsMobile.innerHTML = rows.map((row) => {
+		const typeLabel = TYPE_LABELS[row.transaction_type] || row.transaction_type;
+		const category = statusCategory(row.status_code);
+		const badgeClass = badgeClassForCategory(category);
+		const purpose = normalizeDate(row.purpose) || typeLabel;
+		const updated = normalizeDate(row.updated_date).slice(0, 10);
+		const iconClass = TYPE_ICON_CLASS[row.transaction_type] || 'type-reimbursement';
+		const iconGlyph = TYPE_ICON_GLYPH[row.transaction_type] || '<i class="fas fa-file-invoice"></i>';
+		const route = routeForRecentRow(row);
+		const tag = route ? 'a' : 'div';
+		const hrefAttr = route ? ` href="${base_url}${route}"` : '';
 
-		const card = document.createElement('div');
-		card.className = 'kna-item';
-		card.innerHTML = `
-			<div class="kna-row">
-				<div class="kna-small font-weight-bold">${escapeHtml(row.reference)}</div>
-				<div><span class="${badgeClassForStatus(row.status)}">${escapeHtml(row.status)}</span></div>
-			</div>
-			<div class="kna-row">
-				<div class="kna-small text-muted">${escapeHtml(row.type)}</div>
-				<div class="kna-small font-weight-bold">${formatPHP(row.amount)}</div>
-			</div>
-			<div class="kna-small text-muted mb-1">${escapeHtml(row.purpose)}</div>
-			<div class="kna-row">
-				<div class="kna-small text-muted">Updated</div>
-				<div class="kna-small">${escapeHtml(row.updated)}</div>
-			</div>
+		return `
+			<${tag} class="kna-request-item"${hrefAttr}>
+				<div class="kna-request-icon ${iconClass}">${iconGlyph}</div>
+				<div class="kna-request-main">
+					<div class="kna-request-ref">${escapeHtml(row.reference_no)}</div>
+					<div class="kna-request-purpose" title="${escapeHtml(purpose)}">${escapeHtml(typeLabel)} · ${escapeHtml(purpose)}</div>
+				</div>
+				<div class="kna-request-side">
+					<div class="kna-request-amount">${formatPHP(row.amount)}</div>
+					<div class="kna-request-meta">
+						<span class="${badgeClass}">${escapeHtml(category)}</span>
+						<span>${escapeHtml(updated)}</span>
+					</div>
+				</div>
+			</${tag}>
 		`;
-		dashboardDom.recentRequestsMobile.appendChild(card);
-	});
+	}).join('');
+};
+
+const ATTENTION_TITLE_DETAIL = {
+	DRAFT_AGING: (row) => `${row.days_open} day(s) since it was started — submit it or it may need re-checking.`,
+	REJECTED: (row) => `Rejected ${row.days_open} day(s) ago — review the remarks and resubmit.`,
+	LIQUIDATION_OVERDUE: (row) => `Released ${row.days_open} day(s) ago with no liquidation filed yet.`,
 };
 
 const renderAttention = () => {
@@ -326,19 +263,25 @@ const renderAttention = () => {
 		return;
 	}
 
-	items.forEach((item) => {
+	items.forEach((row) => {
+		const meta = ATTENTION_META[row.attention_type] || { status: 'Attention', route: () => '' };
+		const detailFn = ATTENTION_TITLE_DETAIL[row.attention_type];
+		const detail = detailFn ? detailFn(row) : '';
+		const route = meta.route(row.reference_no);
+		const badgeClass = badgeClassForCategory(meta.status === 'For Liquidation' ? 'For Release' : meta.status);
+
 		const wrapper = document.createElement('div');
 		wrapper.className = 'kna-attention-item';
-		const actionHtml = item.actionPath
-			? `<a href="${base_url}${item.actionPath}" class="btn btn-outline-secondary btn-sm kna-small mt-2">${escapeHtml(item.actionLabel)}</a>`
-			: `<button type="button" class="btn btn-outline-secondary btn-sm kna-small mt-2" disabled>${escapeHtml(item.actionLabel)}</button>`;
+		const actionHtml = route
+			? `<a href="${base_url}${route}" class="btn btn-outline-secondary btn-sm kna-small mt-2">${escapeHtml(row.reference_no)}</a>`
+			: `<button type="button" class="btn btn-outline-secondary btn-sm kna-small mt-2" disabled>${escapeHtml(row.reference_no)}</button>`;
 
 		wrapper.innerHTML = `
 			<div class="kna-attention-head">
-				<p class="kna-attention-title">${escapeHtml(item.title)}</p>
-				<span class="${badgeClassForStatus(item.status)}">${escapeHtml(item.status)}</span>
+				<p class="kna-attention-title">${escapeHtml(row.title)}</p>
+				<span class="${badgeClass}">${escapeHtml(meta.status)}</span>
 			</div>
-			<p class="kna-attention-meta">${escapeHtml(item.detail)}</p>
+			<p class="kna-attention-meta">${escapeHtml(detail)}</p>
 			${actionHtml}
 		`;
 		dashboardDom.attentionList.appendChild(wrapper);
@@ -346,7 +289,7 @@ const renderAttention = () => {
 };
 
 const renderStatusOverview = () => {
-	const items = (dashboardState.data && dashboardState.data.statusOverview) || [];
+	const items = (dashboardState.data && dashboardState.data.status_overview) || [];
 	dashboardDom.statusOverviewList.innerHTML = '';
 
 	if (!items.length) {
@@ -354,20 +297,116 @@ const renderStatusOverview = () => {
 		return;
 	}
 
+	const grandTotal = items.reduce((sum, item) => sum + Number(item.item_count || 0), 0);
+
 	items.forEach((item) => {
-		const percentage = item.total > 0 ? Math.min(100, Math.round((item.count / item.total) * 100)) : 0;
+		const count = Number(item.item_count || 0);
+		const percentage = grandTotal > 0 ? Math.min(100, Math.round((count / grandTotal) * 100)) : 0;
+		const color = STATUS_TONE_COLOR[item.status_category] || STATUS_TONE_COLOR['Pending Approval'];
 		const wrapper = document.createElement('div');
 		wrapper.className = 'kna-status-item';
 		wrapper.innerHTML = `
 			<div class="kna-status-head">
-				<p class="kna-status-title">${escapeHtml(item.label)}</p>
-				<div class="kna-small text-muted">${item.count} item(s)</div>
+				<p class="kna-status-title">${escapeHtml(item.status_category)}</p>
+				<div class="kna-small text-muted">${count} item(s) · ${formatPHP(item.total_amount)}</div>
 			</div>
 			<div class="kna-status-bar">
-				<div class="kna-status-fill" style="width:${percentage}%;background:${statusBarColor(item.tone)};"></div>
+				<div class="kna-status-fill" style="width:${percentage}%;background:${color};"></div>
 			</div>
 		`;
 		dashboardDom.statusOverviewList.appendChild(wrapper);
+	});
+};
+
+const renderPendingApprovals = () => {
+	const items = (dashboardState.data && dashboardState.data.pending_approvals) || [];
+	const totalCount = (dashboardState.data && dashboardState.data.pending_approvals_count) || 0;
+	const hasMore = Boolean(dashboardState.data && dashboardState.data.pending_approvals_has_more);
+
+	const row = document.getElementById('pendingApprovalRow');
+	if (row) {
+		// Not an approver on anything right now — don't show an empty
+		// card for a feature that doesn't apply to this user at all.
+		row.classList.toggle('d-none', totalCount === 0);
+	}
+
+	if (dashboardDom.pendingApprovalCount) {
+		dashboardDom.pendingApprovalCount.textContent = hasMore ? `${totalCount}+ item(s)` : `${totalCount} item(s)`;
+	}
+	if (!dashboardDom.pendingApprovalList || totalCount === 0) {
+		return;
+	}
+
+	dashboardDom.pendingApprovalList.innerHTML = items.map((row) => {
+		const typeLabel = TYPE_LABELS[row.transaction_type] || row.transaction_type || 'Transaction';
+		const amount = row.amount ?? row.ca_amount ?? row.lq_amount ?? 0;
+		const requester = normalizeDate(row.requester_name || row.user_name || '');
+		const referenceNo = normalizeDate(row.reference_no || row.reference_id || '');
+		const reviewUrl = `${base_url}transactions/approvals/review/${encodeURIComponent(referenceNo)}`;
+		return `
+			<div class="kna-approval-item">
+				<div class="kna-approval-main">
+					<div class="kna-approval-ref">${escapeHtml(referenceNo)}</div>
+					<p class="kna-approval-meta">${escapeHtml(typeLabel)}${requester ? ` · ${escapeHtml(requester)}` : ''}</p>
+				</div>
+				<div class="kna-approval-amount">${formatPHP(amount)}</div>
+				<a href="${reviewUrl}" class="btn btn-primary btn-sm kna-small">Review</a>
+			</div>
+		`;
+	}).join('');
+};
+
+const renderStatusChart = () => {
+	const canvas = dashboardDom.statusOverviewChart;
+	if (!canvas || typeof Chart === 'undefined') {
+		return;
+	}
+	const items = (dashboardState.data && dashboardState.data.status_overview) || [];
+
+	if (statusOverviewChartInstance) {
+		statusOverviewChartInstance.destroy();
+		statusOverviewChartInstance = null;
+	}
+
+	if (!items.length) {
+		return;
+	}
+
+	const labels = items.map((item) => item.status_category);
+	const counts = items.map((item) => Number(item.item_count || 0));
+	const colors = items.map((item) => {
+		const grad = STATUS_TONE_COLOR[item.status_category] || '';
+		const match = grad.match(/#[0-9a-fA-F]{3,6}/);
+		return match ? match[0] : '#607080';
+	});
+
+	const isNarrow = window.innerWidth < 768;
+
+	statusOverviewChartInstance = new Chart(canvas.getContext('2d'), {
+		type: 'doughnut',
+		data: {
+			labels,
+			datasets: [{
+				data: counts,
+				backgroundColor: colors,
+				borderWidth: 2,
+				borderColor: '#ffffff',
+			}],
+		},
+		options: {
+			responsive: true,
+			maintainAspectRatio: false,
+			cutout: '62%',
+			plugins: {
+				legend: { position: isNarrow ? 'bottom' : 'right', labels: { boxWidth: 10, font: { size: 11 } } },
+				tooltip: {
+					callbacks: {
+						label: (ctx) => `${ctx.label}: ${ctx.parsed} item(s)`,
+					},
+				},
+				datalabels: { display: false },
+			},
+		},
 	});
 };
 
@@ -420,8 +459,14 @@ const loadDashboard = async (scope) => {
 		}
 		dashboardState.data = data;
 		renderSummary();
+		renderPendingApprovals();
 
-		if (!data || !data.recentRequests || !data.recentRequests.length) {
+		const hasRecent = data && Array.isArray(data.recent) && data.recent.length > 0;
+		const hasAttention = data && Array.isArray(data.attention) && data.attention.length > 0;
+		const hasStatus = data && Array.isArray(data.status_overview) && data.status_overview.length > 0;
+		const hasApprovals = data && Number(data.pending_approvals_count || 0) > 0;
+
+		if (!hasRecent && !hasAttention && !hasStatus && !hasApprovals) {
 			setSectionState('empty');
 			return;
 		}
@@ -429,6 +474,7 @@ const loadDashboard = async (scope) => {
 		renderRecentRequests();
 		renderAttention();
 		renderStatusOverview();
+		renderStatusChart();
 		setLastUpdated();
 		setSectionState('ready');
 	} catch (error) {
@@ -448,7 +494,6 @@ const cacheDom = () => {
 	dashboardDom.scopeButtons = Array.from(document.querySelectorAll('[data-scope]'));
 	dashboardDom.kpiLinks = Array.from(document.querySelectorAll('[data-kpi-link]'));
 	dashboardDom.recentRequestCount = document.getElementById('recentRequestCount');
-	dashboardDom.recentRequestsTbody = document.getElementById('recentRequestsTbody');
 	dashboardDom.recentRequestsMobile = document.getElementById('recentRequestsMobile');
 	dashboardDom.recentRequestsState = document.getElementById('recentRequestsState');
 	dashboardDom.attentionCount = document.getElementById('attentionCount');
@@ -459,6 +504,9 @@ const cacheDom = () => {
 	dashboardDom.monthCashAdvance = document.getElementById('monthCashAdvance');
 	dashboardDom.monthLiquidated = document.getElementById('monthLiquidated');
 	dashboardDom.monthReimbursed = document.getElementById('monthReimbursed');
+	dashboardDom.pendingApprovalCount = document.getElementById('pendingApprovalCount');
+	dashboardDom.pendingApprovalList = document.getElementById('pendingApprovalList');
+	dashboardDom.statusOverviewChart = document.getElementById('statusOverviewChart');
 };
 
 const initDashboard = () => {

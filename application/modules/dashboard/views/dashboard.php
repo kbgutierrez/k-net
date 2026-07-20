@@ -11,7 +11,7 @@
     }
 
     .kna-card .card-body {
-        padding: .85rem;
+        padding: .7rem .75rem;
     }
 
     .kna-title {
@@ -103,12 +103,90 @@
         margin: 0;
     }
 
-    .kna-table td,
-    .kna-table th {
-        font-size: 12px !important;
-        padding: .5rem .45rem;
-        vertical-align: middle;
+    /* Bootstrap flex columns won't shrink below their content's
+       intrinsic width by default — kept in case any other wide
+       content ends up in a grid column on this page. */
+    .kna-page .row > [class*='col-'] {
+        min-width: 0;
+    }
+
+    .kna-table-wrap-scroll {
+        max-height: 360px;
+        overflow-y: auto;
+    }
+
+    /* Recent Requests — a single list design for every screen size
+       instead of a multi-column table, since a table needs real
+       column-width fights to stay readable and this data doesn't
+       need to be scanned column-by-column. Each row reads top to
+       bottom like a receipt: what it is, then the numbers. */
+    .kna-request-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 4px;
+        border-bottom: 1px solid #f0f3f7;
+        text-decoration: none;
+    }
+
+    .kna-request-item:last-child {
+        border-bottom: none;
+    }
+
+    .kna-request-icon {
+        flex: 0 0 auto;
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+    }
+
+    .kna-request-icon.type-cash-advance { background: #e6f4ff; color: #0056b3; }
+    .kna-request-icon.type-liquidation { background: #fff4e0; color: #8a5a00; }
+    .kna-request-icon.type-reimbursement { background: #f3e8ff; color: #6b21a8; }
+
+    .kna-request-main {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .kna-request-ref {
+        font-size: 12px;
+        font-weight: 700;
+        color: #1f2937;
+    }
+
+    .kna-request-purpose {
+        font-size: 11px;
+        color: #708090;
+        overflow: hidden;
+        text-overflow: ellipsis;
         white-space: nowrap;
+        margin-top: 1px;
+    }
+
+    .kna-request-side {
+        flex: 0 0 auto;
+        text-align: right;
+    }
+
+    .kna-request-amount {
+        font-size: 13px;
+        font-weight: 700;
+        color: #1d2a3a;
+    }
+
+    .kna-request-meta {
+        font-size: 10px;
+        color: #9aa7b4;
+        margin-top: 3px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 6px;
     }
 
     .kna-actions .btn {
@@ -181,7 +259,7 @@
     .kna-reminder-list {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 6px;
     }
 
     .kna-attention-item,
@@ -189,7 +267,7 @@
     .kna-reminder-item {
         border: 1px solid #e6edf5;
         border-radius: 6px;
-        padding: 10px 12px;
+        padding: 7px 10px;
         background: #fbfdff;
     }
 
@@ -262,9 +340,27 @@
 
     .kna-empty {
         text-align: center;
-        color: #7b8794;
+        color: #9aa7b4;
         font-size: 12px;
-        padding: 14px 8px;
+        padding: 28px 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .kna-empty::before {
+        content: '✓';
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #eef6f0;
+        color: #3fa45e;
+        font-size: 15px;
+        font-weight: 700;
     }
 
     .kna-state {
@@ -281,6 +377,65 @@
         color: #8c2d2d;
         border-color: #eabebe;
         background: #fff7f7;
+    }
+
+    .kna-kpi-row { display: flex; flex-wrap: wrap; gap: .65rem; margin-bottom: .65rem; }
+    .kna-kpi-row > div { flex: 1 1 160px; min-width: 140px; }
+
+    .kna-approval-card {
+        border-left: 3px solid #b3541e;
+    }
+
+    .kna-fund-card {
+        border-left: 3px solid #2f6eb4;
+    }
+
+    .kna-approval-item {
+        border: 1px solid #f0e0d0;
+        border-radius: 6px;
+        padding: 7px 10px;
+        background: #fffaf5;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 6px;
+    }
+
+    .kna-approval-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .kna-approval-main {
+        min-width: 0;
+    }
+
+    .kna-approval-ref {
+        font-size: 12px;
+        font-weight: 700;
+        color: #233243;
+    }
+
+    .kna-approval-meta {
+        font-size: 11px;
+        color: #708090;
+        margin: 2px 0 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .kna-approval-amount {
+        font-size: 12px;
+        font-weight: 700;
+        color: #1d2a3a;
+        white-space: nowrap;
+    }
+
+    .kna-status-chart-wrap {
+        position: relative;
+        height: 150px;
+        margin-bottom: 8px;
     }
 
     @media (max-width: 991.98px) {
@@ -314,6 +469,33 @@
         .kna-topbar-right {
             justify-content: space-between;
         }
+
+        .kna-scope {
+            width: 100%;
+        }
+
+        .kna-scope-btn {
+            flex: 1 1 0;
+            padding: 9px 8px;
+        }
+
+        .kna-kpi-row > div {
+            flex: 1 1 calc(50% - .35rem);
+            min-width: 0;
+        }
+
+        .kna-approval-item {
+            flex-wrap: wrap;
+        }
+
+        .kna-approval-item .btn {
+            width: 100%;
+            order: 3;
+        }
+
+        .kna-status-chart-wrap {
+            height: 220px;
+        }
     }
 
     @media (max-width: 575.98px) {
@@ -338,8 +520,8 @@
         </div>
     </div>
 
-    <div class="row mb-2">
-        <div class="col-md-3 col-6 pr-md-2 mb-2 mb-md-0">
+    <div class="kna-kpi-row">
+        <div>
             <div class="card kna-card kna-summary-card h-100">
                 <div class="card-body">
                     <button type="button" class="kna-kpi-link" data-kpi-link="cash-advance">
@@ -349,7 +531,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3 col-6 px-md-2 mb-2 mb-md-0">
+        <div>
             <div class="card kna-card kna-summary-card h-100">
                 <div class="card-body">
                     <button type="button" class="kna-kpi-link" data-kpi-link="liquidation">
@@ -359,7 +541,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3 col-6 px-md-2">
+        <div>
             <div class="card kna-card kna-summary-card h-100">
                 <div class="card-body">
                     <button type="button" class="kna-kpi-link" data-kpi-link="reimburse">
@@ -369,13 +551,40 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3 col-6 pl-md-2">
+        <div>
             <div class="card kna-card kna-summary-card h-100">
                 <div class="card-body">
                     <button type="button" class="kna-kpi-link" data-kpi-link="month-summary">
                         <p class="kna-kpi-caption">Total Amount</p>
                         <p class="kna-kpi" id="metricMonthTotal">PHP 0.00</p>
                     </button>
+                </div>
+            </div>
+        </div>
+        <?php if (!empty($hasActiveFund)): ?>
+        <div>
+            <div class="card kna-card kna-summary-card kna-fund-card h-100">
+                <div class="card-body">
+                    <p class="kna-kpi-caption">Remaining Revolving Fund</p>
+                    <p class="kna-kpi"><?= '₱' . number_format((float) ($revolvingFundBalance ?? 0), 2) ?></p>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+    </div>
+
+    <div class="row mb-2 d-none" id="pendingApprovalRow">
+        <div class="col-12">
+            <div class="card kna-card kna-approval-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h3 class="kna-section-title">Awaiting My Approval</h3>
+                        <div class="d-flex align-items-center" style="gap:8px;">
+                            <div class="kna-small text-muted" id="pendingApprovalCount">0 item(s)</div>
+                            <a href="<?= base_url('transactions/approvals') ?>" class="btn btn-outline-secondary btn-sm kna-small">Review All</a>
+                        </div>
+                    </div>
+                    <div id="pendingApprovalList"></div>
                 </div>
             </div>
         </div>
@@ -390,23 +599,7 @@
                         <div class="kna-small text-muted" id="recentRequestCount">0 item(s)</div>
                     </div>
 
-                    <div class="kna-table-wrap d-none d-md-block">
-                        <table class="table table-sm kna-table mb-0">
-                            <thead>
-                                <tr>
-                                    <th style="width:115px;">Type</th>
-                                    <th style="width:140px;">Reference</th>
-                                    <th>Purpose</th>
-                                    <th style="width:120px;" class="text-right">Amount</th>
-                                    <th style="width:110px;">Status</th>
-                                    <th style="width:110px;">Updated</th>
-                                </tr>
-                            </thead>
-                            <tbody id="recentRequestsTbody"></tbody>
-                        </table>
-                    </div>
-
-                    <div class="kna-mobile-list d-md-none" id="recentRequestsMobile"></div>
+                    <div class="kna-request-list kna-table-wrap-scroll" id="recentRequestsMobile"></div>
                     <div class="kna-state d-none" id="recentRequestsState"></div>
                 </div>
             </div>
@@ -434,6 +627,9 @@
                         <h3 class="kna-section-title">Status Overview</h3>
                         <div class="kna-small text-muted">Current workload</div>
                     </div>
+                    <div class="kna-status-chart-wrap">
+                        <canvas id="statusOverviewChart"></canvas>
+                    </div>
                     <div class="kna-status-list" id="statusOverviewList"></div>
                     <div class="kna-state d-none" id="statusState"></div>
                 </div>
@@ -445,7 +641,7 @@
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <h3 class="kna-section-title">This Month</h3>
-                        <div class="kna-small text-muted">Mock summary</div>
+                        <div class="kna-small text-muted" id="dashboardLastUpdated">Live totals</div>
                     </div>
                     <div class="kna-reminder-list">
                         <div class="kna-reminder-item">

@@ -89,6 +89,18 @@
     $menu.find('.module-submenu-link').attr('tabindex', '0');
     $menu.slideDown(200, function() {
       $(this).addClass('is-open');
+      // Bring the section you just opened to the top of the visible
+      // sidebar area, so it doesn't just vanish below the fold when
+      // an earlier section's submenu pushed it down. Scrolled
+      // explicitly on the known nav container (not scrollIntoView,
+      // which can pick the wrong scrollable ancestor and move the
+      // whole page instead of just this list).
+      const $navList = $trigger.closest('.nav.nav-primary');
+      const $li = $trigger.closest('.nav-item');
+      if ($navList.length && $li.length) {
+        const targetScrollTop = $navList.scrollTop() + ($li.position().top - $navList.position().top);
+        $navList.stop(true).animate({ scrollTop: Math.max(0, targetScrollTop) }, 200);
+      }
     });
   };
 
