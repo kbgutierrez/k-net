@@ -12,6 +12,78 @@ const formatPHP = (amount) => {
 
 const normalizeDate = (value) => (value ? String(value) : '');
 
+const escapeHtml = (value) => String(value === null || value === undefined ? '' : value)
+	.replace(/&/g, '&amp;')
+	.replace(/</g, '&lt;')
+	.replace(/>/g, '&gt;')
+	.replace(/"/g, '&quot;');
+
+const openRmbDetailModal = (referenceNo) => {
+	const overlay = document.getElementById('rmbDetailModalOverlay');
+	const body = document.getElementById('rmbDetailModalBody');
+	if (!overlay || !body) return;
+
+	overlay.classList.remove('d-none');
+	body.innerHTML = '<div class="text-center kna-small text-muted py-3">Loading...</div>';
+
+	ajax_loader('transactions/reimbursement/api/get/team-full', { ReimbursementId: referenceNo }).done((response) => {
+		const res = (typeof response === 'string') ? $.parseJSON(response) : response;
+		if (res.status !== 'success' || !res.data) {
+			body.innerHTML = `<div class="text-center kna-small text-danger py-3">${escapeHtml(res.response || 'Failed to load reimbursement details.')}</div>`;
+			return;
+		}
+
+		const header = res.data.header || {};
+		const details = Array.isArray(res.data.details) ? res.data.details : [];
+
+		const itemRows = details.map((item) => `
+			<tr>
+				<td>${escapeHtml(item.description || '-')}</td>
+				<td>${escapeHtml(item.invoice_receipt_no || '-')}</td>
+				<td>${escapeHtml(normalizeDate(item.document_date).slice(0, 10) || '-')}</td>
+				<td class="text-right">${formatPHP(item.approved_amount ?? item.actual_amount)}</td>
+			</tr>
+		`).join('') || '<tr><td colspan="4" class="text-center text-muted">No expense items found.</td></tr>';
+
+		body.innerHTML = `
+			<div class="kna-info-row">
+				<div>
+					<div class="kna-form-label-sm">Reimbursement No</div>
+					<div class="kna-readonly-value">${escapeHtml(header.reimbursement_id || referenceNo)}</div>
+				</div>
+				<div>
+					<div class="kna-form-label-sm">Filed By</div>
+					<div class="kna-readonly-value">${escapeHtml(header.user_name || '-')}</div>
+				</div>
+				<div>
+					<div class="kna-form-label-sm">Total Amount</div>
+					<div class="kna-readonly-value">${formatPHP(header.total_amount)}</div>
+				</div>
+			</div>
+			<div class="kna-info-row">
+				<div style="grid-column: 1 / -1;">
+					<div class="kna-form-label-sm">Purpose / Description</div>
+					<div class="kna-readonly-value">${escapeHtml(header.description || '-')}</div>
+				</div>
+			</div>
+			<div class="kna-form-label-sm mb-1">Expense Items</div>
+			<table class="kna-item-table" style="width:100%;">
+				<thead>
+					<tr>
+						<th>Description</th>
+						<th>Invoice/Receipt No</th>
+						<th>Date</th>
+						<th class="text-right">Amount</th>
+					</tr>
+				</thead>
+				<tbody>${itemRows}</tbody>
+			</table>
+		`;
+	}).fail(() => {
+		body.innerHTML = '<div class="text-center kna-small text-danger py-3">Server error while fetching reimbursement details.</div>';
+	});
+};
+
 const renderClaimable = () => {
 	const tbody = document.getElementById('claimableTbody');
 	if (!tbody) return;
@@ -22,7 +94,7 @@ const renderClaimable = () => {
 		tbody.innerHTML = rplClaimable.map((row) => `
 			<tr>
 				<td><input type="checkbox" class="rpl-claim-checkbox" data-id="${row.reimbursementId}" data-amount="${row.totalAmount}" ${rplSelectedIds.has(row.reimbursementId) ? 'checked' : ''}></td>
-				<td><a href="${base_url}transactions/reimbursement/team/view/${encodeURIComponent(row.reimbursementId)}" target="_blank" rel="noopener">${row.reimbursementId}</a></td>
+				<td><a href="#" class="kna-rmb-link" data-view-rmb="${row.reimbursementId}">${row.reimbursementId}</a></td>
 				<td>${row.salesman}</td>
 				<td>${row.description}</td>
 				<td class="text-right">${formatPHP(row.totalAmount)}</td>
@@ -100,6 +172,24 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 		updateClaimedTotal();
 	});
+
+	document.getElementById('claimableTbody').addEventListener('click', (e) => {
+		const link = e.target.closest('[data-view-rmb]');
+		if (!link) return;
+		e.preventDefault();
+		openRmbDetailModal(link.getAttribute('data-view-rmb'));
+	});
+
+	const rmbDetailOverlay = document.getElementById('rmbDetailModalOverlay');
+	const btnCloseRmbDetail = document.getElementById('btnCloseRmbDetail');
+	if (rmbDetailOverlay) {
+		rmbDetailOverlay.addEventListener('click', (e) => {
+			if (e.target === rmbDetailOverlay) rmbDetailOverlay.classList.add('d-none');
+		});
+	}
+	if (btnCloseRmbDetail) {
+		btnCloseRmbDetail.addEventListener('click', () => rmbDetailOverlay.classList.add('d-none'));
+	}
 
 	document.getElementById('claimAll').addEventListener('change', (e) => {
 		rplSelectedIds = e.target.checked ? new Set(rplClaimable.map((row) => row.reimbursementId)) : new Set();

@@ -337,13 +337,18 @@ const renderDocumentPanels = (record) => {
 	const finalApproved = Number(record.is_final_approved || 0) === 1;
 	const kflowDocStatus = Number(record.kflow_doc_status || 0);
 	const isRejected = kflowDocStatus === 3;
+	// kflow_doc_status 2 = sent for signature but not yet signed — show
+	// the unsigned PDF, not the live K-flow embed. Previously the embed
+	// showed for ANY kflowEmbedUrl regardless of status, so it appeared
+	// immediately on filing (status 2) instead of the unsigned PDF.
+	const isUnsigned = kflowDocStatus === 2;
 	const caRef = normalizeDate(record.cash_advance_id || (domDetail.cashAdvanceRef ? domDetail.cashAdvanceRef.value : ''));
 	const workflowPublished = isKflowPublished(caRef);
 	// kflow_doc_status 4 = fully signed — always show the signed PDF panel,
 	// never the workflow embed, regardless of stale localStorage/postMessage
 	// state (that state only tracks whether *this browser tab* saw the
 	// signing finish live, which isn't reliable if nobody was watching).
-	const showWorkflow = !isRejected && !finalApproved && Boolean(kflowEmbedUrl) && !workflowPublished;
+	const showWorkflow = !isRejected && !finalApproved && !isUnsigned && Boolean(kflowEmbedUrl) && !workflowPublished;
 
 	let stateText = 'Unsigned PDF (Pending Final Approval)';
 	if (finalApproved && signedPdfUrl) {

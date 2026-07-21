@@ -24,7 +24,7 @@ if (!function_exists('build_petty_cash_slip_html')) {
         $purpose = nl2br($esc($slipData['purpose'] ?? ''));
         $approvedBy = $esc($approver['name'] ?? '');
         $approvedDate = $esc($approver['date'] ?? date('M d, Y'));
-        $refNo = $esc($slipData['reimbursement_id'] ?? '');
+        $refNo = $esc($slipData['reference_no'] ?? $slipData['reimbursement_id'] ?? '');
 
         return <<<HTML
 <html>

@@ -56,6 +56,78 @@
 		padding: .5rem .45rem;
 		vertical-align: middle;
 	}
+
+	.kna-rmb-link {
+		cursor: pointer;
+		color: #2f6eb4;
+		text-decoration: none;
+	}
+	.kna-rmb-link:hover { text-decoration: underline; }
+
+	.kna-modal-overlay {
+		position: fixed;
+		top: 0; left: 0; right: 0; bottom: 0;
+		background: rgba(15, 23, 42, .5);
+		z-index: 10000;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 20px;
+	}
+	.kna-modal-overlay.d-none { display: none !important; }
+	.kna-modal {
+		background: #fff;
+		border-radius: 8px;
+		width: 100%;
+		max-width: 640px;
+		max-height: 86vh;
+		display: flex;
+		flex-direction: column;
+		box-shadow: 0 12px 48px rgba(0, 0, 0, .25);
+	}
+	.kna-modal-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 12px 16px;
+		border-bottom: 1px solid #e5e7eb;
+	}
+	.kna-modal-title {
+		font-size: 14px;
+		font-weight: 700;
+		color: #1a202c;
+	}
+	.kna-modal-close {
+		background: none;
+		border: none;
+		font-size: 16px;
+		color: #6b7280;
+		cursor: pointer;
+		line-height: 1;
+		padding: 4px;
+	}
+	.kna-modal-close:hover { color: #1f2937; }
+	.kna-modal-body { padding: 16px; overflow-y: auto; }
+
+	.kna-info-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+	.kna-form-label-sm { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .3px; margin-bottom: 2px; }
+	.kna-readonly-value { font-size: 12px; color: #1f2937; }
+
+	.kna-item-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; margin-top: 6px; }
+	.kna-item-table th {
+		background: #f1f5f9;
+		border: 1px solid #e2e8f0;
+		padding: 6px 8px;
+		font-weight: 700;
+		color: #475569;
+		font-size: 11px;
+	}
+	.kna-item-table td {
+		border-bottom: 1px solid #f1f5f9;
+		border-right: 1px solid #f1f5f9;
+		padding: 6px 8px;
+	}
+	.kna-item-table td:first-child { border-left: 1px solid #f1f5f9; }
 </style>
 
 <div class="page-inner kna-page">
@@ -97,7 +169,7 @@
 					<thead>
 						<tr>
 							<th style="width:32px;"><input type="checkbox" id="claimAll"></th>
-							<th>Reimbursement No</th>
+							<th>Reimbursement No <span class="kna-small text-muted font-weight-normal">(click to view)</span></th>
 							<th>Filed By</th>
 							<th>Description</th>
 							<th class="text-right">Amount</th>
@@ -113,7 +185,7 @@
 			</div>
 
 			<div class="d-flex align-items-center justify-content-between mt-2">
-				<div class="kna-small">Total claimed: <strong id="claimedTotal">₱0.00</strong></div>
+				<div class="kna-small">Total to replenish: <strong id="claimedTotal">₱0.00</strong></div>
 				<div>
 					<button type="button" class="btn btn-outline-secondary btn-sm kna-small" id="btnSaveDraft">Save Draft</button>
 					<button type="button" class="btn btn-primary btn-sm kna-small" id="btnSubmitReplenishment">Submit for Approval</button>
@@ -123,4 +195,19 @@
 	</div>
 
 	<?php endif; ?>
+</div>
+
+<!-- Reimbursement Detail Modal — shown in-place instead of navigating
+     away, so claiming reimbursements never loses your in-progress
+     selection here or piles up extra tabs. -->
+<div id="rmbDetailModalOverlay" class="kna-modal-overlay d-none">
+	<div class="kna-modal">
+		<div class="kna-modal-header">
+			<div class="kna-modal-title"><i class="fas fa-receipt mr-1"></i> Reimbursement Details</div>
+			<button type="button" class="kna-modal-close" id="btnCloseRmbDetail">&#x2715;</button>
+		</div>
+		<div class="kna-modal-body" id="rmbDetailModalBody">
+			<div class="text-center kna-small text-muted py-3">Loading...</div>
+		</div>
+	</div>
 </div>

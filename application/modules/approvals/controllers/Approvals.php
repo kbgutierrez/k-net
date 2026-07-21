@@ -459,7 +459,7 @@ class Approvals extends MY_Controller
             if (is_array($result) && count($result) > 0) {
                 $firstRow = $result[0];
                 $txnType = isset($firstRow['transaction_type']) ? strtoupper(trim((string) $firstRow['transaction_type'])) : '';
-                if ($txnType === 'REIMBURSEMENT') {
+                if (in_array($txnType, array('REIMBURSEMENT', 'CASH_ADVANCE', 'LIQUIDATION'), true)) {
                     $pettyCashSlipCapability = $this->userHasPettyCashSlipCapability($refereceNo, $this->session->userdata('user_id'));
                 }
             }
@@ -660,14 +660,29 @@ class Approvals extends MY_Controller
             return;
         }
 
+        $prefix = strtoupper(substr($referenceNo, 0, 3)) === 'RMB' ? 'RMB' : strtoupper(substr($referenceNo, 0, 2));
+        if ($prefix === 'CA') {
+            $spName = 'sp_fetch_cash_advance_petty_cash_data';
+            $paramName = 'CashAdvanceId';
+        } elseif ($prefix === 'LQ') {
+            $spName = 'sp_fetch_liquidation_petty_cash_data';
+            $paramName = 'LiquidationId';
+        } elseif ($prefix === 'RMB') {
+            $spName = 'sp_fetch_reimbursement_petty_cash_data';
+            $paramName = 'ReimbursementId';
+        } else {
+            show_error('Unrecognized reference id.', 400);
+            return;
+        }
+
         $slipData = $this->sp->readData(
-            build_sp('sp_fetch_reimbursement_petty_cash_data', 1),
-            array('ReimbursementId' => $referenceNo),
+            build_sp($spName, 1),
+            array($paramName => $referenceNo),
             'row'
         );
 
         if (!is_array($slipData) || empty($slipData)) {
-            show_error('Reimbursement not found.', 404);
+            show_error('Transaction not found.', 404);
             return;
         }
 
