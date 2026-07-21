@@ -1,16 +1,6 @@
 <?php
 if (!defined('BASEPATH')) exit('No direct script access allowed');
 
-/**
- * Shared Groq vision-OCR caller for Reimbursement/Liquidation receipt
- * scanning. Tries a list of candidate vision models in order (starting
- * with whichever one last worked, cached on disk) so a Groq-side model
- * deprecation doesn't just break OCR outright — it falls through to the
- * next candidate. All technical detail (http code, provider error body,
- * which models were tried) goes to the CI error log; callers only ever
- * see a short, non-technical message meant for the end user.
- */
-
 if (!function_exists('groq_ocr_extract')) {
     function groq_ocr_extract($imageDataUrl, $prompt, $apiKey, array $context = array())
     {
@@ -60,11 +50,6 @@ if (!function_exists('groq_ocr_extract')) {
 if (!function_exists('_groq_ocr_candidate_models')) {
     function _groq_ocr_candidate_models()
     {
-        // Ordered by preference. If Groq retires/renames the first one,
-        // we fall through automatically instead of every OCR call failing.
-        // qwen/qwen3.6-27b is Groq's current documented vision/OCR model
-        // (console.groq.com/docs/vision) as of 2026-07 — the llama-4
-        // vision models were dropped from Groq's vision lineup.
         return array(
             'qwen/qwen3.6-27b',
             'meta-llama/llama-4-scout-17b-16e-instruct',
@@ -128,11 +113,6 @@ if (!function_exists('_groq_ocr_call_api')) {
             ),
         );
 
-        // qwen3.6 defaults to "thinking mode", which spends the completion
-        // token budget on chain-of-thought and can leave no room for the
-        // actual JSON answer. We want a fast, deterministic extraction,
-        // not reasoning — turn thinking off and make sure only the final
-        // answer lands in `content` (not a separate reasoning field).
         if (strpos($model, 'qwen/') === 0) {
             $payload['reasoning_effort'] = 'none';
             $payload['reasoning_format'] = 'hidden';
@@ -161,8 +141,6 @@ if (!function_exists('_groq_ocr_call_api')) {
                 'curl_error' => $curlError,
                 'provider_error' => null,
                 'content' => '',
-                // A network-level failure isn't a "this model is bad" signal —
-                // trying the next model won't help a dead connection.
                 'retry_next_model' => false,
             );
         }
@@ -174,10 +152,6 @@ if (!function_exists('_groq_ocr_call_api')) {
             $errorCode = is_array($providerError) && isset($providerError['code']) ? strtolower((string) $providerError['code']) : '';
             $errorMessage = is_array($providerError) && isset($providerError['message']) ? strtolower((string) $providerError['message']) : '';
 
-            // Groq's shape for a retired/renamed/unknown model — worth
-            // trying the next candidate. Anything else (bad key, rate
-            // limit, malformed request, server error) won't be fixed by
-            // switching models, so don't waste extra calls on it.
             $looksLikeModelProblem = strpos($errorCode, 'model') !== false
                 || strpos($errorMessage, 'model') !== false
                 || strpos($errorMessage, 'decommission') !== false;
