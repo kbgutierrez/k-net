@@ -1,14 +1,6 @@
 <?php
 (defined('BASEPATH')) or exit('No direct script access allowed');
 
-/*
- * Approval-workflow email notifications. Recipients are always resolved
- * by the caller from real transaction participants (never stored in the
- * template). A send/render failure here must never surface to the caller —
- * these functions log and swallow errors so an email problem can't block
- * an approve/reject/submit/advise/release action.
- */
-
 if (!function_exists('render_notification_template')) {
     function render_notification_template($eventCode, $transactionType, array $mergeData = array())
     {
@@ -113,10 +105,6 @@ if (!function_exists('send_notification_email')) {
 }
 
 if (!function_exists('notify_event')) {
-    /**
-     * $recipients: array of ['email' => ..., 'name' => ...]
-     * $mergeData: associative array of {{token}} => value for the template
-     */
     function notify_event($eventCode, $transactionType, $referenceNo, array $recipients, array $mergeData = array())
     {
         if (empty($recipients)) {

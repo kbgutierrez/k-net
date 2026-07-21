@@ -3,14 +3,6 @@
 defined('BASEPATH') or exit('No direct script access allowed');
 
 if (!function_exists('build_petty_cash_slip_html')) {
-    /**
-     * Builds the HTML for a single filled-out Petty Cash Request Form
-     * (QMS-FM-FIN-05-02), auto-populated from a reimbursement's own
-     * details instead of being hand-written.
-     *
-     * @param array $slipData   Row from sp_fetch_reimbursement_petty_cash_data
-     * @param array $approver   ['name' => ..., 'date' => 'Y-m-d']
-     */
     function build_petty_cash_slip_html($slipData, $approver)
     {
         $esc = function ($value) {

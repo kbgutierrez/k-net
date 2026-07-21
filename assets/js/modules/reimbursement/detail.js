@@ -249,6 +249,10 @@ const AUDIT_ACTION_VERBS = {
 	SUBMITTED: 'submitted', SAVED_DRAFT: 'saved a draft of', CREATED: 'created', APPROVED: 'approved',
 	REJECTED: 'rejected', UPDATED_DRAFT: 'updated', RESUBMITTED: 'resubmitted',
 	ADDED_ITEM: 'added an item to', UPDATED_ITEM: 'edited',
+	// Advise/Release log the raw new status code as the action — map
+	// those specifically instead of falling through to the raw-code
+	// fallback ("rmb for release the request").
+	RMB_FOR_RELEASE: 'advised payment for', RMB_PAID: 'released payment for',
 };
 const auditActionVerb = (action) => AUDIT_ACTION_VERBS[action] || action.toLowerCase().replace(/_/g, ' ');
 const joinAuditVerbs = (actions) => {

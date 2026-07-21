@@ -185,7 +185,6 @@ class Approval_Matrix extends MY_Controller
                 'sales_district_code' => !empty($data['sales_district_code']) ? $data['sales_district_code'] : null,
             );
 
-            // Update header
             $headerResult = $this->sp->createData(
                 build_sp('sp_update_approval_matrix_header', count($headerParams)),
                 $headerParams
@@ -195,13 +194,11 @@ class Approval_Matrix extends MY_Controller
                 return $this->respondError(is_string($headerResult) ? $headerResult : "Failed to update approval matrix");
             }
 
-            // Delete existing details
             $this->sp->createData(
                 build_sp('sp_delete_approval_matrix_details', 1),
                 array('matrix_header_id' => $id)
             );
 
-            // Insert new details
             $details = isset($data['details']) && is_array($data['details']) ? $data['details'] : array();
             foreach ($details as $detail) {
                 $detailParams = array(
@@ -311,34 +308,4 @@ class Approval_Matrix extends MY_Controller
             return $this->respondError("An error occurred: " . $e->getMessage());
         }
     }
-      private function getRequestPayload()
-    {
-        $contentType = $this->input->server('CONTENT_TYPE');
-        if (is_string($contentType) && stripos($contentType, 'application/json') !== false) {
-            $data = json_decode($this->input->raw_input_stream, true);
-            return is_array($data) ? $data : array();
-        }
-
-        $postData = $this->input->post();
-        return is_array($postData) ? $postData : array();
-    }
-
-    private function respondSuccess($message, $data = array())
-    {
-        echo json_encode(array(
-            'status' => 'success',
-            'response' => $message,
-            'data' => $data,
-        ));
-        return;
-    }
-       private function respondError($message)
-    {
-        echo json_encode(array(
-            'status' => 'error',
-            'response' => $message,
-        ));
-        return;
-    }
-
 }

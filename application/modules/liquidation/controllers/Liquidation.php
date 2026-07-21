@@ -91,35 +91,6 @@ class Liquidation extends MY_Controller
         }
     }
 
-    private function respondSuccess($message, $data = array())
-    {
-        echo json_encode(array(
-            'status' => 'success',
-            'response' => $message,
-            'data' => $data,
-        ));
-        return;
-    }
-    private function respondError($message)
-    {
-        echo json_encode(array(
-            'status' => 'error',
-            'response' => $message,
-        ));
-        return;
-    }
-    private function getRequestPayload()
-    {
-        $contentType = $this->input->server('CONTENT_TYPE');
-        if (is_string($contentType) && stripos($contentType, 'application/json') !== false) {
-            $data = json_decode($this->input->raw_input_stream, true);
-            return is_array($data) ? $data : array();
-        }
-
-        $postData = $this->input->post();
-        return is_array($postData) ? $postData : array();
-    }
-
     private function ensureAttachmentDir()
     {
         $targetDir = 'assets/uploads/attachments/';
@@ -279,9 +250,6 @@ class Liquidation extends MY_Controller
             }
         }
 
-        // Only process Attachment field as existing names if NO new file was uploaded
-        // When editing, the Attachment field contains the NEW filename (not yet saved),
-        // so we must NOT treat it as an existing file to keep
         if (!$hasNewUpload) {
             $base64Candidates = array();
             if (isset($expense['Attachment'])) {
@@ -544,7 +512,6 @@ class Liquidation extends MY_Controller
                 'description' => isset($ocr['description']) ? (string) $ocr['description'] : '',
                 'expense_category_name' => isset($ocr['expense_category_name']) ? (string) $ocr['expense_category_name'] : '',
                 'is_vatable' => isset($ocr['is_vatable']) ? (bool) $ocr['is_vatable'] : false,
-                // NEW: Vendor fields
                 'vendor_name' => isset($ocr['vendor_name']) ? (string) $ocr['vendor_name'] : '',
                 'vendor_address' => isset($ocr['vendor_address']) ? (string) $ocr['vendor_address'] : '',
                 'vendor_tin' => isset($ocr['vendor_tin']) ? (string) $ocr['vendor_tin'] : '',
@@ -831,11 +798,6 @@ class Liquidation extends MY_Controller
         }
     }
 
-    /**
-     * Notify the first pending K-net approver once a liquidation is
-     * actually submitted (not a draft save). Never lets a notification
-     * failure affect the calling request's response.
-     */
     private function notifyFirstApprover($liquidationId)
     {
         try {
@@ -909,15 +871,6 @@ class Liquidation extends MY_Controller
             if (!$header) {
                 return $this->respondError('Liquidation not found.');
             }
-
-            $userId = (int) $this->session->userdata('user_id');
-            $createdById = isset($header['created_by_id']) ? (int) $header['created_by_id'] : 0;
-
-            // Optional: enforce ownership check for security
-            // Remove or comment out if admins/managers should also view
-            // if ($createdById !== $userId) {
-            //     return $this->respondError('You are not allowed to view this liquidation.');
-            // }
 
             return $this->respondSuccess('success', $header);
 
@@ -1032,7 +985,6 @@ class Liquidation extends MY_Controller
                 return $this->respondError('Missing required field: LiquidationId');
             }
 
-            // Get header to verify ownership and status
             $header = $this->getDraftHeaderByLiquidationId($liquidationId);
             if (!$header) {
                 return $this->respondError('Liquidation not found.');
@@ -1049,7 +1001,6 @@ class Liquidation extends MY_Controller
                 return $this->respondError('Only submitted liquidations can be edited.');
             }
 
-            // Get details
             $detailParams = array(
                 'LiquidationId' => $liquidationId,
             );
@@ -1059,8 +1010,6 @@ class Liquidation extends MY_Controller
                 'result'
             );
 
-            // Get approval status per item
-            // This assumes you have a view or SP that joins tbl_approval_per_items
             $approvalParams = array(
                 'LiquidationId' => $liquidationId,
             );
@@ -1070,7 +1019,6 @@ class Liquidation extends MY_Controller
                 'result'
             );
 
-            // Group approvals by line_item_id
             $approvalMap = array();
             if (is_array($approvals)) {
                 foreach ($approvals as $approval) {
@@ -1088,7 +1036,6 @@ class Liquidation extends MY_Controller
                 }
             }
 
-            // Merge approvals into details
             $detailsWithStatus = array();
             if (is_array($details)) {
                 foreach ($details as $detail) {
@@ -1125,7 +1072,6 @@ class Liquidation extends MY_Controller
                 return $this->respondError('Missing required field: LiquidationId');
             }
 
-            // Verify existing liquidation
             $existingHeader = $this->getDraftHeaderByLiquidationId($liquidationId);
             if (!$existingHeader) {
                 return $this->respondError('Liquidation not found.');
@@ -1161,7 +1107,6 @@ class Liquidation extends MY_Controller
             $expenseRangeTo = isset($data['ExpenseRangeTo']) ? trim((string) $data['ExpenseRangeTo']) : '';
             $statusCode = isset($data['StatusCode']) && $data['StatusCode'] !== '' ? trim((string) $data['StatusCode']) : 'LQ_SUBMITTED';
 
-            // Update header
             $updateHeaderParams = array(
                 'LiquidationId' => $liquidationId,
                 'UserId' => $currentUserId,
@@ -1239,12 +1184,10 @@ class Liquidation extends MY_Controller
                 return $this->respondError('Failed to refresh expense details.');
             }
 
-            // Insert new/updated details
             foreach ($data['Expenses'] as $index => $expense) {
                 $itemId = isset($expense['Id']) ? trim((string) $expense['Id']) : '';
                 $isNew = isset($expense['IsNew']) ? (bool) $expense['IsNew'] : false;
 
-                // Skip fully approved existing items
                 if (!$isNew && $itemId !== '') {
                     $itemIdNum = (int) $itemId;
                     if (in_array($itemIdNum, $approvedItemIds)) {
@@ -1275,7 +1218,6 @@ class Liquidation extends MY_Controller
                     "NetAmount" => $netAmount,
                     "VatAmount" => $vatAmount,
                     "Attachment" => $attachment,
-                    // NEW
                     "VendorName" => isset($expense['VendorName']) ? $expense['VendorName'] : '',
                     "VendorAddress" => isset($expense['VendorAddress']) ? $expense['VendorAddress'] : '',
                     "VendorTin" => isset($expense['VendorTin']) ? $expense['VendorTin'] : '',
@@ -1290,17 +1232,6 @@ class Liquidation extends MY_Controller
                     return $this->respondError('Failed to save expense detail at index ' . $index);
                 }
             }
-
-            // if ($statusCode === 'LQ_SUBMITTED') {
-            //     $resetApprovalParams = array(
-            //         'LiquidationId' => $liquidationId,
-            //         'KeepItemIds' => implode(',', $approvedItemIds),
-            //     );
-            //     $this->sp->createData(
-            //         build_sp('sp_reset_approvals_for_edit', count($resetApprovalParams)),
-            //         $resetApprovalParams
-            //     );
-            // }
 
             $message = $statusCode === 'LQ_DRAFT'
                 ? 'Liquidation saved as draft successfully'
@@ -1322,7 +1253,6 @@ class Liquidation extends MY_Controller
                 return $this->respondError('Missing ReferenceNo');
             }
 
-            // Fetch audit trail
             $auditParams = array(
                 'TransactionId' => $referenceNo,
             );

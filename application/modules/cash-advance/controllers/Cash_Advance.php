@@ -231,37 +231,6 @@ class Cash_Advance extends MY_Controller
         }
     }
 
-    private function getRequestPayload()
-    {
-        $contentType = $this->input->server('CONTENT_TYPE');
-        if (is_string($contentType) && stripos($contentType, 'application/json') !== false) {
-            $data = json_decode($this->input->raw_input_stream, true);
-            return is_array($data) ? $data : array();
-        }
-
-        $postData = $this->input->post();
-        return is_array($postData) ? $postData : array();
-    }
-
-    private function respondSuccess($message, $data = array())
-    {
-        echo json_encode(array(
-            'status' => 'success',
-            'response' => $message,
-            'data' => $data,
-        ));
-        return;
-    }
-
-    private function respondError($message)
-    {
-        echo json_encode(array(
-            'status' => 'error',
-            'response' => $message,
-        ));
-        return;
-    }
-
     private function normalizeRelativeAssetPath($path)
     {
         $value = trim((string) $path);
@@ -388,7 +357,6 @@ class Cash_Advance extends MY_Controller
         try {
             $this->output->set_content_type('application/json');
 
-            // Use input->post() because we are sending multipart/form-data
             $data = $this->input->post();
 
             $requiredFields = array('Amount', 'Description', 'NeededDate', 'PayableTo', 'Address', 'CostCenterId', 'AmountInWords');
@@ -401,7 +369,6 @@ class Cash_Advance extends MY_Controller
             $userId = $this->session->userdata('user_id');
             $userFullName = $this->session->userdata('user_full_name') ?? 'Employee';
 
-            // 1. Insert into DB (use your new SP that accepts extra fields)
              $params = array(
                 "UserId" => $userId,
                 "Amount" => $data['Amount'],
@@ -427,7 +394,6 @@ class Cash_Advance extends MY_Controller
             $caRef = is_array($result) ? ($result['GeneratedCashAdvanceID'] ?? '') : (string) $result;
             $cashAdvanceId = is_array($result) ? ($result['id'] ?? $result) : $result;
 
-            // 2. Prepare Bridge Folder
             $bridgeBase = $this->config->item('kflow_bridge_path');
             $batchId = 'KNET_' . $caRef . '_' . uniqid();
             $batchDir = $bridgeBase . $batchId . '/';
@@ -438,18 +404,15 @@ class Cash_Advance extends MY_Controller
                 mkdir($attachDir, 0777, true);
             }
 
-            // 3. Generate PDFs
             $this->load->helper('ca_pdf');
 
             $templatePath = FCPATH . 'assets/templates/ca_template.pdf';
             $pdfOutputPath = $batchDir . $caRef . '.pdf';
 
-            // Split address into two lines if it has a newline
             $addressLines = explode("\n", $data['Address']);
             $addressLine1 = $addressLines[0] ?? '';
             $addressLine2 = $addressLines[1] ?? '';
 
-            // Get Cost Center Name
             $ccParams = array('CostCenterId' => $data['CostCenterId']);
             $costCenterRow = $this->sp->readData(
                 build_sp('sp_fetch_cost_center_by_id', 1),
@@ -474,7 +437,6 @@ class Cash_Advance extends MY_Controller
 
             generate_ca_pdf($pdfData, $templatePath, $pdfOutputPath);
 
-            // Keep a public unsigned copy for preview while still pending in K-flow.
             $unsignedRelativePath = 'assets/uploads/cash_advance/unsigned/' . $caRef . '_unsigned.pdf';
             $unsignedAbsolutePath = FCPATH . str_replace('/', DIRECTORY_SEPARATOR, $unsignedRelativePath);
             $unsignedDir = dirname($unsignedAbsolutePath);
@@ -485,7 +447,6 @@ class Cash_Advance extends MY_Controller
                 return $this->respondError('Unable to prepare unsigned PDF preview.');
             }
 
-            // 4. Save Attachments
             $attachmentManifest = array();
             if (!empty($_FILES['attachments'])) {
                 $fileCount = count($_FILES['attachments']['name']);
@@ -502,7 +463,6 @@ class Cash_Advance extends MY_Controller
                             'stored_name' => $safeName,
                         );
 
-                        // Also save to K-net DB for record keeping
                         $attDbParams = array(
                             'cash_advance_id' => $caRef,
                             'original_name' => $origName,
@@ -514,7 +474,6 @@ class Cash_Advance extends MY_Controller
                 }
             }
 
-            // 5. Write Manifest
             $manifest = array(
                 'source' => 'knet_cash_advance',
                 'ca_ref' => $caRef,
@@ -526,7 +485,6 @@ class Cash_Advance extends MY_Controller
             );
             file_put_contents($batchDir . 'manifest.json', json_encode($manifest, JSON_PRETTY_PRINT));
 
-            // 6. Update CA record with batch_id and path
             $updateParams = array(
                 'cash_advance_id' => $caRef,
                 'kflow_batch_id' => $batchId,
@@ -535,7 +493,6 @@ class Cash_Advance extends MY_Controller
             );
             $this->sp->createData(build_sp('sp_update_ca_kflow_batch', count($updateParams)), $updateParams, 'result');
 
-            // 7. Build K-flow URL with token
             $secret = $this->config->item('kflow_secret_key');
             $token = hash_hmac('sha256', $batchId, $secret);
             $kflowUrl = $this->config->item('kflow_base_url')
@@ -568,12 +525,10 @@ class Cash_Advance extends MY_Controller
         $templatePath = FCPATH . 'assets/templates/ca_template.pdf';
         $testOutputPath = FCPATH . 'assets/temp/test_ca_output.pdf';
 
-        // Ensure temp directory exists
         if (!is_dir(FCPATH . 'assets/temp/')) {
             mkdir(FCPATH . 'assets/temp/', 0777, true);
         }
 
-        // Default coordinates (estimates — adjust these as your starting point)
         $defaults = array(
             'Date' => array('x' => 25, 'y' => 31, 'text' => date('Y-m-d')),
             'ECA_No' => array('x' => 0, 'y' => 0, 'text' => 'ECA-2024-00001'),
@@ -589,7 +544,6 @@ class Cash_Advance extends MY_Controller
             'RequestDate' => array('x' => 80, 'y' => 97, 'text' => date('Y-m-d')),
         );
 
-        // If form submitted, use POST values; otherwise use defaults
         $fields = array();
         foreach ($defaults as $key => $def) {
             $fields[$key] = array(
@@ -604,10 +558,8 @@ class Cash_Advance extends MY_Controller
         $pdf->setSourceFile($templatePath);
         $tplId = $pdf->importPage(1);
 
-        // GET ORIGINAL SIZE — this is the key fix
         $size = $pdf->getTemplateSize($tplId);
 
-        // Create page that EXACTLY matches the template (no stretching, no cropping)
         $pdf->AddPage($size['orientation'], array($size['width'], $size['height']));
         $pdf->useTemplate($tplId, 0, 0, $size['width'], $size['height']);
 
@@ -616,7 +568,6 @@ class Cash_Advance extends MY_Controller
 
         foreach ($fields as $key => $f) {
             $pdf->SetXY($f['x'], $f['y']);
-            // Red box for visibility
 
 
             $pdf->SetXY($f['x'], $f['y']);
@@ -624,7 +575,6 @@ class Cash_Advance extends MY_Controller
             $pdf->Cell(0, 5, $f['text']);
         }
 
-        // Grid overlay — use the actual page dimensions, not hardcoded 210/297
         $pageW = $size['width'];
         $pageH = $size['height'];
 
@@ -689,7 +639,6 @@ class Cash_Advance extends MY_Controller
             return;
         }
 
-        // Find CA by batch_id
         $params = array('kflow_batch_id' => $batchId);
         $ca = $this->sp->readData(
             build_sp('sp_fetch_ca_by_batch_id', count($params)),
@@ -709,7 +658,6 @@ class Cash_Advance extends MY_Controller
 
         $caRef = $ca['cash_advance_id'];
 
-        // Normalize K-flow status into K-net internal CA statuses.
         $normalizedStatus = strtoupper(trim((string) $status));
         $isApproved = in_array($normalizedStatus, array('FULLY APPROVED', 'APPROVED', 'CA_KFLOW_APPROVED'), true);
         $isRejected = in_array($normalizedStatus, array('REJECTED', 'DISAPPROVED', 'DECLINED', 'CA_KFLOW_REJECTED'), true);
@@ -726,12 +674,10 @@ class Cash_Advance extends MY_Controller
 
         $internalStatus = $isApproved ? 'CA_KFLOW_APPROVED' : 'CA_KFLOW_REJECTED';
         $kflowDocStatusCode = $isApproved ? 4 : 3;
-        // Keep CA request in pending state; K-flow outcome is tracked separately.
         $cashAdvanceStatus = 'CA_PENDING';
         $finalPath = null;
         $finalRelativePath = null;
 
-        // Signed PDF is required only for approved documents.
         if ($isApproved) {
             $finalRelativeDir = 'assets/uploads/cash_advance/approved/';
             $finalDir = FCPATH . $finalRelativeDir;
@@ -799,10 +745,6 @@ class Cash_Advance extends MY_Controller
             }
         }
 
-        // Update K-net DB.
-        // Some environments enforce FK to tbl_status.status_code with code values
-        // that may differ from display labels. Try target status first, then fallback
-        // to existing row status so final_pdf_path can still be persisted.
         $existingStatusCode = '';
         if (isset($ca['status']) && is_string($ca['status'])) {
             $existingStatusCode = trim($ca['status']);
@@ -850,7 +792,6 @@ class Cash_Advance extends MY_Controller
         $debug['steps']['sp_update_ca_kflow_status_result'] = $spResult;
         $debug['steps']['chosen_status'] = $chosenStatus;
 
-        // Verify write so callback doesn't falsely report success.
         $verifyCa = $this->sp->readData(
             build_sp('sp_fetch_ca_by_batch_id', count($params)),
             $params,
@@ -871,12 +812,6 @@ class Cash_Advance extends MY_Controller
             return;
         }
 
-        // K-flow has its own notifications for its own internal approval
-        // steps, but has no visibility into K-net's approval chain — the
-        // moment kflow_doc_status becomes 4 (fully approved by K-flow) is
-        // exactly when this CA becomes visible to K-net approvers
-        // (vw_approvals_header filters on kflow_doc_status = 4), so that's
-        // K-net's own "Submitted" moment: notify the first K-net approver.
         if ($isApproved) {
             $this->notifyFirstKnetApprover($caRef);
         }
@@ -895,11 +830,6 @@ class Cash_Advance extends MY_Controller
         ));
     }
 
-    /**
-     * Notify the first pending K-net approver once a cash advance clears
-     * K-flow and enters K-net's own approval chain. Never lets a
-     * notification failure affect the calling callback's response.
-     */
     private function notifyFirstKnetApprover($caRef)
     {
         try {
@@ -985,7 +915,6 @@ class Cash_Advance extends MY_Controller
                 $fileName = isset($att['file_name']) ? trim((string) $att['file_name']) : '';
                 $filePath = isset($att['file_path']) ? trim((string) $att['file_path']) : '';
 
-                // Get file size if file exists
                 $fileSize = 0;
                 if ($filePath !== '' && file_exists($filePath)) {
                     $fileSize = filesize($filePath);
@@ -1023,14 +952,12 @@ class Cash_Advance extends MY_Controller
             return;
         }
 
-        // Security: prevent path traversal
         $fileName = basename($fileName);
         if (strpos($fileName, '..') !== false) {
             show_404();
             return;
         }
 
-        // Fetch attachments for this CA using the existing SP
         $params = array('cash_advance_id' => $caRef);
         $attachments = $this->sp->readData(
             build_sp('sp_fetch_ca_attachments_by_caid', count($params)),
@@ -1082,7 +1009,6 @@ class Cash_Advance extends MY_Controller
         $isDownload = $this->input->get('download') === '1';
         $disposition = $isDownload ? 'attachment' : 'inline';
 
-        // Clean output buffers before sending file headers
         while (ob_get_level()) {
             ob_end_clean();
         }

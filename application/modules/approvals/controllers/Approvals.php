@@ -25,14 +25,6 @@ class Approvals extends MY_Controller
         $this->load->view('main', $data);
     }
 
-    /**
-     * Whether this user is ticked as a payment advisor/releaser on any
-     * active approval matrix row. Drives whether the "For Payment" tab
-     * is shown at all — sp_fetch_payment_queue_header already filters
-     * its results correctly by this same flag, but the tab itself was
-     * always rendered regardless, so approvers with zero payment
-     * authority still saw a (permanently empty) "For Payment" tab.
-     */
     private function userHasAnyPaymentCapability()
     {
         $userId = (int) $this->session->userdata('user_id');
@@ -53,13 +45,6 @@ class Approvals extends MY_Controller
         return !empty($row);
     }
 
-    /**
-     * Consolidation view — the pivot/batch page (GL Account rows x
-     * team-member columns) that digitizes the Accounting Excel
-     * reconciliation. Same page serves any approver at any level
-     * (Supervisor or Accounting): each only ever sees reimbursements
-     * currently pending at THEIR OWN approval step.
-     */
     public function consolidation()
     {
         $data = array(
@@ -72,11 +57,6 @@ class Approvals extends MY_Controller
         $this->load->view('main', $data);
     }
 
-    /**
-     * Flat line-item rows for the consolidation pivot, scoped to
-     * whatever is currently pending at the logged-in user's own
-     * approval step. Client pivots into GL Account x person.
-     */
     public function api_get_consolidation_pivot()
     {
         try {
@@ -119,16 +99,6 @@ class Approvals extends MY_Controller
         }
     }
 
-    /**
-     * Bulk "Approve All" for the consolidation view — loops the
-     * SAME sp_approval_decision every single-transaction approval
-     * already uses (Approvals::api_submit_decisions), one call per
-     * reimbursement, so it fully respects the existing approval-order
-     * gate, per-item rollup, and rejection rules. Bulk REJECT is
-     * intentionally not supported here: rejecting a specific line
-     * still requires drilling into that one reimbursement via the
-     * existing review page, rather than an all-or-nothing bulk reject.
-     */
     public function api_bulk_decision()
     {
         try {
@@ -236,7 +206,6 @@ class Approvals extends MY_Controller
         $this->load->view('main', $data);
     }
 
-    // ─── HELPER: Get transaction info from approval_per_item_id ───
     private function getTransactionInfoFromApprovalItem($approvalPerItemId)
     {
         $params = array(
@@ -252,7 +221,6 @@ class Approvals extends MY_Controller
         return $result ?: null;
     }
 
-    // ─── HELPER: Fetch CA attachments by CA ID ───
     private function fetchCaAttachments($caId)
     {
         if (empty($caId)) {
@@ -324,7 +292,6 @@ class Approvals extends MY_Controller
                 'result'
             );
 
-            // Cursor column on this SP is approval_detail_id, not id.
             $payload = $this->buildPaginationResult($result, $take, 'approval_detail_id');
 
             echo json_encode(array(
@@ -365,7 +332,6 @@ class Approvals extends MY_Controller
                 'result'
             );
 
-            // Cursor column on this SP is approval_detail_id, not id.
             $payload = $this->buildPaginationResult($result, $take, 'approval_detail_id');
 
             echo json_encode(array(
@@ -534,35 +500,7 @@ class Approvals extends MY_Controller
                 throw new Exception('User not authenticated.');
             }
 
-            $spParams = array(
-                'ReferenceId' => $referenceNo,
-                'UserId' => $userId,
-                'Remarks' => $remarks,
-            );
-
-            $result = $this->sp->readData(
-                build_sp('sp_advise_payment', count($spParams)),
-                $spParams,
-                'row'
-            );
-
-            if (!is_array($result) || empty($result['new_status'])) {
-                throw new Exception('Advise payment did not return a result.');
-            }
-
-            $transactionType = $this->resolveTransactionTypeFromReference($referenceNo);
-            $this->logAuditTrail(
-                $transactionType,
-                $referenceNo,
-                $result['new_status'],
-                'HEADER',
-                $referenceNo,
-                null,
-                null,
-                $remarks
-            );
-
-            $this->notifyPaymentEvent('PAYMENT_ADVISED', $transactionType, $referenceNo, $userId, $remarks, true);
+            $result = $this->runAdvisePayment($referenceNo, $userId, $remarks);
 
             return $this->respondSuccess('Payment advised successfully.', $result);
         } catch (Throwable $e) {
@@ -588,35 +526,7 @@ class Approvals extends MY_Controller
                 throw new Exception('User not authenticated.');
             }
 
-            $spParams = array(
-                'ReferenceId' => $referenceNo,
-                'UserId' => $userId,
-                'Remarks' => $remarks,
-            );
-
-            $result = $this->sp->readData(
-                build_sp('sp_release_payment', count($spParams)),
-                $spParams,
-                'row'
-            );
-
-            if (!is_array($result) || empty($result['new_status'])) {
-                throw new Exception('Release payment did not return a result.');
-            }
-
-            $transactionType = $this->resolveTransactionTypeFromReference($referenceNo);
-            $this->logAuditTrail(
-                $transactionType,
-                $referenceNo,
-                $result['new_status'],
-                'HEADER',
-                $referenceNo,
-                null,
-                null,
-                $remarks
-            );
-
-            $this->notifyPaymentEvent('PAYMENT_RELEASED', $transactionType, $referenceNo, $userId, $remarks, false);
+            $result = $this->runReleasePayment($referenceNo, $userId, $remarks);
 
             return $this->respondSuccess('Payment released successfully.', $result);
         } catch (Throwable $e) {
@@ -624,10 +534,120 @@ class Approvals extends MY_Controller
         }
     }
 
-    /**
-     * Whether $userId is ticked as the petty-cash-slip approver on the
-     * reimbursement's active approval matrix row.
-     */
+    public function api_bulk_payment_action()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $referenceNumbers = isset($data['reference_numbers']) && is_array($data['reference_numbers'])
+                ? $data['reference_numbers']
+                : array();
+            $doAdvise = !empty($data['do_advise']);
+            $doRelease = !empty($data['do_release']);
+            $remarks = isset($data['remarks']) ? trim((string) $data['remarks']) : '';
+
+            if (count($referenceNumbers) === 0) {
+                throw new Exception('No transactions selected.');
+            }
+            if (!$doAdvise && !$doRelease) {
+                throw new Exception('Select at least one action: Payment Advisory or Payment Release.');
+            }
+
+            $userId = (int) $this->session->userdata('user_id');
+            if ($userId <= 0) {
+                throw new Exception('User not authenticated.');
+            }
+
+            $advised = array();
+            $released = array();
+            $errors = array();
+
+            foreach ($referenceNumbers as $referenceNo) {
+                $referenceNo = trim((string) $referenceNo);
+                if ($referenceNo === '') {
+                    continue;
+                }
+
+                if ($doAdvise) {
+                    try {
+                        $this->runAdvisePayment($referenceNo, $userId, $remarks);
+                        $advised[] = $referenceNo;
+                    } catch (Throwable $e) {
+                        $errors[] = array('reference_no' => $referenceNo, 'action' => 'ADVISE', 'message' => $e->getMessage());
+                    }
+                }
+
+                if ($doRelease) {
+                    try {
+                        $this->runReleasePayment($referenceNo, $userId, $remarks);
+                        $released[] = $referenceNo;
+                    } catch (Throwable $e) {
+                        $errors[] = array('reference_no' => $referenceNo, 'action' => 'RELEASE', 'message' => $e->getMessage());
+                    }
+                }
+            }
+
+            return $this->respondSuccess('Batch payment action completed.', array(
+                'advised' => $advised,
+                'released' => $released,
+                'errors' => $errors,
+            ));
+        } catch (Throwable $e) {
+            return $this->respondError($e->getMessage());
+        }
+    }
+
+    private function runAdvisePayment($referenceNo, $userId, $remarks)
+    {
+        $spParams = array(
+            'ReferenceId' => $referenceNo,
+            'UserId' => $userId,
+            'Remarks' => $remarks,
+        );
+
+        $result = $this->sp->readData(
+            build_sp('sp_advise_payment', count($spParams)),
+            $spParams,
+            'row'
+        );
+
+        if (!is_array($result) || empty($result['new_status'])) {
+            throw new Exception('Advise payment did not return a result.');
+        }
+
+        $transactionType = $this->resolveTransactionTypeFromReference($referenceNo);
+        $this->logAuditTrail($transactionType, $referenceNo, $result['new_status'], 'HEADER', $referenceNo, null, null, $remarks);
+        $this->notifyPaymentEvent('PAYMENT_ADVISED', $transactionType, $referenceNo, $userId, $remarks, true);
+
+        return $result;
+    }
+
+    private function runReleasePayment($referenceNo, $userId, $remarks)
+    {
+        $spParams = array(
+            'ReferenceId' => $referenceNo,
+            'UserId' => $userId,
+            'Remarks' => $remarks,
+        );
+
+        $result = $this->sp->readData(
+            build_sp('sp_release_payment', count($spParams)),
+            $spParams,
+            'row'
+        );
+
+        if (!is_array($result) || empty($result['new_status'])) {
+            throw new Exception('Release payment did not return a result.');
+        }
+
+        $transactionType = $this->resolveTransactionTypeFromReference($referenceNo);
+        $this->logAuditTrail($transactionType, $referenceNo, $result['new_status'], 'HEADER', $referenceNo, null, null, $remarks);
+        $this->notifyPaymentEvent('PAYMENT_RELEASED', $transactionType, $referenceNo, $userId, $remarks, false);
+
+        return $result;
+    }
+
     private function userHasPettyCashSlipCapability($referenceNo, $userId)
     {
         $row = $this->sp->db->select('D.id')
@@ -644,12 +664,6 @@ class Approvals extends MY_Controller
         return !empty($row);
     }
 
-    /**
-     * Streams a filled-out Petty Cash Request Form for a reimbursement,
-     * auto-populated from its own details. Only downloadable by an
-     * approver ticked "Petty Cash Slip" on that reimbursement's
-     * approval matrix.
-     */
     public function download_petty_cash_slip($referenceNo = '')
     {
         $referenceNo = trim((string) $referenceNo);
@@ -808,10 +822,6 @@ class Approvals extends MY_Controller
         return is_array($row) ? $row : null;
     }
 
-    /**
-     * Requester user_id + total amount + description for a transaction,
-     * used to build notify_event() merge data / recipient lookups.
-     */
     private function getTransactionRequesterAndAmount($referenceNo, $transactionType)
     {
         $default = array('user_id' => 0, 'amount' => 0, 'description' => '');
@@ -849,9 +859,6 @@ class Approvals extends MY_Controller
             if (!is_array($row)) {
                 return $default;
             }
-            // user_id = the expense owner (who the notification is about);
-            // created_by/filed_by can be a different person under proxy
-            // filing (a supervisor filing on a team member's behalf).
             return array(
                 'user_id' => (int) ($row['user_id'] ?? 0),
                 'amount' => (float) ($row['total_amount'] ?? 0),
@@ -874,10 +881,6 @@ class Approvals extends MY_Controller
         return $default;
     }
 
-    /**
-     * ['email' => ..., 'name' => ...] for notify_event(), or null if the
-     * user has no usable email — callers must skip null recipients.
-     */
     private function buildNotificationRecipient($userId)
     {
         $userId = (int) $userId;
@@ -900,10 +903,6 @@ class Approvals extends MY_Controller
         );
     }
 
-    /**
-     * Notify the requester + next approver / final outcome after a header
-     * decision (sp_approval_decision). $decisionRow is that SP's result row.
-     */
     private function notifyDecisionOutcome($transactionType, $referenceNo, $overallDecision, $decidedByUserId, $decisionRow, $remarksForMerge)
     {
         $txInfo = $this->getTransactionRequesterAndAmount($referenceNo, $transactionType);
@@ -969,10 +968,6 @@ class Approvals extends MY_Controller
         return $ids;
     }
 
-    /**
-     * Notify the requester, and (for PAYMENT_ADVISED only) any approvers
-     * flagged with Payment Release capability on this transaction's matrix.
-     */
     private function notifyPaymentEvent($eventCode, $transactionType, $referenceNo, $actingUserId, $remarks, $includeReleaseApprovers)
     {
         $txInfo = $this->getTransactionRequesterAndAmount($referenceNo, $transactionType);
@@ -1201,9 +1196,6 @@ class Approvals extends MY_Controller
         }
     }
 
-    /**
-     * Persist approver-side liquidation item edits during final review submission.
-     */
     private function updateLiquidationEditableFields($detailId, $description, $invoiceReceiptNo, $documentDate, $actualAmount, $expenseCategory, $isVatable, $netAmount, $vatAmount, $vendorName, $vendorAddress, $vendorTin, $approvedGrossAmount = null)
     {
         $detailId = (int) $detailId;
@@ -1233,9 +1225,6 @@ class Approvals extends MY_Controller
         ) === TRUE;
     }
 
-    /**
-     * Persist approver-side reimbursement item edits during final review submission.
-     */
     private function updateReimbursementEditableFields($detailId, $description, $invoiceReceiptNo, $documentDate, $actualAmount, $expenseCategory, $isVatable, $netAmount, $vatAmount, $vendorName, $vendorAddress, $vendorTin, $approvedGrossAmount = null)
     {
         $detailId = (int) $detailId;
@@ -1265,9 +1254,6 @@ class Approvals extends MY_Controller
         ) === TRUE;
     }
 
-    /**
-     * Persist approver-side cash advance editable fields during final review submission.
-     */
     private function updateCashAdvanceEditableFields($referenceNo, $description, $amount, $updatedBy, $approvedAmount = null, $approvedAmountInWords = '')
     {
         $referenceNo = trim((string) $referenceNo);
@@ -1282,7 +1268,6 @@ class Approvals extends MY_Controller
             'UpdatedBy' => (int) $updatedBy,
         );
 
-        // If approved amount is provided, update it too
         if ($approvedAmount !== null) {
             $params['ApprovedAmount'] = (float) $approvedAmount;
             $params['ApprovedAmountInWords'] = trim((string) $approvedAmountInWords);
@@ -1294,9 +1279,6 @@ class Approvals extends MY_Controller
         ) === TRUE;
     }
 
-    /**
-     * Update CA header fields (cost_center, payable_to, address) in one batch
-     */
     public function api_update_ca_header()
     {
         try {
@@ -1356,9 +1338,6 @@ class Approvals extends MY_Controller
         }
     }
 
-    /**
-     * Update reimbursement header fields (cost_center, payable_to, address, io) in one batch
-     */
     public function api_update_rmb_header()
     {
         try {
@@ -1401,9 +1380,6 @@ class Approvals extends MY_Controller
         }
     }
 
-    /**
-     * Per-item decision (before final submit)
-     */
     public function api_per_item_decision()
     {
         try {
@@ -1478,9 +1454,6 @@ class Approvals extends MY_Controller
         }
     }
 
-    /**
-     * Final submit of all decisions
-     */
     public function api_submit_decisions()
     {
         try {
@@ -1565,7 +1538,6 @@ class Approvals extends MY_Controller
                 $approvedAmount = isset($firstDecision['approved_amount']) ? (float) $firstDecision['approved_amount'] : $amount;
                 $approvedAmountInWords = isset($firstDecision['approved_amount_in_words']) ? (string) $firstDecision['approved_amount_in_words'] : '';
 
-                // Generate words if not provided
                 if ($approvedAmountInWords === '' && $approvedAmount > 0) {
                     $approvedAmountInWords = $this->amountToWords($approvedAmount);
                 }
@@ -1651,9 +1623,6 @@ class Approvals extends MY_Controller
         }
     }
 
-    /**
-     * Fetch approval timeline for review page
-     */
     public function api_get_approval_timeline()
     {
         try {
@@ -1705,42 +1674,6 @@ class Approvals extends MY_Controller
         }
     }
 
-    private function getRequestPayload()
-    {
-        $raw = $this->input->raw_input_stream;
-        if (!empty($raw)) {
-            $json = json_decode($raw, true);
-            if (is_array($json))
-                return $json;
-        }
-        $postData = $this->input->post();
-        return is_array($postData) ? $postData : array();
-    }
-
-    private function respondSuccess($message, $data = array())
-    {
-        echo json_encode(array(
-            'status' => 'success',
-            'response' => $message,
-            'data' => $data,
-        ));
-        return;
-    }
-
-    private function respondError($message)
-    {
-        echo json_encode(array(
-            'status' => 'error',
-            'response' => $message,
-        ));
-        return;
-    }
-        /**
-     * Convert number to words (PHP version of JS amountToWords)
-     */
-    /**
-     * Convert number to words (PHP version of JS amountToWords)
-     */
     private function amountToWords($amount)
     {
         $num = (float) $amount;
@@ -1765,7 +1698,6 @@ class Approvals extends MY_Controller
             return trim($result);
         };
         
-        // Use a class method or pass by reference to avoid closure self-reference issue
         $convert = function($n) use (&$convertLessThanOneThousand, &$convert) {
             if ($n == 0) return 'Zero';
             $result = '';

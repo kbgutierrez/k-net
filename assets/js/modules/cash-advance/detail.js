@@ -22,6 +22,9 @@ const domDetail = {
 };
 
 let forcedKflowEmbedUrl = '';
+let kflowPollTimer = null;
+let lastKnownKflowDocStatus = null;
+const KFLOW_POLL_INTERVAL_MS = 6000;
 const KFLOW_URL_STORAGE_PREFIX = 'knet_ca_kflow_url_';
 const KFLOW_PUBLISHED_STORAGE_PREFIX = 'knet_ca_kflow_published_';
 
@@ -167,6 +170,12 @@ const formatAuditValue = (field, value) => {
 const AUDIT_ACTION_VERBS = {
 	SUBMITTED: 'submitted', SAVED_DRAFT: 'saved a draft of', CREATED: 'created', APPROVED: 'approved',
 	REJECTED: 'rejected', UPDATED: 'updated', RESUBMITTED: 'resubmitted', UPDATED_ITEM: 'edited',
+	// Advise/Release log the raw new status code as the action (see
+	// Approvals::runAdvisePayment/runReleasePayment) — map those
+	// specifically instead of falling through to the raw-code fallback,
+	// which produced "ca for release the cash advance" / "ca completed
+	// the cash advance".
+	CA_FOR_RELEASE: 'advised payment for', CA_COMPLETED: 'released payment for',
 };
 const auditActionVerb = (action) => AUDIT_ACTION_VERBS[action] || action.toLowerCase().replace(/_/g, ' ');
 const joinAuditVerbs = (actions) => {
@@ -342,6 +351,7 @@ const renderDocumentPanels = (record) => {
 	// showed for ANY kflowEmbedUrl regardless of status, so it appeared
 	// immediately on filing (status 2) instead of the unsigned PDF.
 	const isUnsigned = kflowDocStatus === 2;
+	lastKnownKflowDocStatus = kflowDocStatus;
 	const caRef = normalizeDate(record.cash_advance_id || (domDetail.cashAdvanceRef ? domDetail.cashAdvanceRef.value : ''));
 	const workflowPublished = isKflowPublished(caRef);
 	// kflow_doc_status 4 = fully signed — always show the signed PDF panel,
@@ -412,7 +422,26 @@ const renderDocumentPanels = (record) => {
 			domDetail.viewWorkflowOpenNewTab.href = kflowEmbedUrl;
 			domDetail.viewWorkflowOpenNewTab.classList.remove('d-none');
 		}
+
+		// K-flow's own postMessage ('kflow-document-published') is the
+		// fast path, but it's an external app we don't control — if it
+		// doesn't fire (or fires for a different milestone than we
+		// expect), the page would otherwise sit on the stale embed
+		// until the user manually refreshes. Poll our own backend as a
+		// fallback so kflow_doc_status changes (e.g. moving to
+		// "unsigned, pending signature") surface within a few seconds
+		// either way. pollKflowStatusOnly() only touches the DOM when
+		// the status actually changed, so this never flickers/reloads
+		// the embed while the user is still mid-workflow inside it.
+		if (!kflowPollTimer) {
+			kflowPollTimer = window.setInterval(pollKflowStatusOnly, KFLOW_POLL_INTERVAL_MS);
+		}
 	} else {
+		if (kflowPollTimer) {
+			window.clearInterval(kflowPollTimer);
+			kflowPollTimer = null;
+		}
+
 		if (domDetail.viewWorkflowSection) {
 			domDetail.viewWorkflowSection.classList.add('d-none');
 		}
@@ -710,6 +739,29 @@ const cacheDetailDom = () => {
 
 	applyEmbeddedKflowChrome();
 	initHistoryModal();
+};
+
+// Fires every KFLOW_POLL_INTERVAL_MS while the workflow embed is showing.
+// Fetches fresh data but only triggers a real re-render (loadDetailData)
+// when kflow_doc_status actually changed — otherwise this is a silent
+// no-op, so the user sees nothing move while they're still mid-signing.
+const pollKflowStatusOnly = () => {
+	const ref = normalizeDate(domDetail.cashAdvanceRef ? domDetail.cashAdvanceRef.value : '');
+	if (!ref) {
+		return;
+	}
+
+	ajax_loader('transactions/cash-advance/api/get/detail', { CashAdvanceId: ref }).done((response) => {
+		const res = (typeof response === 'string') ? $.parseJSON(response) : response;
+		if (res.status !== 'success' || !res.data) {
+			return;
+		}
+		const newStatus = Number(res.data.kflow_doc_status || 0);
+		if (newStatus === lastKnownKflowDocStatus) {
+			return;
+		}
+		loadDetailData(false);
+	});
 };
 
 const loadDetailData = (loadTimeline = true) => {

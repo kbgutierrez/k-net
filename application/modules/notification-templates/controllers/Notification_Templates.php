@@ -429,26 +429,4 @@ class Notification_Templates extends MY_Controller
         return '';
     }
 
-    private function getRequestPayload()
-    {
-        $raw = $this->input->raw_input_stream;
-        if (!empty($raw)) {
-            $json = json_decode($raw, true);
-            if (is_array($json)) {
-                return $json;
-            }
-        }
-        $postData = $this->input->post();
-        return is_array($postData) ? $postData : array();
-    }
-
-    private function respondSuccess($message, $data = array())
-    {
-        echo json_encode(array('status' => 'success', 'response' => $message, 'data' => $data));
-    }
-
-    private function respondError($message)
-    {
-        echo json_encode(array('status' => 'error', 'response' => $message));
-    }
 }

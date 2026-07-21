@@ -87,11 +87,6 @@ class Replenishment extends MY_Controller
         return !empty($row) ? $row : null;
     }
 
-    /**
-     * Team's already-PAID reimbursements this supervisor can claim as
-     * proof of expense — excludes anything already locked by another
-     * non-rejected replenishment request.
-     */
     public function api_get_claimable()
     {
         try {
@@ -272,10 +267,6 @@ class Replenishment extends MY_Controller
         }
     }
 
-    /**
-     * Mirrors Reimbursement::notifyFirstApprover() — never lets a
-     * notification failure affect the calling request's response.
-     */
     private function notifyFirstApprover($replenishmentId)
     {
         try {
@@ -331,34 +322,4 @@ class Replenishment extends MY_Controller
         }
     }
 
-    private function respondSuccess($message, $data = array())
-    {
-        echo json_encode(array(
-            'status' => 'success',
-            'response' => $message,
-            'data' => $data,
-        ));
-        return;
-    }
-
-    private function respondError($message)
-    {
-        echo json_encode(array(
-            'status' => 'error',
-            'response' => $message,
-        ));
-        return;
-    }
-
-    private function getRequestPayload()
-    {
-        $contentType = $this->input->server('CONTENT_TYPE');
-        if (is_string($contentType) && stripos($contentType, 'application/json') !== false) {
-            $data = json_decode($this->input->raw_input_stream, true);
-            return is_array($data) ? $data : array();
-        }
-
-        $postData = $this->input->post();
-        return is_array($postData) ? $postData : array();
-    }
 }

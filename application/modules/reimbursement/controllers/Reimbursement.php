@@ -82,11 +82,6 @@ class Reimbursement extends MY_Controller
         return !empty($row) ? $row : null;
     }
 
-    /* ------------------------------------------------------------
-       PROXY FILING (a supervisor filing a reimbursement on behalf
-       of a team member — self-filing remains the default)
-       ------------------------------------------------------------ */
-
     public function api_get_team()
     {
         try {
@@ -110,12 +105,6 @@ class Reimbursement extends MY_Controller
 
         return is_array($team) ? $team : array();
     }
-
-    /* ------------------------------------------------------------
-       TEAM VIEW + CORRECTION (a supervisor viewing / fixing data
-       filed by their team - a plain data correction, NOT an
-       approval decision; status/routing is never touched here)
-       ------------------------------------------------------------ */
 
     private function isOwnerInSupervisorsTeam($supervisorUserId, $ownerUserId)
     {
@@ -212,13 +201,6 @@ class Reimbursement extends MY_Controller
         }
     }
 
-    /**
-     * Guard shared by both correction endpoints: only the reimbursement
-     * owner's Supervisor may correct it, and only while it's still
-     * awaiting a decision - never after it's been approved/rejected/
-     * paid, so a correction can never silently overwrite an amount
-     * Accounting already acted on.
-     */
     private function assertTeamReimbursementCorrectable($reimbursementId, $supervisorUserId)
     {
         $header = $this->getDraftHeaderByReimbursementId($reimbursementId);
@@ -451,7 +433,6 @@ class Reimbursement extends MY_Controller
         $this->load->view('main', $data);
     }
 
-    // ========== API METHODS ==========
 
     public function api_get_expense_types()
     {
@@ -578,7 +559,6 @@ class Reimbursement extends MY_Controller
                 ', '
             );
 
-            // Optional proxy filing: a supervisor filing on behalf of a team member.
             $fileForUserId = isset($data['FileForUserId']) ? (int) $data['FileForUserId'] : 0;
             $ownerUserId = $currentUserId;
             if ($fileForUserId > 0 && $fileForUserId !== $currentUserId) {
@@ -596,7 +576,6 @@ class Reimbursement extends MY_Controller
                 $payableTo = isset($matchedMember['member_name']) ? (string) $matchedMember['member_name'] : $payableTo;
             }
 
-            // Update existing draft
             if ($requestedReimbursementId !== '') {
                 $existingHeader = $this->getDraftHeaderByReimbursementId($requestedReimbursementId);
                 if (!$existingHeader) {
@@ -663,7 +642,6 @@ class Reimbursement extends MY_Controller
                 );
             }
 
-            // Create new
             if ($reimbursementId === '') {
                 $headerParams = array(
                     "UserId" => $ownerUserId,
@@ -706,7 +684,6 @@ class Reimbursement extends MY_Controller
                 }
             }
 
-            // Insert details
             foreach ($data['Expenses'] as $index => $expense) {
                 $actualAmount = isset($expense['ActualAmount']) ? (float) $expense['ActualAmount'] : (isset($expense['amount']) ? (float) $expense['amount'] : 0);
                 $expenseCategory = isset($expense['ExpenseCategory']) ? trim((string) $expense['ExpenseCategory']) : (isset($expense['expenseType']) ? trim((string) $expense['expenseType']) : '');
@@ -747,8 +724,6 @@ class Reimbursement extends MY_Controller
                 }
             }
 
-            // Matrix entries are created inside sp_insert_reimbursement_header itself
-            // (mirrors sp_insert_liquidation_header) - no separate call needed here.
             if ($statusCode === 'RMB_SUBMITTED') {
                 $this->logAuditTrail(
                     'REIMBURSEMENT',
@@ -771,11 +746,6 @@ class Reimbursement extends MY_Controller
         }
     }
 
-    /**
-     * Notify the first pending K-net approver once a reimbursement is
-     * actually submitted (not a draft save). Never lets a notification
-     * failure affect the calling request's response.
-     */
     private function notifyFirstApprover($reimbursementId)
     {
         try {
@@ -807,8 +777,6 @@ class Reimbursement extends MY_Controller
             }
 
             $rmb = $this->sp->db->get_where('tbl_reimbursement_header', array('reimbursement_id' => $reimbursementId), 1)->row_array();
-            // user_id = the expense owner; created_by/filed_by can differ
-            // under proxy filing (a supervisor filing for a team member).
             $requesterInfo = (is_array($rmb) && !empty($rmb['user_id'])) ? get_user_info((int) $rmb['user_id']) : null;
 
             $approverName = trim((string) ($approverInfo['firstname'] ?? '') . ' ' . (string) ($approverInfo['lastname'] ?? ''));
@@ -884,14 +852,10 @@ class Reimbursement extends MY_Controller
             $statusCode = isset($data['StatusCode']) && $data['StatusCode'] !== '' ? trim((string) $data['StatusCode']) : 'RMB_SUBMITTED';
 
             $costCenterId = isset($data['CostCenterId']) ? trim((string) $data['CostCenterId']) : '';
-            // Payable To is derived, never manually typed - preserve whatever
-            // it already was rather than re-deriving it here (this is the
-            // resubmit flow, not a new filing, so the owner hasn't changed).
             $payableTo = isset($existingHeader['payable_to']) ? trim((string) $existingHeader['payable_to']) : '';
             $address = isset($data['Address']) ? trim((string) $data['Address']) : '';
             $ioNumber = isset($data['IoNumber']) ? trim((string) $data['IoNumber']) : '';
 
-            // Update header
             $updateHeaderParams = array(
                 'ReimbursementId' => $reimbursementId,
                 'UserId' => $createdById,
@@ -913,7 +877,6 @@ class Reimbursement extends MY_Controller
                 return $this->respondError('Failed to update reimbursement header.');
             }
 
-            // Get approval status per item
             $approvalParams = array(
                 'ReimbursementId' => $reimbursementId,
             );
@@ -951,7 +914,6 @@ class Reimbursement extends MY_Controller
                 }
             }
 
-            // Delete non-approved details
             $deleteDetailParams = array(
                 'ReimbursementId' => $reimbursementId,
                 'KeepItemIds' => implode(',', $approvedItemIds),
@@ -965,7 +927,6 @@ class Reimbursement extends MY_Controller
                 return $this->respondError('Failed to refresh expense details.');
             }
 
-            // Insert new/updated details
             foreach ($data['Expenses'] as $index => $expense) {
                 $itemId = isset($expense['Id']) ? trim((string) $expense['Id']) : '';
                 $isNew = isset($expense['IsNew']) ? (bool) $expense['IsNew'] : false;
@@ -1015,7 +976,6 @@ class Reimbursement extends MY_Controller
                 }
             }
 
-            // Log resubmitted
             $this->logAuditTrail(
                 'REIMBURSEMENT',
                 $reimbursementId,
@@ -1167,7 +1127,6 @@ class Reimbursement extends MY_Controller
         }
     }
 
-    // ========== PRIVATE HELPERS ==========
 
     private function getDraftHeaderByReimbursementId($reimbursementId)
     {
@@ -1201,37 +1160,6 @@ class Reimbursement extends MY_Controller
         }
 
         return (int) floor($seconds / 86400);
-    }
-
-    private function respondSuccess($message, $data = array())
-    {
-        echo json_encode(array(
-            'status' => 'success',
-            'response' => $message,
-            'data' => $data,
-        ));
-        return;
-    }
-
-    private function respondError($message)
-    {
-        echo json_encode(array(
-            'status' => 'error',
-            'response' => $message,
-        ));
-        return;
-    }
-
-    private function getRequestPayload()
-    {
-        $contentType = $this->input->server('CONTENT_TYPE');
-        if (is_string($contentType) && stripos($contentType, 'application/json') !== false) {
-            $data = json_decode($this->input->raw_input_stream, true);
-            return is_array($data) ? $data : array();
-        }
-
-        $postData = $this->input->post();
-        return is_array($postData) ? $postData : array();
     }
 
     private function ensureAttachmentDir()

@@ -23,6 +23,7 @@ let selectedTransactionType = 'ALL';
 let approvalsDesktopPage = 1;
 
 let approvalsDateRangePicker = null;
+const paymentSelectedRefs = new Set();
 
 const APPROVALS_PAGE_SIZE = 10;
 
@@ -297,12 +298,13 @@ const refreshApprovalsList = () => {
 	const start = (approvalsDesktopPage - 1) * APPROVALS_PAGE_SIZE;
 	const pageRows = rows.slice(start, start + APPROVALS_PAGE_SIZE);
 	const colCount = (isPastTab() || isPaymentTab()) ? 7 : 6;
+	const checkboxColCount = isPaymentTab() ? colCount + 1 : colCount;
 
 	if (!pageRows.length) {
 		const emptyLabel = isPastTab() ? 'Past' : (isPaymentTab() ? 'Payment' : 'Pending');
 		tbodyMain.innerHTML = `
 		<tr>
-			<td colspan="${colCount}" class="text-center text-muted kna-small py-4">
+			<td colspan="${checkboxColCount}" class="text-center text-muted kna-small py-4">
 				No ${emptyLabel} Approvals
 			</td>
 		</tr>
@@ -320,11 +322,13 @@ const refreshApprovalsList = () => {
 
 		renderMobileCards([]);
 		renderDesktopPagination([]);
+		updatePaymentBatchBar();
 		return;
 	}
 
 	tbodyMain.innerHTML = pageRows.map((row) => `
 		<tr>
+			${isPaymentTab() ? `<td><input type="checkbox" class="payment-row-checkbox" data-ref="${escapeHtml(row.referenceNo)}" ${paymentSelectedRefs.has(row.referenceNo) ? 'checked' : ''}></td>` : ''}
 			<td><strong>${escapeHtml(row.referenceNo)}</strong></td>
 			<td>${escapeHtml(getTransactionTypeLabel(row.transactionType))}</td>
 			<td>${escapeHtml(row.requestor)}</td>
@@ -354,6 +358,7 @@ const refreshApprovalsList = () => {
 
 	renderMobileCards(pageRows);
 	renderDesktopPagination(rows);
+	updatePaymentBatchBar();
 };
 
 const updateApprovalTabChrome = () => {
@@ -373,6 +378,35 @@ const updateApprovalTabChrome = () => {
 	}
 	if (paymentActionColumnHeader) {
 		paymentActionColumnHeader.classList.toggle('d-none', !isPaymentTab());
+	}
+
+	const paymentCheckboxColumnHeader = document.getElementById('paymentCheckboxColumnHeader');
+	if (paymentCheckboxColumnHeader) {
+		paymentCheckboxColumnHeader.classList.toggle('d-none', !isPaymentTab());
+	}
+	const paymentBatchBar = document.getElementById('paymentBatchBar');
+	if (paymentBatchBar) {
+		paymentBatchBar.classList.toggle('d-none', !isPaymentTab());
+	}
+	if (!isPaymentTab()) {
+		paymentSelectedRefs.clear();
+	}
+	updatePaymentBatchBar();
+};
+
+const updatePaymentBatchBar = () => {
+	const countEl = document.getElementById('paymentSelectedCount');
+	const btn = document.getElementById('btnProcessBatchPayment');
+	if (countEl) {
+		countEl.textContent = String(paymentSelectedRefs.size);
+	}
+	if (btn) {
+		btn.disabled = paymentSelectedRefs.size === 0;
+	}
+	const selectAll = document.getElementById('paymentSelectAll');
+	if (selectAll) {
+		const pageCheckboxes = Array.from(document.querySelectorAll('.payment-row-checkbox'));
+		selectAll.checked = pageCheckboxes.length > 0 && pageCheckboxes.every((cb) => cb.checked);
 	}
 };
 
@@ -466,6 +500,100 @@ const initListPage = () => {
 			if (page) {
 				goToDesktopPage(page);
 			}
+		});
+	}
+
+	document.addEventListener('change', (e) => {
+		if (e.target.classList && e.target.classList.contains('payment-row-checkbox')) {
+			const ref = e.target.getAttribute('data-ref');
+			if (e.target.checked) {
+				paymentSelectedRefs.add(ref);
+			} else {
+				paymentSelectedRefs.delete(ref);
+			}
+			updatePaymentBatchBar();
+		}
+	});
+
+	const paymentSelectAll = document.getElementById('paymentSelectAll');
+	if (paymentSelectAll) {
+		paymentSelectAll.addEventListener('change', () => {
+			const checked = paymentSelectAll.checked;
+			document.querySelectorAll('.payment-row-checkbox').forEach((cb) => {
+				cb.checked = checked;
+				const ref = cb.getAttribute('data-ref');
+				if (checked) {
+					paymentSelectedRefs.add(ref);
+				} else {
+					paymentSelectedRefs.delete(ref);
+				}
+			});
+			updatePaymentBatchBar();
+		});
+	}
+
+	const btnProcessBatchPayment = document.getElementById('btnProcessBatchPayment');
+	if (btnProcessBatchPayment) {
+		btnProcessBatchPayment.addEventListener('click', () => {
+			const doAdvise = document.getElementById('paymentDoAdvise').checked;
+			const doRelease = document.getElementById('paymentDoRelease').checked;
+
+			if (!doAdvise && !doRelease) {
+				Swal.fire({ icon: 'warning', title: 'Select an action', text: 'Tick Payment Advisory and/or Payment Release before processing.' });
+				return;
+			}
+			if (paymentSelectedRefs.size === 0) {
+				return;
+			}
+
+			const actionLabel = doAdvise && doRelease ? 'advise and release' : (doAdvise ? 'advise' : 'release');
+			Swal.fire({
+				icon: 'question',
+				title: 'Confirm Batch Action',
+				text: `Are you sure you want to ${actionLabel} payment for ${paymentSelectedRefs.size} transaction(s)?`,
+				showCancelButton: true,
+				confirmButtonText: 'Yes',
+				cancelButtonText: 'No',
+				reverseButtons: true,
+			}).then((result) => {
+				if (!result.isConfirmed) return;
+
+				btnProcessBatchPayment.disabled = true;
+				ajax_loader('transactions/approvals/api/payment/bulk-action', {
+					reference_numbers: Array.from(paymentSelectedRefs),
+					do_advise: doAdvise ? 1 : 0,
+					do_release: doRelease ? 1 : 0,
+				}).done((response) => {
+					const res = (typeof response === 'string') ? $.parseJSON(response) : response;
+					if (res.status !== 'success') {
+						Swal.fire({ icon: 'error', title: 'Failed', text: res.response || 'Batch payment action failed.' });
+						return;
+					}
+
+					const data = res.data || {};
+					const advisedCount = (data.advised || []).length;
+					const releasedCount = (data.released || []).length;
+					const errors = data.errors || [];
+
+					let summary = '';
+					if (doAdvise) summary += `Advised: ${advisedCount}. `;
+					if (doRelease) summary += `Released: ${releasedCount}. `;
+					if (errors.length) summary += `${errors.length} failed.`;
+
+					Swal.fire({
+						icon: errors.length ? 'warning' : 'success',
+						title: 'Batch Action Complete',
+						html: summary + (errors.length ? '<br><br>' + errors.map((e) => `${escapeHtml(e.reference_no)} (${escapeHtml(e.action)}): ${escapeHtml(e.message)}`).join('<br>') : ''),
+					});
+
+					paymentSelectedRefs.clear();
+					loadApprovals(true);
+				}).fail(() => {
+					Swal.fire({ icon: 'error', title: 'Error', text: 'Server error during batch payment action.' });
+				}).always(() => {
+					btnProcessBatchPayment.disabled = paymentSelectedRefs.size === 0;
+				});
+			});
 		});
 	}
 

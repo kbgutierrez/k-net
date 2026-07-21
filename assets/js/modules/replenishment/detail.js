@@ -46,6 +46,11 @@ const ACTION_LABELS = {
 	APPROVED: 'approved the replenishment',
 	REJECTED: 'rejected the replenishment',
 	RELEASED: 'released payment for the replenishment',
+	// Advise/Release actually log the raw new status code as the
+	// action (see Approvals::runAdvisePayment/runReleasePayment), not
+	// the generic RELEASED above — map those specifically.
+	RPL_FOR_RELEASE: 'advised payment for the replenishment',
+	RPL_COMPLETED: 'released payment for the replenishment',
 };
 
 const renderHistoryTimeline = (auditTrail) => {

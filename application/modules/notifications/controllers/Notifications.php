@@ -11,14 +11,6 @@ class Notifications extends MY_Controller
         $this->sp->setDatabase('dbknet');
     }
 
-    /**
-     * General activity feed for the header bell — reuses
-     * tbl_notification_log (already populated by every notify_event()
-     * call across the system) instead of a narrow "pending my
-     * approval only" list, so it naturally covers submissions routed
-     * to this user as an approver AND status updates on their own
-     * filed requests.
-     */
     public function api_get_recent()
     {
         try {

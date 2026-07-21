@@ -5,14 +5,8 @@ if (!defined('BASEPATH')) {
     exit('No direct script access allowed');
 }
 
-/* load the MX_Router class */
 require APPPATH . "third_party/MX/Controller.php";
 
-/**
- * Description of my_controller
- *
- * @author Administrator
- */
 class MY_Controller extends MX_Controller
 {
     public $module_name;
@@ -37,7 +31,6 @@ class MY_Controller extends MX_Controller
         $this->module_name = strtolower($this->router->fetch_module());
         $this->tableau_url = 'tableau.lemonsquare.com.ph';
 
-        // Load module_group and module for all controllers if user is logged in
         if ($this->session->userdata('user_info')) {
             $this->load->model('SPModel', 'sp');
              $this->sp->setDatabase('dbknet');
@@ -80,24 +73,12 @@ class MY_Controller extends MX_Controller
         );
     }
 
-    /**
-     * Normalizes a raw "Take" request param into either a positive page size
-     * or null. Null tells the list SP to skip TOP and return every remaining
-     * row exactly (client paginates locally) instead of capping at a guessed
-     * upper bound.
-     */
     protected function resolvePaginationTake($takeRaw)
     {
         $take = ($takeRaw !== null && $takeRaw !== '') ? (int) $takeRaw : 0;
         return $take > 0 ? $take : null;
     }
 
-    /**
-     * Builds the {data, pagination} payload for a cursor-paginated list SP
-     * called with the take+1/pop-the-extra convention. Pass the same $take
-     * returned by resolvePaginationTake(): null means the SP already
-     * returned the exact full result set, so hasMore is always false.
-     */
     protected function buildPaginationResult($result, $take, $cursorField = 'id')
     {
         if ($take === null) {
@@ -122,6 +103,37 @@ class MY_Controller extends MX_Controller
             'data' => $result,
             'pagination' => array('take' => $take, 'hasMore' => $hasMore, 'nextCursorId' => $nextCursorId),
         );
+    }
+
+    protected function getRequestPayload()
+    {
+        $contentType = $this->input->server('CONTENT_TYPE');
+        if (is_string($contentType) && stripos($contentType, 'application/json') !== false) {
+            $data = json_decode($this->input->raw_input_stream, true);
+            return is_array($data) ? $data : array();
+        }
+
+        $postData = $this->input->post();
+        return is_array($postData) ? $postData : array();
+    }
+
+    protected function respondSuccess($message, $data = array())
+    {
+        echo json_encode(array(
+            'status' => 'success',
+            'response' => $message,
+            'data' => $data,
+        ));
+        return;
+    }
+
+    protected function respondError($message)
+    {
+        echo json_encode(array(
+            'status' => 'error',
+            'response' => $message,
+        ));
+        return;
     }
 }
 

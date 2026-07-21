@@ -46,9 +46,6 @@ class Dashboard extends MY_Controller
             ),
         );
 
-        // echo '<pre>';
-        // print_r($data);
-        // echo '</pre>';
         $this->load->view('main', $data);
     }
 
@@ -100,11 +97,6 @@ class Dashboard extends MY_Controller
                 'result'
             );
 
-            // Reuses the same SP the Approvals module's own pending queue
-            // uses — capped at 50 for a dashboard widget, not a full list.
-            // Absence of rows simply means this user isn't an approver on
-            // anything right now, which is a real and valid state, not an
-            // error to work around.
             $pendingApprovals = array();
             try {
                 $pendingApprovals = $this->sp->readData(
@@ -131,22 +123,4 @@ class Dashboard extends MY_Controller
         }
     }
 
-    private function respondSuccess($message, $data = array())
-    {
-        echo json_encode(array(
-            'status' => 'success',
-            'response' => $message,
-            'data' => $data,
-        ));
-        return;
-    }
-
-    private function respondError($message)
-    {
-        echo json_encode(array(
-            'status' => 'error',
-            'response' => $message,
-        ));
-        return;
-    }
 }

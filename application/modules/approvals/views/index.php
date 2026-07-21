@@ -244,6 +244,23 @@
         </div>
     </div>
 
+    <div class="card kna-card mb-2 d-none" id="paymentBatchBar">
+        <div class="card-body py-2 d-flex align-items-center flex-wrap" style="gap:.85rem;">
+            <div class="kna-small font-weight-bold"><span id="paymentSelectedCount">0</span> selected</div>
+            <div class="custom-control custom-checkbox">
+                <input type="checkbox" class="custom-control-input" id="paymentDoAdvise">
+                <label class="custom-control-label kna-small" for="paymentDoAdvise">Payment Advisory</label>
+            </div>
+            <div class="custom-control custom-checkbox">
+                <input type="checkbox" class="custom-control-input" id="paymentDoRelease">
+                <label class="custom-control-label kna-small" for="paymentDoRelease">Payment Release</label>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm kna-small" id="btnProcessBatchPayment" disabled>
+                Process Selected
+            </button>
+        </div>
+    </div>
+
     <div class="card kna-card">
         <div class="card-body">
             <div class="d-flex align-items-center justify-content-between mb-2">
@@ -255,6 +272,7 @@
                     <table class="table table-sm kna-table kna-table-main" style="width:100%">
                         <thead>
                             <tr>
+                                <th class="d-none" id="paymentCheckboxColumnHeader" style="width:28px;"><input type="checkbox" id="paymentSelectAll"></th>
                                 <th>Transaction No.</th>
                                 <th>Type</th>
                                 <th>Requestor</th>
