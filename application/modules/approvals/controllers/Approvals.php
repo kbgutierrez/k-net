@@ -14,18 +14,23 @@ class Approvals extends MY_Controller
 
     public function index()
     {
+        $hasAdvisoryCapability = $this->userHasPaymentCapabilityColumn('is_payment_advisory');
+        $hasReleaseCapability = $this->userHasPaymentCapabilityColumn('is_payment_release');
+
         $data = array(
             'title' => 'Approvals',
             'main_view' => '../modules/approvals/views/index',
             'module_group' => $this->module_group,
             'module' => $this->module,
-            'hasPaymentCapability' => $this->userHasAnyPaymentCapability(),
+            'hasPaymentCapability' => $hasAdvisoryCapability || $hasReleaseCapability,
+            'hasAdvisoryCapability' => $hasAdvisoryCapability,
+            'hasReleaseCapability' => $hasReleaseCapability,
             'scripts' => array('index.js'),
         );
         $this->load->view('main', $data);
     }
 
-    private function userHasAnyPaymentCapability()
+    private function userHasPaymentCapabilityColumn($column)
     {
         $userId = (int) $this->session->userdata('user_id');
 
@@ -34,10 +39,7 @@ class Approvals extends MY_Controller
             ->join('tbl_approval_matrix_header H', 'H.id = D.matrix_header_id')
             ->where('D.approver_id', $userId)
             ->where('H.is_active', 1)
-            ->group_start()
-                ->where('D.is_payment_advisory', 1)
-                ->or_where('D.is_payment_release', 1)
-            ->group_end()
+            ->where($column, 1)
             ->limit(1)
             ->get()
             ->row_array();
@@ -421,21 +423,11 @@ class Approvals extends MY_Controller
                 $paymentCapability = is_array($capResult) ? $capResult : null;
             }
 
-            $pettyCashSlipCapability = false;
-            if (is_array($result) && count($result) > 0) {
-                $firstRow = $result[0];
-                $txnType = isset($firstRow['transaction_type']) ? strtoupper(trim((string) $firstRow['transaction_type'])) : '';
-                if (in_array($txnType, array('REIMBURSEMENT', 'CASH_ADVANCE', 'LIQUIDATION'), true)) {
-                    $pettyCashSlipCapability = $this->userHasPettyCashSlipCapability($refereceNo, $this->session->userdata('user_id'));
-                }
-            }
-
             return $this->respondSuccess("Details fetched successfully.", array(
                 'items' => $result,
                 'attachments' => $attachments,
                 'has_attachments' => $hasAttachments,
                 'payment_capability' => $paymentCapability,
-                'petty_cash_slip_capability' => $pettyCashSlipCapability,
             ));
         } catch (Exception $e) {
             return $this->respondError("An error occurred: " . $e->getMessage());
@@ -664,16 +656,45 @@ class Approvals extends MY_Controller
         return !empty($row);
     }
 
-    public function download_petty_cash_slip($referenceNo = '')
+    public function download_petty_cash_slips_batch()
     {
-        $referenceNo = trim((string) $referenceNo);
-        $userId = (int) $this->session->userdata('user_id');
+        $data = $this->getRequestPayload();
+        $referenceNumbers = isset($data['reference_numbers']) && is_array($data['reference_numbers'])
+            ? $data['reference_numbers']
+            : array();
+        $disposition = !empty($data['preview']) ? 'inline' : 'attachment';
 
-        if ($referenceNo === '' || !$this->userHasPettyCashSlipCapability($referenceNo, $userId)) {
-            show_error('You are not authorized to download this slip.', 403);
+        $userId = (int) $this->session->userdata('user_id');
+        $fieldSets = array();
+
+        foreach ($referenceNumbers as $referenceNo) {
+            $referenceNo = trim((string) $referenceNo);
+            if ($referenceNo === '' || !$this->userHasPettyCashSlipCapability($referenceNo, $userId)) {
+                continue;
+            }
+
+            $fields = $this->fetchPettyCashSlipFields($referenceNo);
+            if ($fields !== null) {
+                $fieldSets[] = $fields;
+            }
+        }
+
+        if (count($fieldSets) === 0) {
+            show_error('No eligible transactions to generate a slip for.', 400);
             return;
         }
 
+        $this->load->helper('petty_cash_pdf');
+        $pdfContent = $this->renderPettyCashPdf($fieldSets);
+
+        $this->output
+            ->set_content_type('application/pdf')
+            ->set_header('Content-Disposition: ' . $disposition . '; filename="PettyCashSlips_' . date('Ymd_His') . '.pdf"')
+            ->set_output($pdfContent);
+    }
+
+    private function fetchPettyCashSlipFields($referenceNo)
+    {
         $prefix = strtoupper(substr($referenceNo, 0, 3)) === 'RMB' ? 'RMB' : strtoupper(substr($referenceNo, 0, 2));
         if ($prefix === 'CA') {
             $spName = 'sp_fetch_cash_advance_petty_cash_data';
@@ -685,8 +706,7 @@ class Approvals extends MY_Controller
             $spName = 'sp_fetch_reimbursement_petty_cash_data';
             $paramName = 'ReimbursementId';
         } else {
-            show_error('Unrecognized reference id.', 400);
-            return;
+            return null;
         }
 
         $slipData = $this->sp->readData(
@@ -696,26 +716,27 @@ class Approvals extends MY_Controller
         );
 
         if (!is_array($slipData) || empty($slipData)) {
-            show_error('Transaction not found.', 404);
-            return;
+            return null;
         }
 
-        $approverInfo = get_user_info($userId);
-        $approverName = trim((string) ($approverInfo['firstname'] ?? '') . ' ' . (string) ($approverInfo['lastname'] ?? ''));
+        $this->load->helper('petty_cash_pdf');
+        return petty_cash_pdf_fields_from_slip_data($slipData);
+    }
 
-        $this->load->helper('petty_cash_slip');
-        $html = build_petty_cash_slip_html($slipData, array(
-            'name' => $approverName,
-            'date' => date('M d, Y'),
-        ));
+    private function renderPettyCashPdf(array $fieldSets)
+    {
+        $templatePath = FCPATH . 'assets/templates/petty_cash_template.pdf';
+        $outputPath = FCPATH . 'assets/temp/petty_cash_' . uniqid() . '.pdf';
 
-        $this->load->library('pdf_generator', null, 'pdf');
-        $pdfContent = $this->pdf->generateInline($html);
+        if (!is_dir(FCPATH . 'assets/temp/')) {
+            mkdir(FCPATH . 'assets/temp/', 0777, true);
+        }
 
-        $this->output
-            ->set_content_type('application/pdf')
-            ->set_header('Content-Disposition: attachment; filename="PettyCashSlip_' . $referenceNo . '.pdf"')
-            ->set_output($pdfContent);
+        generate_petty_cash_pdf_batch($fieldSets, $templatePath, $outputPath);
+        $pdfContent = file_get_contents($outputPath);
+        @unlink($outputPath);
+
+        return $pdfContent;
     }
 
     private function resolveTransactionTypeFromReference($referenceNo)
@@ -1720,5 +1741,100 @@ class Approvals extends MY_Controller
         }
         $words .= ' Only';
         return $words;
+    }
+
+    public function test_petty_cash_coords()
+    {
+        $this->load->helper('petty_cash_pdf');
+
+        $templatePath = FCPATH . 'assets/templates/petty_cash_template.pdf';
+        $testOutputPath = FCPATH . 'assets/temp/test_petty_cash_output.pdf';
+
+        if (!is_dir(FCPATH . 'assets/temp/')) {
+            mkdir(FCPATH . 'assets/temp/', 0777, true);
+        }
+
+        $defaults = array(
+            'RequestedBy' => array('x' => 33, 'y' => 33.5, 'text' => 'Gutierrez, Kenneth'),
+            'RequestDate' => array('x' => 98, 'y' => 33.5, 'text' => date('M d, Y')),
+            'Department' => array('x' => 30, 'y' => 41, 'text' => 'Sales & Distribution'),
+            'Amount' => array('x' => 101, 'y' => 41, 'text' => '545.50'),
+            'Purpose' => array('x' => 10, 'y' => 54, 'w' => 125, 'text' => 'OB to Panorama'),
+        );
+
+        $fields = array();
+        foreach ($defaults as $key => $def) {
+            $fields[$key] = array(
+                'x' => $this->input->post("{$key}_x") !== null ? (float) $this->input->post("{$key}_x") : $def['x'],
+                'y' => $this->input->post("{$key}_y") !== null ? (float) $this->input->post("{$key}_y") : $def['y'],
+                'text' => $this->input->post("{$key}_text") !== null ? $this->input->post("{$key}_text") : $def['text'],
+            );
+            if (isset($def['w'])) {
+                $fields[$key]['w'] = $def['w'];
+            }
+        }
+
+        $probePdf = new \setasign\Fpdi\Fpdi();
+        $probePdf->setSourceFile($templatePath);
+        $probeTplId = $probePdf->importPage(1);
+        $fullSize = $probePdf->getTemplateSize($probeTplId);
+        $defaultOffsets = petty_cash_pdf_default_quadrant_offsets($fullSize);
+
+        $quadrants = array();
+        foreach (array(2, 3, 4) as $n) {
+            $quadrants["Quad{$n}"] = array(
+                'x' => $this->input->post("Quad{$n}_x") !== null ? (float) $this->input->post("Quad{$n}_x") : $defaultOffsets[$n - 1][0],
+                'y' => $this->input->post("Quad{$n}_y") !== null ? (float) $this->input->post("Quad{$n}_y") : $defaultOffsets[$n - 1][1],
+            );
+        }
+
+        $quadrantOffsets = array(
+            array(0, 0),
+            array($quadrants['Quad2']['x'], $quadrants['Quad2']['y']),
+            array($quadrants['Quad3']['x'], $quadrants['Quad3']['y']),
+            array($quadrants['Quad4']['x'], $quadrants['Quad4']['y']),
+        );
+
+        generate_petty_cash_pdf_batch(array($fields, $fields, $fields, $fields), $templatePath, $testOutputPath, $quadrantOffsets);
+
+        $pdf = new \setasign\Fpdi\Fpdi();
+        $pdf->setSourceFile($testOutputPath);
+        $tplId = $pdf->importPage(1);
+        $size = $pdf->getTemplateSize($tplId);
+
+        $pdf->AddPage($size['orientation'], array($size['width'], $size['height']));
+        $pdf->useTemplate($tplId, 0, 0, $size['width'], $size['height']);
+        $pdf->SetAutoPageBreak(false);
+        $pdf->SetDrawColor(200, 200, 200);
+        $pdf->SetTextColor(150, 150, 150);
+        $pdf->SetFont('Arial', '', 6);
+
+        $pageW = $size['width'];
+        $pageH = $size['height'];
+
+        for ($x = 0; $x <= $pageW; $x += 10) {
+            $pdf->Line($x, 0, $x, $pageH);
+            $pdf->SetXY($x + 1, 1);
+            $pdf->Cell(5, 3, round($x));
+        }
+        for ($y = 0; $y <= $pageH; $y += 10) {
+            $pdf->Line(0, $y, $pageW, $y);
+            $pdf->SetXY(1, $y + 1);
+            $pdf->Cell(5, 3, round($y));
+        }
+
+        $pdf->Output('F', $testOutputPath);
+
+        $data = array(
+            'title' => 'Test Petty Cash Slip Coordinates',
+            'main_view' => '../modules/approvals/views/test_petty_cash_coords',
+            'module_group' => $this->module_group,
+            'module' => $this->module,
+            'fields' => $fields,
+            'quadrants' => $quadrants,
+            'pdf_url' => base_url('assets/temp/test_petty_cash_output.pdf?v=' . time()),
+        );
+
+        $this->load->view('main', $data);
     }
 }

@@ -259,8 +259,20 @@
         </div>
       <?php } ?>
     </div>
-    <!-- Remove the sticky footer version -->
   </aside>
+
+  <div id="knetPdfPreviewOverlay" class="knet-pdf-preview-overlay d-none">
+    <div class="knet-pdf-preview-modal">
+      <div class="knet-pdf-preview-header">
+        <div class="knet-pdf-preview-title">Document Preview</div>
+        <button type="button" class="knet-pdf-preview-close" id="knetPdfPreviewClose">&#x2715;</button>
+      </div>
+      <div class="knet-pdf-preview-body">
+        <iframe id="knetPdfPreviewIframe" name="knetPdfPreviewIframe"></iframe>
+      </div>
+    </div>
+  </div>
+
   <script>
     var base_url = <?php echo '\'' . base_url() . '\''; ?>;
   </script>

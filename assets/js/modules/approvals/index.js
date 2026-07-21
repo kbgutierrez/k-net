@@ -214,6 +214,7 @@ const goToDesktopPage = (targetPage) => {
 
 const isPastTab = () => selectedApprovalTab === 'past';
 const isPaymentTab = () => selectedApprovalTab === 'payment';
+const isBatchSelectableTab = () => isPaymentTab() || isPastTab();
 
 const getStatusBadgeHtml = (decisionStatus) => {
 	if (decisionStatus === 'APPROVED') {
@@ -234,8 +235,6 @@ const getPaymentActionBadgeHtml = (paymentAction) => {
 	}
 	return '—';
 };
-
-const getPaymentActionLabel = (paymentAction) => (paymentAction === 'RELEASE' ? 'Release' : 'Advise');
 
 const getReviewUrl = (row) => {
 	const base = `${base_url}transactions/approvals/review/${encodeURIComponent(row.referenceNo)}`;
@@ -274,7 +273,7 @@ const renderMobileCards = (pageRows) => {
 				<a
 					class="btn btn-primary btn-sm btn-block"
 					href="${getReviewUrl(row)}">
-					${isPastTab() ? 'View' : (isPaymentTab() ? getPaymentActionLabel(row.paymentAction) : 'Review')}
+					${(isPastTab() || isPaymentTab()) ? 'View' : 'Review'}
 				</a>
 			</div>
 		</div>
@@ -298,7 +297,7 @@ const refreshApprovalsList = () => {
 	const start = (approvalsDesktopPage - 1) * APPROVALS_PAGE_SIZE;
 	const pageRows = rows.slice(start, start + APPROVALS_PAGE_SIZE);
 	const colCount = (isPastTab() || isPaymentTab()) ? 7 : 6;
-	const checkboxColCount = isPaymentTab() ? colCount + 1 : colCount;
+	const checkboxColCount = isBatchSelectableTab() ? colCount + 1 : colCount;
 
 	if (!pageRows.length) {
 		const emptyLabel = isPastTab() ? 'Past' : (isPaymentTab() ? 'Payment' : 'Pending');
@@ -328,7 +327,7 @@ const refreshApprovalsList = () => {
 
 	tbodyMain.innerHTML = pageRows.map((row) => `
 		<tr>
-			${isPaymentTab() ? `<td><input type="checkbox" class="payment-row-checkbox" data-ref="${escapeHtml(row.referenceNo)}" ${paymentSelectedRefs.has(row.referenceNo) ? 'checked' : ''}></td>` : ''}
+			${isBatchSelectableTab() ? `<td><input type="checkbox" class="payment-row-checkbox" data-ref="${escapeHtml(row.referenceNo)}" ${paymentSelectedRefs.has(row.referenceNo) ? 'checked' : ''}></td>` : ''}
 			<td><strong>${escapeHtml(row.referenceNo)}</strong></td>
 			<td>${escapeHtml(getTransactionTypeLabel(row.transactionType))}</td>
 			<td>${escapeHtml(row.requestor)}</td>
@@ -346,7 +345,7 @@ const refreshApprovalsList = () => {
 				<a
 					class="btn btn-outline-primary btn-xs kna-small py-1 px-2"
 					href="${getReviewUrl(row)}">
-					${isPastTab() ? 'View' : (isPaymentTab() ? getPaymentActionLabel(row.paymentAction) : 'Review')}
+					${(isPastTab() || isPaymentTab()) ? 'View' : 'Review'}
 				</a>
 			</td>
 		</tr>
@@ -382,13 +381,31 @@ const updateApprovalTabChrome = () => {
 
 	const paymentCheckboxColumnHeader = document.getElementById('paymentCheckboxColumnHeader');
 	if (paymentCheckboxColumnHeader) {
-		paymentCheckboxColumnHeader.classList.toggle('d-none', !isPaymentTab());
+		paymentCheckboxColumnHeader.classList.toggle('d-none', !isBatchSelectableTab());
 	}
 	const paymentBatchBar = document.getElementById('paymentBatchBar');
 	if (paymentBatchBar) {
-		paymentBatchBar.classList.toggle('d-none', !isPaymentTab());
+		paymentBatchBar.classList.toggle('d-none', !isBatchSelectableTab());
 	}
-	if (!isPaymentTab()) {
+	const paymentActionCheckboxes = document.getElementById('paymentActionCheckboxes');
+	if (paymentActionCheckboxes) {
+		if (isPaymentTab()) {
+			paymentActionCheckboxes.classList.add('d-flex');
+			paymentActionCheckboxes.style.removeProperty('display');
+		} else {
+			paymentActionCheckboxes.classList.remove('d-flex');
+			paymentActionCheckboxes.style.display = 'none';
+		}
+	}
+	const btnProcessBatchPaymentEl = document.getElementById('btnProcessBatchPayment');
+	if (btnProcessBatchPaymentEl) {
+		btnProcessBatchPaymentEl.classList.toggle('d-none', !isPaymentTab());
+	}
+	const btnDownloadBatchPettyCashSlipsEl = document.getElementById('btnDownloadBatchPettyCashSlips');
+	if (btnDownloadBatchPettyCashSlipsEl) {
+		btnDownloadBatchPettyCashSlipsEl.classList.toggle('d-none', !isPastTab());
+	}
+	if (!isBatchSelectableTab()) {
 		paymentSelectedRefs.clear();
 	}
 	updatePaymentBatchBar();
@@ -402,6 +419,10 @@ const updatePaymentBatchBar = () => {
 	}
 	if (btn) {
 		btn.disabled = paymentSelectedRefs.size === 0;
+	}
+	const btnDownloadSlips = document.getElementById('btnDownloadBatchPettyCashSlips');
+	if (btnDownloadSlips) {
+		btnDownloadSlips.disabled = paymentSelectedRefs.size === 0;
 	}
 	const selectAll = document.getElementById('paymentSelectAll');
 	if (selectAll) {
@@ -535,8 +556,10 @@ const initListPage = () => {
 	const btnProcessBatchPayment = document.getElementById('btnProcessBatchPayment');
 	if (btnProcessBatchPayment) {
 		btnProcessBatchPayment.addEventListener('click', () => {
-			const doAdvise = document.getElementById('paymentDoAdvise').checked;
-			const doRelease = document.getElementById('paymentDoRelease').checked;
+			const paymentDoAdviseEl = document.getElementById('paymentDoAdvise');
+			const paymentDoReleaseEl = document.getElementById('paymentDoRelease');
+			const doAdvise = Boolean(paymentDoAdviseEl && paymentDoAdviseEl.checked);
+			const doRelease = Boolean(paymentDoReleaseEl && paymentDoReleaseEl.checked);
 
 			if (!doAdvise && !doRelease) {
 				Swal.fire({ icon: 'warning', title: 'Select an action', text: 'Tick Payment Advisory and/or Payment Release before processing.' });
@@ -594,6 +617,38 @@ const initListPage = () => {
 					btnProcessBatchPayment.disabled = paymentSelectedRefs.size === 0;
 				});
 			});
+		});
+	}
+
+	const btnDownloadBatchPettyCashSlips = document.getElementById('btnDownloadBatchPettyCashSlips');
+	if (btnDownloadBatchPettyCashSlips) {
+		btnDownloadBatchPettyCashSlips.addEventListener('click', () => {
+			if (paymentSelectedRefs.size === 0) {
+				return;
+			}
+
+			const actionUrl = `${base_url}transactions/approvals/petty-cash-slips-batch`;
+			if (typeof window.openPdfPreviewByForm === 'function') {
+				window.openPdfPreviewByForm(actionUrl, { 'reference_numbers[]': Array.from(paymentSelectedRefs) });
+				return;
+			}
+
+			const form = document.createElement('form');
+			form.method = 'POST';
+			form.action = actionUrl;
+			form.target = '_blank';
+
+			Array.from(paymentSelectedRefs).forEach((ref) => {
+				const input = document.createElement('input');
+				input.type = 'hidden';
+				input.name = 'reference_numbers[]';
+				input.value = ref;
+				form.appendChild(input);
+			});
+
+			document.body.appendChild(form);
+			form.submit();
+			form.remove();
 		});
 	}
 

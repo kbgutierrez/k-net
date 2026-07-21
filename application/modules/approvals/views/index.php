@@ -208,9 +208,6 @@
         <div>
             <div class="kna-title" id="approvalsPageTitle">Pending Approvals</div>
         </div>
-        <a href="<?= base_url('transactions/approvals/consolidation') ?>" class="btn btn-outline-primary btn-sm kna-small">
-            <i class="fas fa-table"></i> Batch Approval
-        </a>
     </div>
 
     <div class="card kna-card mb-2">
@@ -247,16 +244,25 @@
     <div class="card kna-card mb-2 d-none" id="paymentBatchBar">
         <div class="card-body py-2 d-flex align-items-center flex-wrap" style="gap:.85rem;">
             <div class="kna-small font-weight-bold"><span id="paymentSelectedCount">0</span> selected</div>
-            <div class="custom-control custom-checkbox">
-                <input type="checkbox" class="custom-control-input" id="paymentDoAdvise">
-                <label class="custom-control-label kna-small" for="paymentDoAdvise">Payment Advisory</label>
-            </div>
-            <div class="custom-control custom-checkbox">
-                <input type="checkbox" class="custom-control-input" id="paymentDoRelease">
-                <label class="custom-control-label kna-small" for="paymentDoRelease">Payment Release</label>
+            <div id="paymentActionCheckboxes" class="d-flex align-items-center flex-wrap" style="gap:.85rem;">
+                <?php if (!empty($hasAdvisoryCapability)): ?>
+                <div class="custom-control custom-checkbox">
+                    <input type="checkbox" class="custom-control-input" id="paymentDoAdvise">
+                    <label class="custom-control-label kna-small" for="paymentDoAdvise">Payment Advisory</label>
+                </div>
+                <?php endif; ?>
+                <?php if (!empty($hasReleaseCapability)): ?>
+                <div class="custom-control custom-checkbox">
+                    <input type="checkbox" class="custom-control-input" id="paymentDoRelease">
+                    <label class="custom-control-label kna-small" for="paymentDoRelease">Payment Release</label>
+                </div>
+                <?php endif; ?>
             </div>
             <button type="button" class="btn btn-primary btn-sm kna-small" id="btnProcessBatchPayment" disabled>
                 Process Selected
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm kna-small" id="btnDownloadBatchPettyCashSlips" disabled>
+                <i class="fas fa-file-download mr-1"></i> Generate Petty Cash Slips
             </button>
         </div>
     </div>
