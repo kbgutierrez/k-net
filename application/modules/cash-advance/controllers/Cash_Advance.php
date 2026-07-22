@@ -688,7 +688,6 @@ class Cash_Advance extends MY_Controller
 
         $internalStatus = $isApproved ? 'CA_KFLOW_APPROVED' : 'CA_KFLOW_REJECTED';
         $kflowDocStatusCode = $isApproved ? 4 : 3;
-        $cashAdvanceStatus = 'CA_PENDING';
         $finalPath = null;
         $finalRelativePath = null;
 
@@ -759,52 +758,25 @@ class Cash_Advance extends MY_Controller
             }
         }
 
-        $existingStatusCode = '';
-        if (isset($ca['status']) && is_string($ca['status'])) {
-            $existingStatusCode = trim($ca['status']);
-        } else if (isset($ca['status_code']) && is_string($ca['status_code'])) {
-            $existingStatusCode = trim($ca['status_code']);
-        }
+        // The internal approval `status` column belongs exclusively to the
+        // approval matrix flow (sp_insert_ca_v2 / sp_approval_decision /
+        // sp_release_payment) — self-approval can advance it before this
+        // callback ever fires, so this callback must not touch it. It only
+        // owns the KFlow e-signature fields.
+        $updateParams = array(
+            'cash_advance_id' => $caRef,
+            'kflow_doc_id' => trim((string) $kflowDocId),
+            'kflow_doc_status' => (string) $kflowDocStatusCode,
+            'final_pdf_path' => $finalRelativePath,
+        );
 
-        $statusCandidates = array($cashAdvanceStatus);
-        if ($existingStatusCode !== '' && $existingStatusCode !== $cashAdvanceStatus) {
-            $statusCandidates[] = $existingStatusCode;
-        }
-
-        $spResult = false;
-        $chosenStatus = null;
-        $debug['steps']['status_candidates'] = $statusCandidates;
-        $debug['steps']['sp_attempts'] = array();
-
-        foreach ($statusCandidates as $candidateStatus) {
-            $updateParams = array(
-                'cash_advance_id' => $caRef,
-                'kflow_doc_id' => trim((string) $kflowDocId),
-                'kflow_doc_status' => (string) $kflowDocStatusCode,
-                'final_pdf_path' => $finalRelativePath,
-                'status' => $candidateStatus,
-            );
-
-            $attemptResult = $this->sp->createData(
-                build_sp('sp_update_ca_kflow_status', count($updateParams)),
-                $updateParams,
-                'result'
-            );
-
-            $debug['steps']['sp_attempts'][] = array(
-                'candidate_status' => $candidateStatus,
-                'result' => $attemptResult,
-            );
-
-            if ($attemptResult !== false && $attemptResult !== null) {
-                $spResult = $attemptResult;
-                $chosenStatus = $candidateStatus;
-                break;
-            }
-        }
+        $spResult = $this->sp->createData(
+            build_sp('sp_update_ca_kflow_status', count($updateParams)),
+            $updateParams,
+            'result'
+        );
 
         $debug['steps']['sp_update_ca_kflow_status_result'] = $spResult;
-        $debug['steps']['chosen_status'] = $chosenStatus;
 
         $verifyCa = $this->sp->readData(
             build_sp('sp_fetch_ca_by_batch_id', count($params)),
@@ -834,7 +806,6 @@ class Cash_Advance extends MY_Controller
             'status' => 'success',
             'message' => 'K-net updated',
             'internal_status' => $internalStatus,
-            'cash_advance_status' => $chosenStatus,
             'data' => array(
                 'cash_advance_id' => $caRef,
                 'final_pdf_path' => $finalRelativePath,
