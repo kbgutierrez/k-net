@@ -565,13 +565,80 @@
         <div>
             <div class="card kna-card kna-summary-card kna-fund-card h-100">
                 <div class="card-body">
-                    <p class="kna-kpi-caption">Remaining Revolving Fund</p>
-                    <p class="kna-kpi"><?= '₱' . number_format((float) ($revolvingFundBalance ?? 0), 2) ?></p>
+                    <div class="d-flex align-items-start justify-content-between">
+                        <p class="kna-kpi-caption">Remaining Fund</p>
+                        <?php if (!empty($allowSelfCashIn)): ?>
+                        <button type="button" class="btn btn-primary btn-sm kna-small" id="btnFundCashIn">
+                            <i class="fas fa-plus mr-1"></i> Cash In
+                        </button>
+                        <?php endif; ?>
+                    </div>
+                    <p class="kna-kpi" id="fundBalanceValue"><?= '₱' . number_format((float) ($revolvingFundBalance ?? 0), 2) ?></p>
                 </div>
             </div>
         </div>
         <?php endif; ?>
     </div>
+
+    <?php if (!empty($hasActiveFund)): ?>
+    <div class="row mb-2">
+        <div class="col-12">
+            <div class="card kna-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h3 class="kna-section-title">Fund History</h3>
+                        <div class="kna-small text-muted" id="fundPassbookCount">0 transaction(s)</div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm kna-small mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Transaction</th>
+                                    <th>Remarks</th>
+                                    <th class="text-right">Money In</th>
+                                    <th class="text-right">Money Out</th>
+                                    <th class="text-right">Balance</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fundPassbookBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="text-center mt-2 d-none" id="fundPassbookMoreWrap">
+                        <button type="button" class="btn btn-outline-secondary btn-sm kna-small" id="btnFundPassbookMore">Load More</button>
+                    </div>
+                    <div class="kna-state d-none" id="fundPassbookState"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="fundCashInModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Cash In — Remaining Fund</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="kna-form-label kna-small">Amount</label>
+                        <input type="number" step="0.01" min="0.01" class="form-control form-control-sm kna-small" id="fundCashInAmount" placeholder="0.00">
+                        <small class="text-muted kna-small">Fund limit: ₱<?= number_format((float) ($revolvingFundLimit ?? 0), 2) ?> — your balance cannot exceed this.</small>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="kna-form-label kna-small">Remarks <span class="text-muted">(optional)</span></label>
+                        <input type="text" maxlength="500" class="form-control form-control-sm kna-small" id="fundCashInRemarks" placeholder="e.g. Petty cash replenishment received">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm kna-small" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-sm kna-small" id="btnFundCashInSubmit">Record Cash In</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <div class="row mb-2">
         <div class="col-lg-7 mb-2 mb-lg-0">

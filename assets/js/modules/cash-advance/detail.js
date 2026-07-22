@@ -175,7 +175,7 @@ const AUDIT_ACTION_VERBS = {
 	// specifically instead of falling through to the raw-code fallback,
 	// which produced "ca for release the cash advance" / "ca completed
 	// the cash advance".
-	CA_FOR_RELEASE: 'advised payment for', CA_COMPLETED: 'released payment for',
+	CA_FOR_RELEASE: 'advised payment for', CA_FOR_LIQUIDATION: 'released payment for', CA_COMPLETED: 'released payment for',
 };
 const auditActionVerb = (action) => AUDIT_ACTION_VERBS[action] || action.toLowerCase().replace(/_/g, ' ');
 const joinAuditVerbs = (actions) => {

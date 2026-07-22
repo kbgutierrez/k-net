@@ -465,10 +465,136 @@ const cacheDom = () => {
 	dashboardDom.statusOverviewChart = document.getElementById('statusOverviewChart');
 };
 
+const passbookState = {
+	nextCursor: null,
+	count: 0,
+};
+
+const renderPassbookRows = (rows, append) => {
+	const body = document.getElementById('fundPassbookBody');
+	if (!body) return;
+
+	const html = (rows || []).map((row) => {
+		const amount = Number(row.amount || 0);
+		const moneyIn = amount > 0 ? formatPHP(amount) : '';
+		const moneyOut = amount < 0 ? formatPHP(Math.abs(amount)) : '';
+		const trxDate = normalizeDate(row.trx_date).slice(0, 10);
+		return `<tr>
+			<td>${escapeHtml(trxDate)}</td>
+			<td>${escapeHtml(row.trx_type_name || row.trx_type || '')}</td>
+			<td>${escapeHtml(row.remarks || '')}</td>
+			<td class="text-right text-success">${moneyIn}</td>
+			<td class="text-right text-danger">${moneyOut}</td>
+			<td class="text-right">${formatPHP(row.balance_after)}</td>
+		</tr>`;
+	}).join('');
+
+	if (append) {
+		body.insertAdjacentHTML('beforeend', html);
+	} else {
+		body.innerHTML = html || '<tr><td colspan="6" class="text-center text-muted">No fund transactions yet.</td></tr>';
+	}
+};
+
+const loadFundPassbook = (append = false) => {
+	const body = document.getElementById('fundPassbookBody');
+	if (!body) return;
+
+	ajax_loader('dashboard/api/fund/passbook', {
+		CursorId: append ? passbookState.nextCursor : null,
+		Take: 20,
+	}).done((response) => {
+		const res = (typeof response === 'string') ? $.parseJSON(response) : response;
+		if (res.status !== 'success') return;
+
+		const data = res.data || {};
+		const rows = data.rows || [];
+
+		renderPassbookRows(rows, append);
+
+		passbookState.nextCursor = data.next_cursor || null;
+		passbookState.count = append ? passbookState.count + rows.length : rows.length;
+
+		const countEl = document.getElementById('fundPassbookCount');
+		if (countEl) countEl.textContent = `${passbookState.count} transaction(s)`;
+
+		const moreWrap = document.getElementById('fundPassbookMoreWrap');
+		if (moreWrap) moreWrap.classList.toggle('d-none', !data.has_more);
+
+		const balanceEl = document.getElementById('fundBalanceValue');
+		if (balanceEl && data.balance !== undefined && data.balance !== null) {
+			balanceEl.textContent = formatPHP(data.balance).replace('PHP', '₱').trim();
+		}
+	});
+};
+
+const bindFundCashIn = () => {
+	const btnOpen = document.getElementById('btnFundCashIn');
+	const btnSubmit = document.getElementById('btnFundCashInSubmit');
+	const btnMore = document.getElementById('btnFundPassbookMore');
+	if (!btnOpen) return;
+
+	btnOpen.addEventListener('click', () => {
+		const amountEl = document.getElementById('fundCashInAmount');
+		const remarksEl = document.getElementById('fundCashInRemarks');
+		if (amountEl) amountEl.value = '';
+		if (remarksEl) remarksEl.value = '';
+		$('#fundCashInModal').modal('show');
+	});
+
+	if (btnSubmit) {
+		btnSubmit.addEventListener('click', () => {
+			const amountEl = document.getElementById('fundCashInAmount');
+			const remarksEl = document.getElementById('fundCashInRemarks');
+			const amount = Number(amountEl ? amountEl.value : 0);
+
+			if (!Number.isFinite(amount) || amount <= 0) {
+				Swal.fire({ icon: 'warning', title: 'Invalid Amount', text: 'Enter an amount greater than zero.' });
+				return;
+			}
+
+			Swal.fire({
+				icon: 'question',
+				title: 'Record Cash In?',
+				text: `This will add ${formatPHP(amount)} to your fund.`,
+				showCancelButton: true,
+				confirmButtonText: 'Yes, Cash In',
+				cancelButtonText: 'Cancel',
+				reverseButtons: true,
+			}).then((result) => {
+				if (!result.isConfirmed) return;
+
+				ajax_loader_loading('dashboard/api/fund/cash-in', {
+					Amount: amount,
+					Remarks: remarksEl ? remarksEl.value.trim() : '',
+				}).done((response) => {
+					const res = (typeof response === 'string') ? $.parseJSON(response) : response;
+					if (res.status !== 'success') {
+						Swal.fire({ icon: 'error', title: 'Failed', text: res.response || 'Failed to record cash in.' });
+						return;
+					}
+
+					$('#fundCashInModal').modal('hide');
+					Swal.fire({ icon: 'success', title: 'Cash In Recorded', text: 'Your fund balance has been updated.' });
+					loadFundPassbook(false);
+				}).fail(() => {
+					Swal.fire({ icon: 'error', title: 'Error', text: 'Server error while recording cash in.' });
+				});
+			});
+		});
+	}
+
+	if (btnMore) {
+		btnMore.addEventListener('click', () => loadFundPassbook(true));
+	}
+};
+
 const initDashboard = () => {
 	cacheDom();
 	bindEvents();
 	loadDashboard('month');
+	bindFundCashIn();
+	loadFundPassbook(false);
 };
 
 $(document).ready(() => {

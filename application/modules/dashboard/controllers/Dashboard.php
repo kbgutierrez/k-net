@@ -41,6 +41,8 @@ class Dashboard extends MY_Controller
             'hasActiveFund' => $activeFund !== null,
             'revolvingFundBalance' => $activeFund['available_balance'] ?? null,
             'revolvingFundCode' => $activeFund['fund_code'] ?? null,
+            'allowSelfCashIn' => !empty($activeFund['allow_self_cash_in']),
+            'revolvingFundLimit' => $activeFund['opening_balance'] ?? null,
             'scripts' => array(
                 'index.js',
             ),
@@ -58,6 +60,122 @@ class Dashboard extends MY_Controller
         );
 
         return !empty($row) ? $row : null;
+    }
+
+    public function api_fund_cash_in()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+
+            $userId = (int) $this->session->userdata('user_id');
+            if ($userId <= 0) {
+                return $this->respondError('User not authenticated.');
+            }
+
+            $fund = $this->getActiveFundForUser($userId);
+            if (empty($fund)) {
+                return $this->respondError('You do not hold an active revolving fund.');
+            }
+            if (empty($fund['allow_self_cash_in'])) {
+                return $this->respondError('Self cash in is not enabled for your fund. Please contact your administrator.');
+            }
+
+            $amount = (float) $this->input->post('Amount');
+            if ($amount <= 0) {
+                return $this->respondError('Amount must be greater than zero.');
+            }
+
+            $remarks = trim((string) $this->input->post('Remarks'));
+            if ($remarks === '') {
+                $remarks = 'Cash in by fund holder';
+            }
+
+            $capacity = (float) ($fund['opening_balance'] ?? 0) - (float) ($fund['available_balance'] ?? 0);
+            if ($amount > $capacity) {
+                return $this->respondError(
+                    'Cash in exceeds your fund limit of ₱' . number_format((float) ($fund['opening_balance'] ?? 0), 2)
+                    . '. You can add up to ₱' . number_format(max($capacity, 0), 2) . ' only.'
+                );
+            }
+
+            $params = array(
+                'FundId' => (int) $fund['id'],
+                'Amount' => $amount,
+                'Remarks' => $remarks,
+                'CreatedBy' => $userId,
+            );
+
+            $result = $this->sp->readData(
+                build_sp('sp_revolving_fund_self_cash_in', count($params)),
+                $params,
+                'row'
+            );
+
+            if (!is_array($result) || !isset($result['new_balance'])) {
+                return $this->respondError('Failed to record cash in.');
+            }
+
+            return $this->respondSuccess('Cash in recorded.', array(
+                'new_balance' => $result['new_balance'],
+            ));
+        } catch (\Throwable $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
+    public function api_fund_passbook()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+
+            $userId = (int) $this->session->userdata('user_id');
+            if ($userId <= 0) {
+                return $this->respondError('User not authenticated.');
+            }
+
+            $fund = $this->getActiveFundForUser($userId);
+            if (empty($fund)) {
+                return $this->respondError('You do not hold an active revolving fund.');
+            }
+
+            $cursorIdRaw = $this->input->post('CursorId');
+            $cursorId = ($cursorIdRaw !== null && $cursorIdRaw !== '') ? (int) $cursorIdRaw : null;
+            $take = (int) $this->input->post('Take');
+            if ($take < 1) {
+                $take = 20;
+            }
+
+            $params = array(
+                'CursorId' => $cursorId,
+                'Take' => $take,
+                'FundId' => (int) $fund['id'],
+                'TrxType' => null,
+                'DateFrom' => null,
+                'DateTo' => null,
+            );
+
+            $rows = $this->sp->readData(
+                build_sp('sp_fetch_revolving_fund_ledger_list', count($params)),
+                $params,
+                'result'
+            );
+            $rows = is_array($rows) ? $rows : array();
+
+            $hasMore = count($rows) > $take;
+            if ($hasMore) {
+                $rows = array_slice($rows, 0, $take);
+            }
+
+            return $this->respondSuccess('OK', array(
+                'fund_code' => $fund['fund_code'] ?? '',
+                'balance' => $fund['available_balance'] ?? 0,
+                'rows' => $rows,
+                'has_more' => $hasMore,
+                'next_cursor' => $hasMore && !empty($rows) ? end($rows)['id'] : null,
+            ));
+        } catch (\Throwable $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
     }
 
     public function api_get_summary()

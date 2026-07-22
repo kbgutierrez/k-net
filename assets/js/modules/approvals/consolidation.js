@@ -275,7 +275,7 @@ const approveSelected = () => {
 	).then((confirmed) => {
 		if (!confirmed) return;
 
-		ajax_loader('transactions/approvals/api/bulk-decision', { reference_numbers: refs })
+		ajax_loader_loading('transactions/approvals/api/bulk-decision', { reference_numbers: refs })
 			.done((response) => {
 				const res = (typeof response === 'string') ? $.parseJSON(response) : response;
 				if (res.status !== 'success') {

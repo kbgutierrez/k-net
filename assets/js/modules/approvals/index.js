@@ -471,7 +471,9 @@ const initListPage = () => {
 		filterTransactionType.addEventListener('change', () => {
 			selectedTransactionType = filterTransactionType.value || 'ALL';
 			approvalsDesktopPage = 1;
+			paymentSelectedRefs.clear();
 			refreshApprovalsList();
+			updatePaymentBatchBar();
 		});
 	}
 
@@ -484,7 +486,9 @@ const initListPage = () => {
 			onChange: (selectedDates) => {
 				if (selectedDates.length === 0 || selectedDates.length === 2) {
 					approvalsDesktopPage = 1;
+					paymentSelectedRefs.clear();
 					refreshApprovalsList();
+					updatePaymentBatchBar();
 				}
 			},
 		});
@@ -497,7 +501,9 @@ const initListPage = () => {
 			if (filterTransactionType) filterTransactionType.value = 'ALL';
 			selectedTransactionType = 'ALL';
 			approvalsDesktopPage = 1;
+			paymentSelectedRefs.clear();
 			refreshApprovalsList();
+			updatePaymentBatchBar();
 		});
 	}
 
@@ -582,7 +588,7 @@ const initListPage = () => {
 				if (!result.isConfirmed) return;
 
 				btnProcessBatchPayment.disabled = true;
-				ajax_loader('transactions/approvals/api/payment/bulk-action', {
+				ajax_loader_loading('transactions/approvals/api/payment/bulk-action', {
 					reference_numbers: Array.from(paymentSelectedRefs),
 					do_advise: doAdvise ? 1 : 0,
 					do_release: doRelease ? 1 : 0,
@@ -620,6 +626,31 @@ const initListPage = () => {
 		});
 	}
 
+	const openPettyCashSlipPreview = (referenceNumbers) => {
+		const actionUrl = `${base_url}transactions/approvals/petty-cash-slips-batch`;
+		if (typeof window.openPdfPreviewByForm === 'function') {
+			window.openPdfPreviewByForm(actionUrl, { 'reference_numbers[]': referenceNumbers });
+			return;
+		}
+
+		const form = document.createElement('form');
+		form.method = 'POST';
+		form.action = actionUrl;
+		form.target = '_blank';
+
+		referenceNumbers.forEach((ref) => {
+			const input = document.createElement('input');
+			input.type = 'hidden';
+			input.name = 'reference_numbers[]';
+			input.value = ref;
+			form.appendChild(input);
+		});
+
+		document.body.appendChild(form);
+		form.submit();
+		form.remove();
+	};
+
 	const btnDownloadBatchPettyCashSlips = document.getElementById('btnDownloadBatchPettyCashSlips');
 	if (btnDownloadBatchPettyCashSlips) {
 		btnDownloadBatchPettyCashSlips.addEventListener('click', () => {
@@ -627,28 +658,53 @@ const initListPage = () => {
 				return;
 			}
 
-			const actionUrl = `${base_url}transactions/approvals/petty-cash-slips-batch`;
-			if (typeof window.openPdfPreviewByForm === 'function') {
-				window.openPdfPreviewByForm(actionUrl, { 'reference_numbers[]': Array.from(paymentSelectedRefs) });
-				return;
-			}
+			ajax_loader_loading('transactions/approvals/api/petty-cash-slips/eligibility', {
+				reference_numbers: Array.from(paymentSelectedRefs),
+			}).done((response) => {
+				const res = (typeof response === 'string') ? $.parseJSON(response) : response;
+				if (res.status !== 'success') {
+					Swal.fire({ icon: 'error', title: 'Failed', text: res.response || 'Could not check petty cash slip eligibility.' });
+					return;
+				}
 
-			const form = document.createElement('form');
-			form.method = 'POST';
-			form.action = actionUrl;
-			form.target = '_blank';
+				const data = res.data || {};
+				const allowed = data.allowed || [];
+				const skipped = data.skipped || [];
 
-			Array.from(paymentSelectedRefs).forEach((ref) => {
-				const input = document.createElement('input');
-				input.type = 'hidden';
-				input.name = 'reference_numbers[]';
-				input.value = ref;
-				form.appendChild(input);
+				const refListHtml = (refs) => {
+					const shown = refs.slice(0, 3).map(escapeHtml).join('<br>');
+					const more = refs.length > 3 ? `<br>+${refs.length - 3} more` : '';
+					return `<b>${shown}</b>${more}`;
+				};
+
+				if (allowed.length === 0) {
+					Swal.fire({
+						icon: 'warning',
+						title: 'Not Allowed',
+						html: `You can't generate petty cash slips for:<br>${refListHtml(skipped)}`,
+					});
+					return;
+				}
+
+				if (skipped.length > 0) {
+					Swal.fire({
+						icon: 'info',
+						title: `${skipped.length} Will Be Skipped`,
+						html: `Not allowed for:<br>${refListHtml(skipped)}<br><br>Generate for the other ${allowed.length}?`,
+						showCancelButton: true,
+						confirmButtonText: 'Continue',
+						cancelButtonText: 'Cancel',
+						reverseButtons: true,
+					}).then((result) => {
+						if (result.isConfirmed) openPettyCashSlipPreview(allowed);
+					});
+					return;
+				}
+
+				openPettyCashSlipPreview(allowed);
+			}).fail(() => {
+				Swal.fire({ icon: 'error', title: 'Error', text: 'Server error while checking petty cash slip eligibility.' });
 			});
-
-			document.body.appendChild(form);
-			form.submit();
-			form.remove();
 		});
 	}
 

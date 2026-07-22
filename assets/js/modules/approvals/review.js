@@ -245,6 +245,11 @@ const cancelRejectFlow = key => {
   toggleCancelButton(key, false); updateRowStyling(key, null); refreshItemStatusBadge(key, 'PENDING'); updateSummary();
 };
 
+const headerDecisionLabel = (statusName) => {
+  const s = String(statusName || '');
+  return /reject|pending/i.test(s) ? s : 'Approved';
+};
+
 const renderReadOnlyAction = (itemStatus, decidedByName, itemRemarks) => {
   // itemStatus can be a raw code ('APPROVED') or a human status_name
   // (CA/LQ/RMB header display: "Completed", "Payment Advised - For
@@ -663,7 +668,7 @@ const renderCashAdvance = (data, attachments = []) => {
   };
 
   const caActionCellHtml = caIsReadOnly
-    ? renderReadOnlyAction(h.status_name, h.decided_by_name || '', h.rejection_reason || '')
+    ? renderReadOnlyAction(headerDecisionLabel(h.status_name), h.decided_by_name || '', h.rejection_reason || '')
     : `<div class="kna-item-decision"><div class="kna-toggle-group"><button type="button" class="kna-toggle-btn is-approve" data-decision="approve" data-key="${caKey}" title="Approve"><i class="fas fa-check"></i></button><button type="button" class="kna-toggle-btn is-reject" data-decision="reject" data-key="${caKey}" title="Reject"><i class="fas fa-times"></i></button></div><textarea class="kna-item-remark d-none" data-key="${caKey}" placeholder="Remarks are required for rejection..."></textarea><button type="button" class="kna-cancel-reject d-none" data-cancel-reject data-key="${caKey}" title="Cancel rejection"><i class="fas fa-undo"></i> Cancel</button></div>`;
 
   const desktopHtml = `<div class="kna-review-desktop kna-review-desktop-ca"><div class="kna-review-table-shell">
@@ -678,7 +683,7 @@ const renderCashAdvance = (data, attachments = []) => {
   </div><div class="kna-review-footer"><div class="kna-review-footer-main"><span class="kna-review-footer-label">Total Requested</span><div class="kna-review-footer-amount kna-amount-main">${formatPHP(h.ca_amount || 0)}</div></div></div></div>`;
 
   const caMobileDecisionHtml = caIsReadOnly
-    ? `<div class="mt-2">${renderReadOnlyAction(h.status_name, h.decided_by_name || '', h.rejection_reason || '')}</div>`
+    ? `<div class="mt-2">${renderReadOnlyAction(headerDecisionLabel(h.status_name), h.decided_by_name || '', h.rejection_reason || '')}</div>`
     : `<div class="kna-item-decision"><div class="kna-toggle-group"><button type="button" class="kna-toggle-btn is-approve" data-decision="approve" data-key="${caKey}"><i class="fas fa-check"></i> Approve</button><button type="button" class="kna-toggle-btn is-reject" data-decision="reject" data-key="${caKey}"><i class="fas fa-times"></i> Reject</button></div><textarea class="kna-item-remark d-none" data-key="${caKey}" placeholder="Remarks are required for rejection..."></textarea><button type="button" class="kna-cancel-reject d-none" data-cancel-reject data-key="${caKey}"><i class="fas fa-undo"></i> Cancel</button></div>`;
 
   const mobileHtml = `<div class="kna-exp-mobile"><div class="kna-exp-card" data-item-key="${caKey}"><div class="kna-exp-card-head"><div><div class="kna-exp-card-title">${escapeHtml(h.description || 'Cash Advance')}</div><div class="kna-exp-card-meta">Ref: ${escapeHtml(h.reference_no || '-')}</div></div><div class="kna-exp-card-amount"><div class="kna-amount-main">${formatPHP(displayAmount)}</div>${approvedAmount > 0 && approvedAmount !== originalAmount ? `<div class="kna-amount-breakdown"><s>${formatPHP(originalAmount)}</s> original</div>` : ''}</div></div><div class="kna-exp-card-grid"><div class="kna-exp-card-field kna-exp-card-field-full"><span class="kna-exp-card-label">Description</span><span class="kna-exp-card-value"><input type="text" class="form-control form-control-sm kna-inline-edit-input kna-edit-ca-description" data-key="${caKey}" value="${escapeHtml(caDescription)}" placeholder="Description" ${caDisabledAttr}></span></div><div class="kna-exp-card-field"><span class="kna-exp-card-label">Amount</span><span class="kna-exp-card-value"><input type="number" step="0.01" min="0" class="form-control form-control-sm kna-inline-edit-input kna-edit-ca-amount text-right" data-key="${caKey}" value="${escapeHtml(displayAmount)}" placeholder="0.00" ${caDisabledAttr}></span></div></div>${caMobileDecisionHtml}</div></div>`;
@@ -1222,7 +1227,7 @@ const AUDIT_ACTION_VERBS = {
   // Approvals::runAdvisePayment/runReleasePayment) — map those
   // specifically for every transaction type instead of falling
   // through to the raw-code fallback ("ca for release the cash advance").
-  CA_FOR_RELEASE: 'advised payment for', CA_COMPLETED: 'released payment for',
+  CA_FOR_RELEASE: 'advised payment for', CA_FOR_LIQUIDATION: 'released payment for', CA_COMPLETED: 'released payment for',
   LQ_FOR_RELEASE: 'advised payment for', LQ_COMPLETED: 'released payment for',
   RMB_FOR_RELEASE: 'advised payment for', RMB_PAID: 'released payment for',
   RPL_FOR_RELEASE: 'advised payment for', RPL_COMPLETED: 'released payment for',
@@ -1546,8 +1551,10 @@ const handleSubmit = () => {
   };
   const btn = domReview.btnSubmitDecision;
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Submitting...'; }
+  $('#modal-loading').show();
   $.ajax({
     url: base_url + 'transactions/approvals/api/submit_decisions', type: 'POST', contentType: 'application/json; charset=utf-8', dataType: 'json', data: JSON.stringify(payload),
+    complete() { $('#modal-loading').hide(); },
     success(response) {
       if (response.status === 'success') { Swal.fire({ icon: 'success', title: 'Submitted!', text: 'Your decisions have been submitted successfully.', confirmButtonText: 'OK', confirmButtonColor: '#17663a' }).then(() => { window.location.href = base_url + 'transactions/approvals'; }); }
       else { Swal.fire({ icon: 'error', title: 'Error', text: response.response || 'Unknown error occurred.', confirmButtonText: 'OK', confirmButtonColor: '#e03131' }); if (btn) { btn.disabled = false; updateSubmitButtonState(); } }
@@ -1633,9 +1640,11 @@ const submitPaymentAction = () => {
     };
     const btn = domReview.btnPaymentAction;
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Processing...'; }
+    $('#modal-loading').show();
 
     $.ajax({
       url: base_url + endpoint, type: 'POST', contentType: 'application/json; charset=utf-8', dataType: 'json', data: JSON.stringify(payload),
+      complete() { $('#modal-loading').hide(); },
       success(response) {
         if (response.status === 'success') {
           Swal.fire({ icon: 'success', title: 'Done!', text: response.response || 'Payment action completed successfully.', confirmButtonText: 'OK', confirmButtonColor: '#17663a' })

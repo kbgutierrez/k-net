@@ -258,10 +258,14 @@
 									<option value="RF_LOCKED">Locked</option>
 								</select>
 							</div>
-							<div class="col-md-6 form-group d-flex align-items-end">
-								<div class="custom-control custom-checkbox mb-2">
+							<div class="col-md-6 form-group d-flex flex-column justify-content-end">
+								<div class="custom-control custom-checkbox">
 									<input type="checkbox" class="custom-control-input" id="rfFundAllowNegative">
 									<label class="custom-control-label kna-small" for="rfFundAllowNegative">Allow negative balance</label>
+								</div>
+								<div class="custom-control custom-checkbox mb-2">
+									<input type="checkbox" class="custom-control-input" id="rfFundAllowSelfCashIn">
+									<label class="custom-control-label kna-small" for="rfFundAllowSelfCashIn">Allow holder self cash in</label>
 								</div>
 							</div>
 						</div>

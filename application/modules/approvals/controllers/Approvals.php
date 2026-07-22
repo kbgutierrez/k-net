@@ -16,6 +16,7 @@ class Approvals extends MY_Controller
     {
         $hasAdvisoryCapability = $this->userHasPaymentCapabilityColumn('is_payment_advisory');
         $hasReleaseCapability = $this->userHasPaymentCapabilityColumn('is_payment_release');
+        $hasPettyCashSlipCapability = $this->userHasPaymentCapabilityColumn('is_petty_cash_slip');
 
         $data = array(
             'title' => 'Approvals',
@@ -25,6 +26,7 @@ class Approvals extends MY_Controller
             'hasPaymentCapability' => $hasAdvisoryCapability || $hasReleaseCapability,
             'hasAdvisoryCapability' => $hasAdvisoryCapability,
             'hasReleaseCapability' => $hasReleaseCapability,
+            'hasPettyCashSlipCapability' => $hasPettyCashSlipCapability,
             'scripts' => array('index.js'),
         );
         $this->load->view('main', $data);
@@ -656,6 +658,50 @@ class Approvals extends MY_Controller
         return !empty($row);
     }
 
+    public function api_petty_cash_slips_eligibility()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $referenceNumbers = isset($data['reference_numbers']) && is_array($data['reference_numbers'])
+                ? $data['reference_numbers']
+                : array();
+
+            if (count($referenceNumbers) === 0) {
+                throw new Exception('No transactions selected.');
+            }
+
+            $userId = (int) $this->session->userdata('user_id');
+            if ($userId <= 0) {
+                throw new Exception('User not authenticated.');
+            }
+
+            $allowed = array();
+            $skipped = array();
+
+            foreach ($referenceNumbers as $referenceNo) {
+                $referenceNo = trim((string) $referenceNo);
+                if ($referenceNo === '') {
+                    continue;
+                }
+
+                if ($this->userHasPettyCashSlipCapability($referenceNo, $userId)) {
+                    $allowed[] = $referenceNo;
+                } else {
+                    $skipped[] = $referenceNo;
+                }
+            }
+
+            return $this->respondSuccess('OK', array(
+                'allowed' => $allowed,
+                'skipped' => $skipped,
+            ));
+        } catch (Throwable $e) {
+            return $this->respondError($e->getMessage());
+        }
+    }
+
     public function download_petty_cash_slips_batch()
     {
         $data = $this->getRequestPayload();
@@ -680,7 +726,7 @@ class Approvals extends MY_Controller
         }
 
         if (count($fieldSets) === 0) {
-            show_error('No eligible transactions to generate a slip for.', 400);
+            show_error('You are not assigned to generate petty cash slips for the selected transaction(s). Please ask your administrator to enable the Petty Cash Slip control for you on the approval matrix used by these transactions.', 400);
             return;
         }
 

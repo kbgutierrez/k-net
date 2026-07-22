@@ -123,6 +123,7 @@ const rffNormalizeRows = (rows) => (rows || []).map((row) => ({
 	openingBalance: Number(row.opening_balance || 0),
 	availableBalance: Number(row.available_balance || 0),
 	allowNegativeBalance: Boolean(Number(row.allow_negative_balance || 0)),
+	allowSelfCashIn: Boolean(Number(row.allow_self_cash_in || 0)),
 	statusCode: normalizeText(row.status),
 	statusName: normalizeText(row.status_name),
 	remarks: normalizeText(row.remarks),
@@ -279,6 +280,7 @@ const rffOpenCreateModal = () => {
 	rff.dom.scopeType.value = 'PERSON';
 	rff.dom.opening.value = '';
 	rff.dom.allowNegative.checked = false;
+	rff.dom.allowSelfCashIn.checked = false;
 	rff.dom.status.value = 'RF_ACTIVE';
 	rff.dom.remarks.value = '';
 	rff.dom.opening.disabled = false;
@@ -298,6 +300,7 @@ const rffOpenEditModal = (id) => {
 	rff.dom.opening.value = row.openingBalance;
 	rff.dom.opening.disabled = true;
 	rff.dom.allowNegative.checked = row.allowNegativeBalance;
+	rff.dom.allowSelfCashIn.checked = row.allowSelfCashIn;
 	rff.dom.status.value = row.statusCode;
 	rff.dom.remarks.value = row.remarks;
 	document.getElementById('modalRfFundTitleText').textContent = `Edit Fund — ${row.fundCode}`;
@@ -343,6 +346,7 @@ const rffSave = () => {
 		ScopeId: scopeId,
 		ScopeName: scopeName,
 		AllowNegativeBalance: rff.dom.allowNegative.checked ? 1 : 0,
+		AllowSelfCashIn: rff.dom.allowSelfCashIn.checked ? 1 : 0,
 		Status: rff.dom.status.value,
 		Remarks: normalizeText(rff.dom.remarks.value).trim(),
 	};
@@ -567,6 +571,7 @@ const cacheDom = () => {
 		scopeText: document.getElementById('rfFundScopeText'),
 		opening: document.getElementById('rfFundOpening'),
 		allowNegative: document.getElementById('rfFundAllowNegative'),
+		allowSelfCashIn: document.getElementById('rfFundAllowSelfCashIn'),
 		status: document.getElementById('rfFundStatus'),
 		remarks: document.getElementById('rfFundRemarks'),
 		advancedSection: document.getElementById('rfFundAdvancedSection'),

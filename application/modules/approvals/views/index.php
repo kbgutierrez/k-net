@@ -261,9 +261,11 @@
             <button type="button" class="btn btn-primary btn-sm kna-small" id="btnProcessBatchPayment" disabled>
                 Process Selected
             </button>
+            <?php if (!empty($hasPettyCashSlipCapability)): ?>
             <button type="button" class="btn btn-outline-secondary btn-sm kna-small" id="btnDownloadBatchPettyCashSlips" disabled>
                 <i class="fas fa-file-download mr-1"></i> Generate Petty Cash Slips
             </button>
+            <?php endif; ?>
         </div>
     </div>
 

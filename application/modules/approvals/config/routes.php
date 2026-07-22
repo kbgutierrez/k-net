@@ -19,4 +19,5 @@ $route['transactions/approvals/api/payment/advise'] = 'Approvals/api_advise_paym
 $route['transactions/approvals/api/payment/release'] = 'Approvals/api_release_payment';
 $route['transactions/approvals/api/payment/bulk-action'] = 'Approvals/api_bulk_payment_action';
 $route['transactions/approvals/petty-cash-slips-batch'] = 'Approvals/download_petty_cash_slips_batch';
+$route['transactions/approvals/api/petty-cash-slips/eligibility'] = 'Approvals/api_petty_cash_slips_eligibility';
 $route['transactions/approvals/test-petty-cash-coords'] = 'Approvals/test_petty_cash_coords';
