@@ -483,8 +483,8 @@ const renderPassbookRows = (rows, append) => {
 			<td>${escapeHtml(trxDate)}</td>
 			<td>${escapeHtml(row.trx_type_name || row.trx_type || '')}</td>
 			<td>${escapeHtml(row.remarks || '')}</td>
-			<td class="text-right text-success">${moneyIn}</td>
-			<td class="text-right text-danger">${moneyOut}</td>
+			<td class="text-right">${moneyIn}</td>
+			<td class="text-right">${moneyOut}</td>
 			<td class="text-right">${formatPHP(row.balance_after)}</td>
 		</tr>`;
 	}).join('');
