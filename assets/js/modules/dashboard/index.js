@@ -2,9 +2,6 @@ const dashboardDom = {
 	metricOpenCashAdvance: null,
 	metricForLiquidation: null,
 	metricPendingReimbursements: null,
-	metricMonthTotal: null,
-	dashboardLastUpdated: null,
-	scopeButtons: [],
 	kpiLinks: [],
 	recentRequestCount: null,
 	recentRequestsMobile: null,
@@ -12,25 +9,18 @@ const dashboardDom = {
 	attentionCount: null,
 	attentionList: null,
 	attentionState: null,
-	statusOverviewList: null,
-	statusState: null,
-	monthCashAdvance: null,
-	monthLiquidated: null,
-	monthReimbursed: null,
-	statusOverviewChart: null,
+	pendingApprovalsRow: null,
+	pendingApprovalsList: null,
+	pendingApprovalsCount: null,
 };
-
-let statusOverviewChartInstance = null;
 
 const dashboardRoutes = {
 	'cash-advance': 'transactions/cash-advance',
 	liquidation: 'transactions/liquidation',
 	reimburse: 'transactions/reimbursement',
-	'month-summary': 'transactions/cash-advance',
 };
 
 const dashboardState = {
-	scope: 'month',
 	data: null,
 	requestId: 0,
 };
@@ -48,15 +38,13 @@ const escapeHtml = (value = '') =>
 		.replace(/"/g, '&quot;')
 		.replace(/'/g, '&#39;');
 
-const normalizeDate = (value) => (value ? String(value) : '');
+const normalizeText = (value) => (value ? String(value) : '');
 
-/* Status codes differ per module (CA_*, LQ_*, RMB_*) but share the same
-   DRAFT -> SUBMITTED/PENDING -> APPROVED -> FOR_RELEASE -> COMPLETED/PAID
-   (or REJECTED) shape — bucket by suffix, mirroring the SQL side. */
 const statusCategory = (statusCode) => {
-	const code = normalizeDate(statusCode).toUpperCase();
+	const code = normalizeText(statusCode).toUpperCase();
 	if (code.endsWith('DRAFT')) return 'Draft';
 	if (code.endsWith('SUBMITTED') || code.endsWith('PENDING')) return 'Pending Approval';
+	if (code.endsWith('FOR_LIQUIDATION')) return 'For Liquidation';
 	if (code.endsWith('APPROVED')) return 'Approved';
 	if (code.endsWith('FOR_RELEASE')) return 'For Release';
 	if (code.endsWith('PAID') || code.endsWith('COMPLETED')) return 'Completed';
@@ -72,19 +60,10 @@ const TYPE_LABELS = {
 
 const badgeClassForCategory = (category) => {
 	if (category === 'Pending Approval') return 'kna-badge kna-badge-pending';
-	if (category === 'For Release') return 'kna-badge kna-badge-liquidation';
+	if (category === 'For Release' || category === 'For Liquidation') return 'kna-badge kna-badge-liquidation';
 	if (category === 'Approved' || category === 'Completed') return 'kna-badge kna-badge-approved';
 	if (category === 'Rejected') return 'kna-badge kna-badge-reimburse';
 	return 'kna-badge kna-badge-submitted';
-};
-
-const STATUS_TONE_COLOR = {
-	'Draft': 'linear-gradient(90deg, #94a3b8, #cbd5e1)',
-	'Pending Approval': 'linear-gradient(90deg, #f0b429, #f7c95c)',
-	'Approved': 'linear-gradient(90deg, #17663a, #3fa45e)',
-	'For Release': 'linear-gradient(90deg, #1b4f88, #4e8dd0)',
-	'Completed': 'linear-gradient(90deg, #17663a, #3fa45e)',
-	'Rejected': 'linear-gradient(90deg, #c0392b, #e57368)',
 };
 
 const ATTENTION_META = {
@@ -93,8 +72,14 @@ const ATTENTION_META = {
 	LIQUIDATION_OVERDUE: { status: 'For Liquidation', route: () => 'transactions/liquidation/add' },
 };
 
+const ATTENTION_TITLE_DETAIL = {
+	DRAFT_AGING: (row) => `${row.days_open} day(s) since it was started — submit it or it may need re-checking.`,
+	REJECTED: (row) => `Rejected ${row.days_open} day(s) ago — review the remarks and resubmit.`,
+	LIQUIDATION_OVERDUE: (row) => `Released ${row.days_open} day(s) ago with no liquidation filed yet.`,
+};
+
 const routeForReference = (referenceNo, mode) => {
-	const ref = normalizeDate(referenceNo);
+	const ref = normalizeText(referenceNo);
 	if (ref.startsWith('CA')) return mode === 'add' ? 'transactions/cash-advance/add' : 'transactions/cash-advance';
 	if (ref.startsWith('RPL')) return mode === 'add' ? 'transactions/replenishment/add' : `transactions/replenishment/view/${ref}`;
 	if (ref.startsWith('RMB')) return mode === 'add' ? 'transactions/reimbursement/add' : `transactions/reimbursement/view/${ref}`;
@@ -111,11 +96,8 @@ const stateConfig = {
 const setSectionState = (stateName, message) => {
 	const config = stateConfig[stateName] || stateConfig.empty;
 	const text = message || config.text;
-	const states = [dashboardDom.recentRequestsState, dashboardDom.attentionState, dashboardDom.statusState];
-	states.forEach((el) => {
-		if (!el) {
-			return;
-		}
+	[dashboardDom.recentRequestsState, dashboardDom.attentionState].forEach((el) => {
+		if (!el) return;
 		el.className = `kna-state ${config.cls || ''}`.trim();
 		el.textContent = text;
 		if (stateName === 'ready') {
@@ -132,39 +114,19 @@ const setSectionState = (stateName, message) => {
 	if (dashboardDom.attentionList) {
 		dashboardDom.attentionList.classList.toggle('d-none', !showContent);
 	}
-	if (dashboardDom.statusOverviewList) {
-		dashboardDom.statusOverviewList.classList.toggle('d-none', !showContent);
-	}
 };
 
 const setSummaryLoading = () => {
 	dashboardDom.metricOpenCashAdvance.textContent = '-';
 	dashboardDom.metricForLiquidation.textContent = '-';
 	dashboardDom.metricPendingReimbursements.textContent = '-';
-	dashboardDom.metricMonthTotal.textContent = '-';
-	dashboardDom.monthCashAdvance.textContent = '-';
-	dashboardDom.monthLiquidated.textContent = '-';
-	dashboardDom.monthReimbursed.textContent = '-';
 	dashboardDom.recentRequestCount.textContent = '...';
 	dashboardDom.attentionCount.textContent = '...';
 };
 
-const setLastUpdated = () => {
-	if (!dashboardDom.dashboardLastUpdated) {
-		return;
-	}
-	const now = new Date();
-	dashboardDom.dashboardLastUpdated.textContent = now.toLocaleString('en-PH', {
-		month: 'short',
-		day: '2-digit',
-		hour: '2-digit',
-		minute: '2-digit',
-	});
-};
-
-const fetchDashboardData = (scope) =>
+const fetchDashboardData = () =>
 	new Promise((resolve, reject) => {
-		ajax_loader('dashboard/api/get/summary', { Scope: scope }).done((response) => {
+		ajax_loader('dashboard/api/get/summary', { Scope: 'month' }).done((response) => {
 			const res = (typeof response === 'string') ? $.parseJSON(response) : response;
 			if (res.status !== 'success') {
 				reject(new Error(res.response || 'Failed to load dashboard data.'));
@@ -183,11 +145,6 @@ const renderSummary = () => {
 	dashboardDom.metricOpenCashAdvance.textContent = s.open_cash_advance_count ?? 0;
 	dashboardDom.metricForLiquidation.textContent = s.for_liquidation_count ?? 0;
 	dashboardDom.metricPendingReimbursements.textContent = s.pending_reimbursement_count ?? 0;
-	dashboardDom.metricMonthTotal.textContent = formatPHP(s.scope_total_amount);
-
-	dashboardDom.monthCashAdvance.textContent = formatPHP(s.month_ca_released);
-	dashboardDom.monthLiquidated.textContent = formatPHP(s.month_liquidated);
-	dashboardDom.monthReimbursed.textContent = formatPHP(s.month_reimbursed);
 };
 
 const TYPE_ICON_CLASS = {
@@ -201,8 +158,6 @@ const TYPE_ICON_GLYPH = {
 	LIQUIDATION: '<i class="fas fa-receipt"></i>',
 	REIMBURSEMENT: '<i class="fas fa-wallet"></i>',
 };
-
-const routeForRecentRow = (row) => routeForReference(row.reference_no, 'view');
 
 const renderRecentRequests = () => {
 	const rows = (dashboardState.data && dashboardState.data.recent) || [];
@@ -218,11 +173,11 @@ const renderRecentRequests = () => {
 		const typeLabel = TYPE_LABELS[row.transaction_type] || row.transaction_type;
 		const category = statusCategory(row.status_code);
 		const badgeClass = badgeClassForCategory(category);
-		const purpose = normalizeDate(row.purpose) || typeLabel;
-		const updated = normalizeDate(row.updated_date).slice(0, 10);
+		const purpose = normalizeText(row.purpose) || typeLabel;
+		const updated = normalizeText(row.updated_date).slice(0, 10);
 		const iconClass = TYPE_ICON_CLASS[row.transaction_type] || 'type-reimbursement';
 		const iconGlyph = TYPE_ICON_GLYPH[row.transaction_type] || '<i class="fas fa-file-invoice"></i>';
-		const route = routeForRecentRow(row);
+		const route = routeForReference(row.reference_no, 'view');
 		const tag = route ? 'a' : 'div';
 		const hrefAttr = route ? ` href="${base_url}${route}"` : '';
 
@@ -245,12 +200,6 @@ const renderRecentRequests = () => {
 	}).join('');
 };
 
-const ATTENTION_TITLE_DETAIL = {
-	DRAFT_AGING: (row) => `${row.days_open} day(s) since it was started — submit it or it may need re-checking.`,
-	REJECTED: (row) => `Rejected ${row.days_open} day(s) ago — review the remarks and resubmit.`,
-	LIQUIDATION_OVERDUE: (row) => `Released ${row.days_open} day(s) ago with no liquidation filed yet.`,
-};
-
 const renderAttention = () => {
 	const items = (dashboardState.data && dashboardState.data.attention) || [];
 	dashboardDom.attentionCount.textContent = `${items.length} item(s)`;
@@ -266,7 +215,7 @@ const renderAttention = () => {
 		const detailFn = ATTENTION_TITLE_DETAIL[row.attention_type];
 		const detail = detailFn ? detailFn(row) : '';
 		const route = meta.route(row.reference_no);
-		const badgeClass = badgeClassForCategory(meta.status === 'For Liquidation' ? 'For Release' : meta.status);
+		const badgeClass = badgeClassForCategory(meta.status);
 
 		const wrapper = document.createElement('div');
 		wrapper.className = 'kna-attention-item';
@@ -286,170 +235,79 @@ const renderAttention = () => {
 	});
 };
 
-const renderStatusOverview = () => {
-	const items = (dashboardState.data && dashboardState.data.status_overview) || [];
-	dashboardDom.statusOverviewList.innerHTML = '';
+const renderPendingApprovals = () => {
+	const row = dashboardDom.pendingApprovalsRow;
+	const list = dashboardDom.pendingApprovalsList;
+	if (!row || !list) return;
+
+	const data = dashboardState.data || {};
+	const items = data.pending_approvals || [];
+	const totalCount = Number(data.pending_approvals_count || items.length);
 
 	if (!items.length) {
-		dashboardDom.statusOverviewList.innerHTML = '<div class="kna-empty">No status data yet.</div>';
+		row.classList.add('d-none');
 		return;
 	}
 
-	const grandTotal = items.reduce((sum, item) => sum + Number(item.item_count || 0), 0);
+	row.classList.remove('d-none');
+	if (dashboardDom.pendingApprovalsCount) {
+		dashboardDom.pendingApprovalsCount.textContent = `View all (${totalCount})`;
+	}
 
-	items.forEach((item) => {
-		const count = Number(item.item_count || 0);
-		const percentage = grandTotal > 0 ? Math.min(100, Math.round((count / grandTotal) * 100)) : 0;
-		const color = STATUS_TONE_COLOR[item.status_category] || STATUS_TONE_COLOR['Pending Approval'];
-		const wrapper = document.createElement('div');
-		wrapper.className = 'kna-status-item';
-		wrapper.innerHTML = `
-			<div class="kna-status-head">
-				<p class="kna-status-title">${escapeHtml(item.status_category)}</p>
-				<div class="kna-small text-muted">${count} item(s) · ${formatPHP(item.total_amount)}</div>
-			</div>
-			<div class="kna-status-bar">
-				<div class="kna-status-fill" style="width:${percentage}%;background:${color};"></div>
+	list.innerHTML = items.map((item) => {
+		const ref = normalizeText(item.reference_no);
+		const requester = normalizeText(item.requester_name);
+		const typeLabel = TYPE_LABELS[item.transaction_type] || normalizeText(item.transaction_type);
+		const amount = item.ca_amount ?? item.lq_amount ?? item.amount;
+		return `
+			<div class="kna-approval-item">
+				<div class="kna-approval-main">
+					<div class="kna-approval-ref">${escapeHtml(ref)}</div>
+					<p class="kna-approval-meta">${escapeHtml(typeLabel)}${requester ? ' · ' + escapeHtml(requester) : ''}</p>
+				</div>
+				<div class="kna-approval-amount">${formatPHP(amount)}</div>
+				<a href="${base_url}transactions/approvals/review/${encodeURIComponent(ref)}" class="btn btn-primary btn-sm kna-small">Review</a>
 			</div>
 		`;
-		dashboardDom.statusOverviewList.appendChild(wrapper);
-	});
+	}).join('');
 };
 
-const renderStatusChart = () => {
-	const canvas = dashboardDom.statusOverviewChart;
-	if (!canvas || typeof Chart === 'undefined') {
-		return;
-	}
-	const items = (dashboardState.data && dashboardState.data.status_overview) || [];
-
-	if (statusOverviewChartInstance) {
-		statusOverviewChartInstance.destroy();
-		statusOverviewChartInstance = null;
-	}
-
-	if (!items.length) {
-		return;
-	}
-
-	const labels = items.map((item) => item.status_category);
-	const counts = items.map((item) => Number(item.item_count || 0));
-	const colors = items.map((item) => {
-		const grad = STATUS_TONE_COLOR[item.status_category] || '';
-		const match = grad.match(/#[0-9a-fA-F]{3,6}/);
-		return match ? match[0] : '#607080';
-	});
-
-	const isNarrow = window.innerWidth < 768;
-
-	statusOverviewChartInstance = new Chart(canvas.getContext('2d'), {
-		type: 'doughnut',
-		data: {
-			labels,
-			datasets: [{
-				data: counts,
-				backgroundColor: colors,
-				borderWidth: 2,
-				borderColor: '#ffffff',
-			}],
-		},
-		options: {
-			responsive: true,
-			maintainAspectRatio: false,
-			cutout: '62%',
-			plugins: {
-				legend: { position: isNarrow ? 'bottom' : 'right', labels: { boxWidth: 10, font: { size: 11 } } },
-				tooltip: {
-					callbacks: {
-						label: (ctx) => `${ctx.label}: ${ctx.parsed} item(s)`,
-					},
-				},
-				datalabels: { display: false },
-			},
-		},
-	});
-};
-
-const updateScopeButtons = () => {
-	dashboardDom.scopeButtons.forEach((btn) => {
-		const isActive = btn.getAttribute('data-scope') === dashboardState.scope;
-		btn.classList.toggle('is-active', isActive);
-	});
-};
-
-const goToRoute = (key) => {
-	const route = dashboardRoutes[key];
-	if (!route) {
-		return;
-	}
-	window.location.href = `${base_url}${route}`;
-};
-
-const bindEvents = () => {
-	dashboardDom.scopeButtons.forEach((btn) => {
-		btn.addEventListener('click', () => {
-			const scope = btn.getAttribute('data-scope') || 'month';
-			if (scope === dashboardState.scope) {
-				return;
-			}
-			loadDashboard(scope);
-		});
-	});
-
-	dashboardDom.kpiLinks.forEach((btn) => {
-		btn.addEventListener('click', () => {
-			goToRoute(btn.getAttribute('data-kpi-link'));
-		});
-	});
-};
-
-const loadDashboard = async (scope) => {
-	dashboardState.scope = scope;
+const loadDashboard = async () => {
 	dashboardState.requestId += 1;
 	const requestId = dashboardState.requestId;
 
-	updateScopeButtons();
 	setSummaryLoading();
 	setSectionState('loading');
 
 	try {
-		const data = await fetchDashboardData(scope);
-		if (requestId !== dashboardState.requestId) {
-			return;
-		}
+		const data = await fetchDashboardData();
+		if (requestId !== dashboardState.requestId) return;
 		dashboardState.data = data;
+
 		renderSummary();
-
-		const hasRecent = data && Array.isArray(data.recent) && data.recent.length > 0;
-		const hasAttention = data && Array.isArray(data.attention) && data.attention.length > 0;
-		const hasStatus = data && Array.isArray(data.status_overview) && data.status_overview.length > 0;
-
-		if (!hasRecent && !hasAttention && !hasStatus) {
-			setSectionState('empty');
-			return;
-		}
-
 		renderRecentRequests();
 		renderAttention();
-		renderStatusOverview();
-		renderStatusChart();
-		setLastUpdated();
+		renderPendingApprovals();
 		setSectionState('ready');
 	} catch (error) {
-		if (requestId !== dashboardState.requestId) {
-			return;
-		}
+		if (requestId !== dashboardState.requestId) return;
 		setSectionState('error');
 	}
+};
+
+const bindEvents = () => {
+	dashboardDom.kpiLinks.forEach((btn) => {
+		btn.addEventListener('click', () => {
+			const route = dashboardRoutes[btn.getAttribute('data-kpi-link')];
+			if (route) window.location.href = `${base_url}${route}`;
+		});
+	});
 };
 
 const cacheDom = () => {
 	dashboardDom.metricOpenCashAdvance = document.getElementById('metricOpenCashAdvance');
 	dashboardDom.metricForLiquidation = document.getElementById('metricForLiquidation');
 	dashboardDom.metricPendingReimbursements = document.getElementById('metricPendingReimbursements');
-	dashboardDom.metricMonthTotal = document.getElementById('metricMonthTotal');
-	dashboardDom.dashboardLastUpdated = document.getElementById('dashboardLastUpdated');
-	dashboardDom.scopeButtons = Array.from(document.querySelectorAll('[data-scope]'));
 	dashboardDom.kpiLinks = Array.from(document.querySelectorAll('[data-kpi-link]'));
 	dashboardDom.recentRequestCount = document.getElementById('recentRequestCount');
 	dashboardDom.recentRequestsMobile = document.getElementById('recentRequestsMobile');
@@ -457,12 +315,9 @@ const cacheDom = () => {
 	dashboardDom.attentionCount = document.getElementById('attentionCount');
 	dashboardDom.attentionList = document.getElementById('attentionList');
 	dashboardDom.attentionState = document.getElementById('attentionState');
-	dashboardDom.statusOverviewList = document.getElementById('statusOverviewList');
-	dashboardDom.statusState = document.getElementById('statusState');
-	dashboardDom.monthCashAdvance = document.getElementById('monthCashAdvance');
-	dashboardDom.monthLiquidated = document.getElementById('monthLiquidated');
-	dashboardDom.monthReimbursed = document.getElementById('monthReimbursed');
-	dashboardDom.statusOverviewChart = document.getElementById('statusOverviewChart');
+	dashboardDom.pendingApprovalsRow = document.getElementById('pendingApprovalsRow');
+	dashboardDom.pendingApprovalsList = document.getElementById('pendingApprovalsList');
+	dashboardDom.pendingApprovalsCount = document.getElementById('pendingApprovalsCount');
 };
 
 const passbookState = {
@@ -478,7 +333,7 @@ const renderPassbookRows = (rows, append) => {
 		const amount = Number(row.amount || 0);
 		const moneyIn = amount > 0 ? formatPHP(amount) : '';
 		const moneyOut = amount < 0 ? formatPHP(Math.abs(amount)) : '';
-		const trxDate = normalizeDate(row.trx_date).slice(0, 10);
+		const trxDate = normalizeText(row.trx_date).slice(0, 10);
 		return `<tr>
 			<td>${escapeHtml(trxDate)}</td>
 			<td>${escapeHtml(row.trx_type_name || row.trx_type || '')}</td>
@@ -532,6 +387,10 @@ const bindFundCashIn = () => {
 	const btnOpen = document.getElementById('btnFundCashIn');
 	const btnSubmit = document.getElementById('btnFundCashInSubmit');
 	const btnMore = document.getElementById('btnFundPassbookMore');
+
+	if (btnMore) {
+		btnMore.addEventListener('click', () => loadFundPassbook(true));
+	}
 	if (!btnOpen) return;
 
 	btnOpen.addEventListener('click', () => {
@@ -583,18 +442,228 @@ const bindFundCashIn = () => {
 			});
 		});
 	}
+};
 
-	if (btnMore) {
-		btnMore.addEventListener('click', () => loadFundPassbook(true));
+const overdueState = {
+	rows: [],
+	selected: new Set(),
+	extendRef: '',
+};
+
+const overdueDueBadge = (row) => {
+	const days = Number(row.days_overdue || 0);
+	if (Number(row.is_overdue) === 1) {
+		return `<span class="kna-badge kna-badge-rejected">${days} day(s) overdue</span>`;
+	}
+	if (days === 0) {
+		return '<span class="kna-badge kna-badge-pending">Due today</span>';
+	}
+	return `<span class="kna-badge kna-badge-liquidation">Due in ${Math.abs(days)} day(s)</span>`;
+};
+
+const updateOverdueToolbar = () => {
+	const btn = document.getElementById('btnNotifyOverdue');
+	if (btn) btn.disabled = overdueState.selected.size === 0;
+
+	const summary = document.getElementById('overdueSummary');
+	if (summary) {
+		const overdue = overdueState.rows.filter((r) => Number(r.is_overdue) === 1);
+		const total = overdue.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+		summary.textContent = overdue.length
+			? `${overdue.length} overdue — ${formatPHP(total)} unliquidated`
+			: '';
+	}
+
+	const selectAll = document.getElementById('overdueSelectAll');
+	if (selectAll) {
+		const boxes = Array.from(document.querySelectorAll('.overdue-row-checkbox'));
+		selectAll.checked = boxes.length > 0 && boxes.every((cb) => cb.checked);
+	}
+};
+
+const renderOverdueList = () => {
+	const body = document.getElementById('overdueListBody');
+	if (!body) return;
+
+	if (!overdueState.rows.length) {
+		body.innerHTML = '<tr><td colspan="10" class="text-center text-muted kna-small">No cash advances awaiting liquidation.</td></tr>';
+		updateOverdueToolbar();
+		return;
+	}
+
+	body.innerHTML = overdueState.rows.map((row) => {
+		const ref = normalizeText(row.cash_advance_id);
+		const remarks = normalizeText(row.due_extension_remarks);
+		const extendedBy = normalizeText(row.due_extended_by_name);
+		const remarksCell = remarks
+			? `${escapeHtml(remarks)}${extendedBy ? ` <span class="text-muted">(${escapeHtml(extendedBy)})</span>` : ''}`
+			: '<span class="text-muted">—</span>';
+		return `<tr>
+			<td><input type="checkbox" class="overdue-row-checkbox" data-ref="${escapeHtml(ref)}" ${overdueState.selected.has(ref) ? 'checked' : ''}></td>
+			<td class="text-nowrap">${escapeHtml(ref)}</td>
+			<td>${escapeHtml(normalizeText(row.employee_name))}</td>
+			<td>${escapeHtml(normalizeText(row.department_name))}</td>
+			<td class="text-right">${formatPHP(row.amount)}</td>
+			<td>${escapeHtml(normalizeText(row.released_date).slice(0, 10))}</td>
+			<td>${escapeHtml(normalizeText(row.due_date).slice(0, 10))}</td>
+			<td>${overdueDueBadge(row)}</td>
+			<td class="text-truncate" style="max-width:220px;">${remarksCell}</td>
+			<td class="text-center"><button type="button" class="btn btn-sm btn-outline-primary kna-small" data-action="extend" data-ref="${escapeHtml(ref)}">Extend</button></td>
+		</tr>`;
+	}).join('');
+
+	updateOverdueToolbar();
+};
+
+const loadOverdueList = () => {
+	if (!document.getElementById('overdueListBody')) return;
+
+	ajax_loader('dashboard/api/overdue-liquidations', {}).done((response) => {
+		const res = (typeof response === 'string') ? $.parseJSON(response) : response;
+		if (res.status !== 'success') return;
+		overdueState.rows = (res.data && res.data.rows) || [];
+		overdueState.selected.clear();
+		renderOverdueList();
+	});
+};
+
+const bindOverduePanel = () => {
+	const body = document.getElementById('overdueListBody');
+	if (!body) return;
+
+	body.addEventListener('change', (event) => {
+		const cb = event.target.closest('.overdue-row-checkbox');
+		if (!cb) return;
+		const ref = cb.getAttribute('data-ref');
+		if (cb.checked) {
+			overdueState.selected.add(ref);
+		} else {
+			overdueState.selected.delete(ref);
+		}
+		updateOverdueToolbar();
+	});
+
+	body.addEventListener('click', (event) => {
+		const btn = event.target.closest('button[data-action="extend"]');
+		if (!btn) return;
+		overdueState.extendRef = btn.getAttribute('data-ref');
+		const refEl = document.getElementById('extendDueRef');
+		const dateEl = document.getElementById('extendDueDate');
+		const remarksEl = document.getElementById('extendDueRemarks');
+		if (refEl) refEl.textContent = overdueState.extendRef;
+		if (dateEl) {
+			const tomorrow = new Date(Date.now() + 86400000);
+			dateEl.min = tomorrow.toISOString().slice(0, 10);
+			dateEl.value = '';
+		}
+		if (remarksEl) remarksEl.value = '';
+		$('#extendDueModal').modal('show');
+	});
+
+	const selectAll = document.getElementById('overdueSelectAll');
+	if (selectAll) {
+		selectAll.addEventListener('change', () => {
+			const checked = selectAll.checked;
+			document.querySelectorAll('.overdue-row-checkbox').forEach((cb) => {
+				cb.checked = checked;
+				const ref = cb.getAttribute('data-ref');
+				if (checked) {
+					overdueState.selected.add(ref);
+				} else {
+					overdueState.selected.delete(ref);
+				}
+			});
+			updateOverdueToolbar();
+		});
+	}
+
+	const btnNotify = document.getElementById('btnNotifyOverdue');
+	if (btnNotify) {
+		btnNotify.addEventListener('click', () => {
+			const refs = Array.from(overdueState.selected);
+			if (!refs.length) return;
+
+			Swal.fire({
+				icon: 'question',
+				title: 'Send Liquidation Reminders?',
+				text: `This will email a reminder to the holder(s) of ${refs.length} cash advance(s).`,
+				showCancelButton: true,
+				confirmButtonText: 'Send',
+				cancelButtonText: 'Cancel',
+				reverseButtons: true,
+			}).then((result) => {
+				if (!result.isConfirmed) return;
+
+				ajax_loader_loading('dashboard/api/overdue-liquidations/notify', {
+					reference_numbers: refs,
+				}).done((response) => {
+					const res = (typeof response === 'string') ? $.parseJSON(response) : response;
+					if (res.status !== 'success') {
+						Swal.fire({ icon: 'error', title: 'Failed', text: res.response || 'Failed to send reminders.' });
+						return;
+					}
+					const data = res.data || {};
+					const notified = (data.notified || []).length;
+					const skipped = (data.skipped || []).length;
+					Swal.fire({
+						icon: skipped ? 'warning' : 'success',
+						title: 'Reminders Sent',
+						text: `${notified} reminder(s) sent.${skipped ? ` ${skipped} skipped (no email or no longer pending).` : ''}`,
+					});
+					overdueState.selected.clear();
+					updateOverdueToolbar();
+				}).fail(() => {
+					Swal.fire({ icon: 'error', title: 'Error', text: 'Server error while sending reminders.' });
+				});
+			});
+		});
+	}
+
+	const btnExtendSave = document.getElementById('btnExtendDueSave');
+	if (btnExtendSave) {
+		btnExtendSave.addEventListener('click', () => {
+			const dateEl = document.getElementById('extendDueDate');
+			const remarksEl = document.getElementById('extendDueRemarks');
+			const newDate = dateEl ? dateEl.value : '';
+			const remarks = remarksEl ? remarksEl.value.trim() : '';
+
+			if (!newDate) {
+				Swal.fire({ icon: 'warning', title: 'Missing Date', text: 'Select the new due date.' });
+				return;
+			}
+			if (!remarks) {
+				Swal.fire({ icon: 'warning', title: 'Remarks Required', text: 'State the reason for the extension (e.g. on official business).' });
+				return;
+			}
+
+			ajax_loader_loading('dashboard/api/overdue-liquidations/extend', {
+				CashAdvanceId: overdueState.extendRef,
+				NewDueDate: newDate,
+				Remarks: remarks,
+			}).done((response) => {
+				const res = (typeof response === 'string') ? $.parseJSON(response) : response;
+				if (res.status !== 'success') {
+					Swal.fire({ icon: 'error', title: 'Failed', text: res.response || 'Failed to extend the due date.' });
+					return;
+				}
+				$('#extendDueModal').modal('hide');
+				Swal.fire({ icon: 'success', title: 'Due Date Extended', text: `${overdueState.extendRef} is now due on ${newDate}.` });
+				loadOverdueList();
+			}).fail(() => {
+				Swal.fire({ icon: 'error', title: 'Error', text: 'Server error while extending the due date.' });
+			});
+		});
 	}
 };
 
 const initDashboard = () => {
 	cacheDom();
 	bindEvents();
-	loadDashboard('month');
+	loadDashboard();
 	bindFundCashIn();
 	loadFundPassbook(false);
+	bindOverduePanel();
+	loadOverdueList();
 };
 
 $(document).ready(() => {

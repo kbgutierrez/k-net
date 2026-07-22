@@ -43,12 +43,172 @@ class Dashboard extends MY_Controller
             'revolvingFundCode' => $activeFund['fund_code'] ?? null,
             'allowSelfCashIn' => !empty($activeFund['allow_self_cash_in']),
             'revolvingFundLimit' => $activeFund['opening_balance'] ?? null,
+            'canManageOverdueCa' => $this->userIsMatrixApprover((int) $user_id),
             'scripts' => array(
                 'index.js',
             ),
         );
 
         $this->load->view('main', $data);
+    }
+
+    private function userIsMatrixApprover($userId)
+    {
+        $row = $this->sp->db->select('D.id')
+            ->from('tbl_approval_matrix_details D')
+            ->join('tbl_approval_matrix_header H', 'H.id = D.matrix_header_id')
+            ->where('D.approver_id', (int) $userId)
+            ->where('H.is_active', 1)
+            ->limit(1)
+            ->get()
+            ->row_array();
+
+        return !empty($row);
+    }
+
+    public function api_get_overdue_liquidations()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+
+            $userId = (int) $this->session->userdata('user_id');
+            if ($userId <= 0 || !$this->userIsMatrixApprover($userId)) {
+                return $this->respondError('Not authorized.');
+            }
+
+            $rows = $this->sp->fetchData('sp_fetch_overdue_liquidation_ca');
+            $rows = is_array($rows) ? $rows : array();
+
+            return $this->respondSuccess('OK', array('rows' => $rows));
+        } catch (\Throwable $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
+    public function api_notify_overdue()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $userId = (int) $this->session->userdata('user_id');
+            if ($userId <= 0 || !$this->userIsMatrixApprover($userId)) {
+                return $this->respondError('Not authorized.');
+            }
+
+            $referenceNumbers = isset($data['reference_numbers']) && is_array($data['reference_numbers'])
+                ? $data['reference_numbers']
+                : array();
+
+            if (count($referenceNumbers) === 0) {
+                throw new Exception('No cash advances selected.');
+            }
+
+            $rows = $this->sp->fetchData('sp_fetch_overdue_liquidation_ca');
+            $rows = is_array($rows) ? $rows : array();
+            $byRef = array();
+            foreach ($rows as $row) {
+                $byRef[$row['cash_advance_id']] = $row;
+            }
+
+            $notified = array();
+            $skipped = array();
+
+            foreach ($referenceNumbers as $referenceNo) {
+                $referenceNo = trim((string) $referenceNo);
+                if ($referenceNo === '' || !isset($byRef[$referenceNo])) {
+                    $skipped[] = $referenceNo;
+                    continue;
+                }
+
+                $row = $byRef[$referenceNo];
+                $info = get_user_info((int) $row['user_id']);
+                if (!is_array($info) || empty($info['email'])) {
+                    $skipped[] = $referenceNo;
+                    continue;
+                }
+
+                $name = trim((string) ($info['firstname'] ?? '') . ' ' . (string) ($info['lastname'] ?? ''));
+                $recipient = array(
+                    'email' => $info['email'],
+                    'name' => $name !== '' ? $name : $info['email'],
+                    'user_id' => (int) $row['user_id'],
+                );
+
+                $daysOverdue = (int) $row['days_overdue'];
+                $mergeData = array(
+                    'amount' => number_format((float) $row['amount'], 2),
+                    'due_date' => (string) $row['due_date'],
+                    'days_overdue' => $daysOverdue > 0 ? $daysOverdue : 0,
+                    'requester_name' => $recipient['name'],
+                    'action_date' => date('Y-m-d H:i:s'),
+                );
+
+                notify_event('LIQUIDATION_OVERDUE', 'CASH_ADVANCE', $referenceNo, array($recipient), $mergeData);
+                $notified[] = $referenceNo;
+            }
+
+            return $this->respondSuccess('Reminders sent.', array(
+                'notified' => $notified,
+                'skipped' => $skipped,
+            ));
+        } catch (\Throwable $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
+    public function api_extend_due()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $userId = (int) $this->session->userdata('user_id');
+            if ($userId <= 0 || !$this->userIsMatrixApprover($userId)) {
+                return $this->respondError('Not authorized.');
+            }
+
+            $cashAdvanceId = isset($data['CashAdvanceId']) ? trim((string) $data['CashAdvanceId']) : '';
+            $newDueDate = isset($data['NewDueDate']) ? trim((string) $data['NewDueDate']) : '';
+            $remarks = isset($data['Remarks']) ? trim((string) $data['Remarks']) : '';
+
+            if ($cashAdvanceId === '') {
+                throw new Exception('Cash advance is required.');
+            }
+            if ($newDueDate === '' || strtotime($newDueDate) === false) {
+                throw new Exception('A valid new due date is required.');
+            }
+            if (strtotime($newDueDate) <= strtotime(date('Y-m-d'))) {
+                throw new Exception('New due date must be a future date.');
+            }
+            if ($remarks === '') {
+                throw new Exception('Remarks are required when extending a due date.');
+            }
+
+            $params = array(
+                'CashAdvanceId' => $cashAdvanceId,
+                'NewDueDate' => date('Y-m-d', strtotime($newDueDate)),
+                'Remarks' => $remarks,
+                'UserId' => $userId,
+            );
+
+            $result = $this->sp->readData(
+                build_sp('sp_extend_ca_liquidation_due', count($params)),
+                $params,
+                'row'
+            );
+
+            if (!is_array($result) || empty($result['cash_advance_id'])) {
+                throw new Exception('Failed to extend the due date.');
+            }
+
+            return $this->respondSuccess('Due date extended.', array(
+                'cash_advance_id' => $result['cash_advance_id'],
+                'liquidation_due_date' => $result['liquidation_due_date'],
+            ));
+        } catch (\Throwable $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
     }
 
     private function getActiveFundForUser($userId)

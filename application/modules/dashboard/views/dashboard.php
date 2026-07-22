@@ -17,67 +17,13 @@
     .kna-title {
         font-size: 20px;
         font-weight: 600;
-        margin: 0;
+        margin: 0 0 8px;
         line-height: 1.2;
-    }
-
-    .kna-subtitle {
-        font-size: 12px;
-        color: #6c757d;
-        margin: 4px 0 0;
     }
 
     .kna-small {
         font-size: 12px !important;
         line-height: 1.35;
-    }
-
-    .kna-topbar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        margin-bottom: 8px;
-    }
-
-    .kna-topbar-right {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
-    }
-
-    .kna-scope {
-        display: inline-flex;
-        border: 1px solid #d7dee7;
-        border-radius: 6px;
-        overflow: hidden;
-        background: #fff;
-    }
-
-    .kna-scope-btn {
-        border: 0;
-        background: #fff;
-        color: #4a5a6a;
-        font-size: 11px;
-        font-weight: 600;
-        line-height: 1;
-        padding: 7px 10px;
-        cursor: pointer;
-    }
-
-    .kna-scope-btn+.kna-scope-btn {
-        border-left: 1px solid #e4e9f0;
-    }
-
-    .kna-scope-btn.is-active {
-        background: #263645;
-        color: #fff;
-    }
-
-    .kna-last-updated {
-        font-size: 11px;
-        color: #6b7a89;
     }
 
     .kna-kpi {
@@ -103,9 +49,6 @@
         margin: 0;
     }
 
-    /* Bootstrap flex columns won't shrink below their content's
-       intrinsic width by default — kept in case any other wide
-       content ends up in a grid column on this page. */
     .kna-page .row > [class*='col-'] {
         min-width: 0;
     }
@@ -115,11 +58,6 @@
         overflow-y: auto;
     }
 
-    /* Recent Requests — a single list design for every screen size
-       instead of a multi-column table, since a table needs real
-       column-width fights to stay readable and this data doesn't
-       need to be scanned column-by-column. Each row reads top to
-       bottom like a receipt: what it is, then the numbers. */
     .kna-request-item {
         display: flex;
         align-items: center;
@@ -189,11 +127,6 @@
         gap: 6px;
     }
 
-    .kna-actions .btn {
-        padding: .3rem .55rem;
-        font-size: 12px;
-    }
-
     .kna-badge {
         padding: .2rem .45rem;
         border-radius: 999px;
@@ -227,6 +160,11 @@
         color: #a34a14;
     }
 
+    .kna-badge-rejected {
+        background: #fdeaea;
+        color: #8a2121;
+    }
+
     .kna-summary-card {
         min-height: 100%;
     }
@@ -254,25 +192,20 @@
         color: #0b4f8c;
     }
 
-    .kna-attention-list,
-    .kna-status-list,
-    .kna-reminder-list {
+    .kna-attention-list {
         display: flex;
         flex-direction: column;
         gap: 6px;
     }
 
-    .kna-attention-item,
-    .kna-status-item,
-    .kna-reminder-item {
+    .kna-attention-item {
         border: 1px solid #e6edf5;
         border-radius: 6px;
         padding: 7px 10px;
         background: #fbfdff;
     }
 
-    .kna-attention-head,
-    .kna-status-head {
+    .kna-attention-head {
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -280,62 +213,17 @@
         margin-bottom: 4px;
     }
 
-    .kna-attention-title,
-    .kna-status-title {
+    .kna-attention-title {
         font-size: 12px;
         font-weight: 600;
         color: #233243;
         margin: 0;
     }
 
-    .kna-status-meta,
-    .kna-attention-meta,
-    .kna-muted-line {
+    .kna-attention-meta {
         font-size: 11px;
         color: #708090;
         margin: 0;
-    }
-
-    .kna-status-bar {
-        height: 6px;
-        border-radius: 999px;
-        background: #edf2f7;
-        overflow: hidden;
-        margin-top: 8px;
-    }
-
-    .kna-status-fill {
-        height: 100%;
-        border-radius: inherit;
-        background: linear-gradient(90deg, #245c96, #4d88c7);
-    }
-
-    .kna-table-wrap {
-        overflow-x: auto;
-    }
-
-    .kna-mobile-list .kna-item {
-        border: 1px solid #dde3eb;
-        border-radius: 6px;
-        padding: .65rem;
-        margin-bottom: .5rem;
-        background: #fff;
-    }
-
-    .kna-mobile-list .kna-item:last-child {
-        margin-bottom: 0;
-    }
-
-    .kna-mobile-list .kna-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: .45rem;
-        margin-bottom: .25rem;
-    }
-
-    .kna-mobile-list .kna-row:last-child {
-        margin-bottom: 0;
     }
 
     .kna-empty {
@@ -382,12 +270,12 @@
     .kna-kpi-row { display: flex; flex-wrap: wrap; gap: .65rem; margin-bottom: .65rem; }
     .kna-kpi-row > div { flex: 1 1 160px; min-width: 140px; }
 
-    .kna-approval-card {
-        border-left: 3px solid #b3541e;
-    }
-
     .kna-fund-card {
         border-left: 3px solid #2f6eb4;
+    }
+
+    .kna-approval-card {
+        border-left: 3px solid #b3541e;
     }
 
     .kna-approval-item {
@@ -432,12 +320,6 @@
         white-space: nowrap;
     }
 
-    .kna-status-chart-wrap {
-        position: relative;
-        height: 150px;
-        margin-bottom: 8px;
-    }
-
     @media (max-width: 991.98px) {
         .kna-page {
             padding: 10px;
@@ -449,34 +331,6 @@
 
         .kna-card .card-body {
             padding: .7rem;
-        }
-
-        .kna-stack-mobile {
-            flex-direction: column;
-            align-items: stretch !important;
-            gap: .5rem;
-        }
-
-        .kna-mobile-cta {
-            width: 100%;
-        }
-
-        .kna-topbar {
-            flex-direction: column;
-            align-items: stretch;
-        }
-
-        .kna-topbar-right {
-            justify-content: space-between;
-        }
-
-        .kna-scope {
-            width: 100%;
-        }
-
-        .kna-scope-btn {
-            flex: 1 1 0;
-            padding: 9px 8px;
         }
 
         .kna-kpi-row > div {
@@ -492,10 +346,6 @@
             width: 100%;
             order: 3;
         }
-
-        .kna-status-chart-wrap {
-            height: 220px;
-        }
     }
 
     @media (max-width: 575.98px) {
@@ -506,19 +356,8 @@
 </style>
 
 <div class="page-inner kna-page">
-    
-    <div class="kna-topbar">
-        <div>
-            <div class="kna-title">Expense Dashboard</div>
-        </div>
-        <div class="kna-topbar-right">
-            <div class="kna-scope" role="group" aria-label="Dashboard range">
-                <button type="button" class="kna-scope-btn" data-scope="today">Today</button>
-                <button type="button" class="kna-scope-btn" data-scope="week">This Week</button>
-                <button type="button" class="kna-scope-btn is-active" data-scope="month">This Month</button>
-            </div>
-        </div>
-    </div>
+
+    <div class="kna-title">Dashboard</div>
 
     <div class="kna-kpi-row">
         <div>
@@ -551,16 +390,6 @@
                 </div>
             </div>
         </div>
-        <div>
-            <div class="card kna-card kna-summary-card h-100">
-                <div class="card-body">
-                    <button type="button" class="kna-kpi-link" data-kpi-link="month-summary">
-                        <p class="kna-kpi-caption">Total Amount</p>
-                        <p class="kna-kpi" id="metricMonthTotal">PHP 0.00</p>
-                    </button>
-                </div>
-            </div>
-        </div>
         <?php if (!empty($hasActiveFund)): ?>
         <div>
             <div class="card kna-card kna-summary-card kna-fund-card h-100">
@@ -578,6 +407,20 @@
             </div>
         </div>
         <?php endif; ?>
+    </div>
+
+    <div class="row mb-2 d-none" id="pendingApprovalsRow">
+        <div class="col-12">
+            <div class="card kna-card kna-approval-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h3 class="kna-section-title">Awaiting Your Action</h3>
+                        <a href="<?= base_url('transactions/approvals') ?>" class="kna-small" id="pendingApprovalsCount">View all</a>
+                    </div>
+                    <div id="pendingApprovalsList"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <?php if (!empty($hasActiveFund)): ?>
@@ -612,7 +455,101 @@
             </div>
         </div>
     </div>
+    <?php endif; ?>
 
+    <?php if (!empty($canManageOverdueCa)): ?>
+    <div class="row mb-2">
+        <div class="col-12">
+            <div class="card kna-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div>
+                            <h3 class="kna-section-title">Pending Liquidations</h3>
+                            <div class="kna-small" id="overdueSummary" style="font-weight:600;color:#8a2121;"></div>
+                        </div>
+                        <button type="button" class="btn btn-primary btn-sm kna-small" id="btnNotifyOverdue" disabled>
+                            <i class="fas fa-bell mr-1"></i> Notify Selected
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm kna-small mb-0">
+                            <thead>
+                                <tr>
+                                    <th style="width:28px;"><input type="checkbox" id="overdueSelectAll"></th>
+                                    <th>Cash Advance No</th>
+                                    <th>Employee</th>
+                                    <th>Department</th>
+                                    <th class="text-right">Amount</th>
+                                    <th>Released</th>
+                                    <th>Due Date</th>
+                                    <th>Status</th>
+                                    <th>Extension Remarks</th>
+                                    <th class="text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="overdueListBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="extendDueModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Extend Liquidation Due Date — <span id="extendDueRef"></span></h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="kna-form-label kna-small">New Due Date</label>
+                        <input type="date" class="form-control form-control-sm kna-small" id="extendDueDate">
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="kna-form-label kna-small">Remarks <span class="text-danger">*</span></label>
+                        <textarea class="form-control form-control-sm kna-small" id="extendDueRemarks" rows="2" maxlength="500" placeholder="e.g. On official business, back on Aug 15"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm kna-small" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-sm kna-small" id="btnExtendDueSave">Extend Due Date</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <div class="row mb-2">
+        <div class="col-lg-7 mb-2 mb-lg-0">
+            <div class="card kna-card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h3 class="kna-section-title">Recent Requests</h3>
+                        <div class="kna-small text-muted" id="recentRequestCount">0 item(s)</div>
+                    </div>
+                    <div class="kna-request-list kna-table-wrap-scroll" id="recentRequestsMobile"></div>
+                    <div class="kna-state d-none" id="recentRequestsState"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card kna-card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h3 class="kna-section-title">Needs Attention</h3>
+                        <div class="kna-small text-muted" id="attentionCount">0 item(s)</div>
+                    </div>
+                    <div class="kna-attention-list" id="attentionList"></div>
+                    <div class="kna-state d-none" id="attentionState"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <?php if (!empty($hasActiveFund)): ?>
     <div class="modal fade" id="fundCashInModal" tabindex="-1" role="dialog" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered" role="document">
             <div class="modal-content">
@@ -639,82 +576,4 @@
         </div>
     </div>
     <?php endif; ?>
-
-    <div class="row mb-2">
-        <div class="col-lg-7 mb-2 mb-lg-0">
-            <div class="card kna-card h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h3 class="kna-section-title">Recent Requests</h3>
-                        <div class="kna-small text-muted" id="recentRequestCount">0 item(s)</div>
-                    </div>
-
-                    <div class="kna-request-list kna-table-wrap-scroll" id="recentRequestsMobile"></div>
-                    <div class="kna-state d-none" id="recentRequestsState"></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-5">
-            <div class="card kna-card h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h3 class="kna-section-title">Needs Attention</h3>
-                        <div class="kna-small text-muted" id="attentionCount">0 item(s)</div>
-                    </div>
-                    <div class="kna-attention-list" id="attentionList"></div>
-                    <div class="kna-state d-none" id="attentionState"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row">
-        <div class="col-lg-7 mb-2 mb-lg-0">
-            <div class="card kna-card h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h3 class="kna-section-title">Status Overview</h3>
-                        <div class="kna-small text-muted">Current workload</div>
-                    </div>
-                    <div class="kna-status-chart-wrap">
-                        <canvas id="statusOverviewChart"></canvas>
-                    </div>
-                    <div class="kna-status-list" id="statusOverviewList"></div>
-                    <div class="kna-state d-none" id="statusState"></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-5">
-            <div class="card kna-card h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h3 class="kna-section-title">This Month</h3>
-                        <div class="kna-small text-muted" id="dashboardLastUpdated">Live totals</div>
-                    </div>
-                    <div class="kna-reminder-list">
-                        <div class="kna-reminder-item">
-                            <p class="kna-kpi-caption">Cash Advance Released</p>
-                            <p class="kna-kpi" id="monthCashAdvance">PHP 0.00</p>
-                        </div>
-                        <div class="kna-reminder-item">
-                            <p class="kna-kpi-caption">Liquidated</p>
-                            <p class="kna-kpi" id="monthLiquidated">PHP 0.00</p>
-                        </div>
-                        <div class="kna-reminder-item">
-                            <p class="kna-kpi-caption">Reimbursed</p>
-                            <p class="kna-kpi" id="monthReimbursed">PHP 0.00</p>
-                        </div>
-                        <div class="kna-reminder-item">
-                            <p class="kna-section-title mb-1">Reminders</p>
-                            <p class="kna-muted-line mb-1">Liquidate cash advances on time to keep requests moving.</p>
-                            <p class="kna-muted-line mb-0">Keep receipts complete so reimbursement approval is faster.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
-

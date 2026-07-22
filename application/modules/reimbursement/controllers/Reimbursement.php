@@ -733,6 +733,12 @@ class Reimbursement extends MY_Controller
                     $reimbursementId
                 );
 
+                try {
+                    $this->sp->readData(build_sp('sp_auto_approve_own_turn', 1), array('ReferenceId' => $reimbursementId), 'row');
+                } catch (\Throwable $e) {
+                    log_message('error', 'sp_auto_approve_own_turn failed for ' . $reimbursementId . ': ' . $e->getMessage());
+                }
+
                 $this->notifyFirstApprover($reimbursementId);
             }
 

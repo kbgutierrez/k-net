@@ -1,4 +1,4 @@
-let cashAdvances = [];
+﻿let cashAdvances = [];
 let desktopPage = 1;
 const PAGE_SIZE = 10;
 
@@ -343,7 +343,6 @@ const init = () => {
 	bindEvents();
 	loadCashAdvances();
 };
-
 $(document).ready(() => {
 	init();
 });

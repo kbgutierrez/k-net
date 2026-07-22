@@ -387,12 +387,26 @@ class Cash_Advance extends MY_Controller
                 'result'
             );
 
-            if (empty($result) || $result <= 0) {
-                return $this->respondError("Failed to create cash advance request.");
+            $caRef = is_array($result) ? trim((string) ($result['GeneratedCashAdvanceID'] ?? '')) : '';
+
+            if ($caRef === '') {
+                $dbMessage = is_array($result) && isset($result['message']) ? (string) $result['message'] : '';
+                log_message('error', 'sp_insert_ca_v2 failed for user ' . $userId . ': ' . json_encode($result));
+
+                if (stripos($dbMessage, 'No approval matrix found') !== false) {
+                    return $this->respondError('No approval workflow is set up yet for your department/amount range. Please contact your administrator.');
+                }
+
+                return $this->respondError($dbMessage !== '' ? $dbMessage : 'Failed to create cash advance request.');
             }
 
-            $caRef = is_array($result) ? ($result['GeneratedCashAdvanceID'] ?? '') : (string) $result;
-            $cashAdvanceId = is_array($result) ? ($result['id'] ?? $result) : $result;
+            $cashAdvanceId = $result['id'] ?? $caRef;
+
+            try {
+                $this->sp->readData(build_sp('sp_auto_approve_own_turn', 1), array('ReferenceId' => $caRef), 'row');
+            } catch (\Throwable $e) {
+                log_message('error', 'sp_auto_approve_own_turn failed for ' . $caRef . ': ' . $e->getMessage());
+            }
 
             $bridgeBase = $this->config->item('kflow_bridge_path');
             $batchId = 'KNET_' . $caRef . '_' . uniqid();

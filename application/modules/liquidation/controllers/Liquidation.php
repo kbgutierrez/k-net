@@ -784,6 +784,11 @@ class Liquidation extends MY_Controller
             }
 
             if ($statusCode === 'LQ_SUBMITTED') {
+                try {
+                    $this->sp->readData(build_sp('sp_auto_approve_own_turn', 1), array('ReferenceId' => $liquidationId), 'row');
+                } catch (\Throwable $e) {
+                    log_message('error', 'sp_auto_approve_own_turn failed for ' . $liquidationId . ': ' . $e->getMessage());
+                }
                 $this->notifyFirstApprover($liquidationId);
             }
 
