@@ -289,7 +289,12 @@ class Notification_Templates extends MY_Controller
      */
     private function buildDefaultTemplate($eventCode, $transactionType = '')
     {
-        $logoUrl = base_url('assets/img/' . rawurlencode('k-net logo.png'));
+        // Referenced by CID (embedded attachment, wired up in
+        // send_notification_email()) rather than a remote URL — Gmail,
+        // Outlook, and most corporate mail gateways block or strip
+        // remotely-fetched images by default, which showed as a broken
+        // image icon instead of the logo.
+        $logoUrl = 'cid:knetlogo';
 
         $typeLabels = array(
             'CASH_ADVANCE' => 'Cash Advance',

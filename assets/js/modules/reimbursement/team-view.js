@@ -3,6 +3,7 @@ let teamViewCanCorrect = false;
 let teamViewItems = [];
 let costCenterOptions = [];
 let expenseTypeOptions = [];
+let payableToUserOptions = [];
 let currentEditItem = null;
 let teamViewOcr = null;
 
@@ -76,6 +77,48 @@ const loadDropdownData = () => {
 		expenseTypeOptions = JSON.parse(document.getElementById('expenseTypesData')?.value || '[]');
 	} catch (e) {
 		expenseTypeOptions = [];
+	}
+	try {
+		payableToUserOptions = JSON.parse(document.getElementById('payableToUsersData')?.value || '[]');
+	} catch (e) {
+		payableToUserOptions = [];
+	}
+};
+
+const populatePayableToSelect = (selectedUserId, fallbackDisplayText) => {
+	const select = document.getElementById('teamViewPayableTo');
+	if (!select) return;
+
+	const selected = String(selectedUserId || '');
+	let opts = payableToUserOptions.map((u) => {
+		const value = String(u.id || '');
+		const isSelected = value === selected ? 'selected' : '';
+		const label = `${u.firstname} ${u.lastname}${u.designation ? ' (' + u.designation + ')' : ''}`;
+		return `<option value="${teamViewEscapeHtml(value)}" ${isSelected}>${teamViewEscapeHtml(label)}</option>`;
+	}).join('');
+
+	// Legacy free-typed value (or nothing picked yet) has no matching
+	// id — show the resolved text as a disabled placeholder instead of
+	// leaving the field blank; saving requires a fresh pick.
+	if (!selected && fallbackDisplayText) {
+		opts = `<option value="" selected disabled>${teamViewEscapeHtml(fallbackDisplayText)} (re-select to change)</option>${opts}`;
+	}
+
+	select.innerHTML = `<option value="">Select payable to</option>${opts}`;
+
+	if (window.jQuery && jQuery.fn.select2) {
+		const $s = jQuery(select);
+		if ($s.hasClass('select2-hidden-accessible')) $s.select2('destroy');
+		$s.select2({
+			placeholder: 'Select payable to',
+			allowClear: true,
+			width: '100%',
+			dropdownAutoWidth: false,
+		});
+		const $c = $s.next('.select2-container');
+		$c.find('.select2-selection--single').css({ height: '32px', border: '1px solid #ced4da', borderRadius: '4px', background: '#fff' });
+		$c.find('.select2-selection__rendered').css({ lineHeight: '30px', paddingLeft: '10px', paddingRight: '20px', fontSize: '12px', color: '#495057' });
+		$c.find('.select2-selection__arrow').css({ height: '30px', width: '20px' });
 	}
 };
 
@@ -257,14 +300,15 @@ const renderTeamViewHeader = (header, canCorrect) => {
 	const addressInput = document.getElementById('teamViewAddress');
 	const ioInput = document.getElementById('teamViewIo');
 
-	if (payableToInput) payableToInput.value = header.payable_to || '';
+	populatePayableToSelect(header.payable_to_user_id, header.payable_to);
 	if (addressInput) addressInput.value = header.address || '';
 	if (ioInput) ioInput.value = header.io_number || '';
 
 	if (!canCorrect) {
-		[costCenterSelect, payableToInput, addressInput, ioInput].forEach((el) => {
+		[costCenterSelect, addressInput, ioInput].forEach((el) => {
 			if (el) el.setAttribute('disabled', 'disabled');
 		});
+		if (payableToInput && window.jQuery) jQuery(payableToInput).prop('disabled', true);
 		const btnSaveHeader = document.getElementById('btnSaveTeamHeader');
 		if (btnSaveHeader) btnSaveHeader.classList.add('d-none');
 

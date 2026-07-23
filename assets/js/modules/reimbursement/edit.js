@@ -1,6 +1,7 @@
 let editExpenseItems = [];
 let editExpenseItemCounter = 0;
 let editExpenseTypeOptions = [];
+let editPayableToOptions = [];
 let editReimbursementData = null;
 let editReceiptOcr = null;
 
@@ -66,6 +67,48 @@ const initEditCostCenterSelect2 = () => {
 	$c.find('.select2-selection__rendered').css({ lineHeight: '30px', paddingLeft: '10px', paddingRight: '20px', color: '#495057' });
 	$c.find('.select2-selection__arrow').css({ height: '30px', width: '20px' });
 	$c.find('.select2-selection__arrow b').css({ borderWidth: '3px 3px 0 3px', marginTop: '-2px' });
+};
+
+const initEditPayableToSelect2 = () => {
+	const el = document.getElementById('editPayableTo');
+	if (!el || typeof jQuery.fn?.select2 === 'undefined') return;
+	const $s = jQuery(el);
+	if ($s.hasClass('select2-hidden-accessible')) $s.select2('destroy');
+	const $dropdownParent = $s.closest('.page-inner').length ? $s.closest('.page-inner') : jQuery(document.body);
+	$s.select2({ placeholder: 'Select payable to', allowClear: true, width: '100%', dropdownAutoWidth: false, dropdownParent: $dropdownParent });
+	const $c = $s.next('.select2-container');
+	$c.find('.select2-selection--single').css({ height: '32px', border: '1px solid #ced4da', borderRadius: '4px', background: '#fff', fontSize: '12px' });
+	$c.find('.select2-selection__rendered').css({ lineHeight: '30px', paddingLeft: '10px', paddingRight: '20px', color: '#495057' });
+	$c.find('.select2-selection__arrow').css({ height: '30px', width: '20px' });
+	$c.find('.select2-selection__arrow b').css({ borderWidth: '3px 3px 0 3px', marginTop: '-2px' });
+};
+
+const getEditPayableToOptionsMarkup = (selectedUserId, fallbackDisplayText) => {
+	const selected = normalizeDate(selectedUserId);
+	let opts = editPayableToOptions.map((u) => {
+		const value = escapeHtml(String(u.id));
+		const text = escapeHtml(`${u.firstname} ${u.lastname}${u.designation ? ' (' + u.designation + ')' : ''}`);
+		const isSelected = value === selected ? ' selected' : '';
+		return `<option value="${value}"${isSelected}>${text}</option>`;
+	}).join('');
+
+	// Legacy free-typed rows (or a picked user outside this department)
+	// have no matching id in the list — show the resolved text as a
+	// disabled placeholder option instead of leaving the field blank,
+	// but any real save requires picking a fresh option from the list.
+	if (!selected && fallbackDisplayText) {
+		opts = `<option value="" selected disabled>${escapeHtml(fallbackDisplayText)} (re-select to change)</option>${opts}`;
+	}
+
+	return `<option value="">Select payable to</option>${opts}`;
+};
+
+const loadEditPayableToOptions = (callback) => {
+	ajax_loader('transactions/reimbursement/api/get/payable-to-options', {}).done((response) => {
+		const res = parseRes(response);
+		editPayableToOptions = (res.status === 'success' && Array.isArray(res.data)) ? res.data : [];
+		if (callback) callback();
+	}).fail(() => { editPayableToOptions = []; if (callback) callback(); });
 };
 
 const getEditCostCenterOptions = (selectedValue) => {
@@ -357,7 +400,7 @@ const loadEditData = () => {
 		if (domEdit.editSubmittedDate) domEdit.editSubmittedDate.textContent = normalizeDate(header.submitted_date || '').slice(0, 10) || '-';
 		if (domEdit.editDescription) domEdit.editDescription.value = normalizeDate(header.description || '');
 		if (domEdit.editTotalAmount) domEdit.editTotalAmount.textContent = formatPHP(Number(header.total_amount || 0));
-		if (domEdit.editPayableTo) domEdit.editPayableTo.value = normalizeDate(header.payable_to || '');
+		if (domEdit.editPayableTo) { domEdit.editPayableTo.innerHTML = getEditPayableToOptionsMarkup(header.payable_to_user_id, header.payable_to); initEditPayableToSelect2(); }
 		if (domEdit.editAddress) domEdit.editAddress.value = normalizeDate(header.address || '');
 		if (domEdit.editIoNumber) domEdit.editIoNumber.value = normalizeDate(header.io_number || '');
 		if (domEdit.editCostCenter) { domEdit.editCostCenter.innerHTML = getEditCostCenterOptions(header.cost_center_id); initEditCostCenterSelect2(); }
@@ -630,7 +673,7 @@ const initEditPage = () => {
 		baseUrl: base_url,
 	});
 
-	loadEditExpenseTypes(() => loadEditData());
+	loadEditPayableToOptions(() => loadEditExpenseTypes(() => loadEditData()));
 
 	domEdit.btnAddNewItem?.addEventListener('click', () => { editExpenseItems.push(createNewEditItem()); renderEditExpenseItems(); });
 	domEdit.btnSaveEdit?.addEventListener('click', () => sendEditUpdate('RMB_SUBMITTED'));

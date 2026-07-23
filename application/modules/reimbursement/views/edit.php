@@ -234,7 +234,9 @@
 			<div class="kna-info-row kna-info-row-3" style="margin-bottom:12px;">
 				<div class="form-group">
 					<label class="kna-form-label">Payable To</label>
-					<input type="text" class="form-control form-control-sm kna-small" id="editPayableTo" placeholder="Employee name">
+					<select class="form-control form-control-sm kna-small" id="editPayableTo">
+						<option value="">Loading...</option>
+					</select>
 				</div>
 				<div class="form-group">
 					<label class="kna-form-label">Address</label>

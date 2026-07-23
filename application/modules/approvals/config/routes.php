@@ -11,6 +11,7 @@ $route['transactions/approvals/api/per/item/decision'] = 'Approvals/api_per_item
 $route['transactions/approvals/api/get/timeline'] = 'Approvals/api_get_approval_timeline';
 $route['transactions/approvals/api/update/ca-header'] = 'Approvals/api_update_ca_header';
 $route['transactions/approvals/api/update/rmb-header'] = 'Approvals/api_update_rmb_header';
+$route['transactions/approvals/api/get/payable-to-options'] = 'Approvals/api_get_payable_to_options';
 $route['transactions/approvals/consolidation'] = 'Approvals/consolidation';
 $route['transactions/approvals/api/get/consolidation-pivot'] = 'Approvals/api_get_consolidation_pivot';
 $route['transactions/approvals/api/bulk-decision'] = 'Approvals/api_bulk_decision';

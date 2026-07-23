@@ -187,7 +187,9 @@
         <div class="kna-info-row kna-info-row-3">
           <div class="form-group">
             <label class="kna-form-label">Payable To <span class="text-danger">*</span></label>
-            <input type="text" class="form-control form-control-sm" id="newPayableTo" placeholder="Full name" required>
+            <select class="form-control form-control-sm select2" id="newPayableTo" required>
+              <option value="">Loading...</option>
+            </select>
           </div>
           <div class="form-group">
             <label class="kna-form-label">Date</label>

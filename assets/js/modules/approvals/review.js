@@ -282,6 +282,36 @@ const renderAttachment = name => {
     : `<span class="kna-file-wrap"><i class="fas fa-file-alt" style="color:#6366f1;font-size:11px;"></i><a href="${url}" target="_blank" rel="noopener">${escapeHtml(name)}</a></span>`;
 };
 
+/* ─── PAYABLE TO HELPERS ─── */
+let reviewPayableToOptions = [];
+
+const loadPayableToPickerOptions = (callback) => {
+  ajax_loader('transactions/approvals/api/get/payable-to-options', {}).done((response) => {
+    const res = typeof response === 'string' ? $.parseJSON(response) : response;
+    reviewPayableToOptions = (res.status === 'success' && Array.isArray(res.data)) ? res.data : [];
+    if (callback) callback();
+  }).fail(() => { reviewPayableToOptions = []; if (callback) callback(); });
+};
+
+const getPayableToOptions = (selectedUserId, fallbackDisplayText) => {
+  const selected = normalizeDate(selectedUserId);
+  let opts = reviewPayableToOptions.map(u => {
+    const value = escapeHtml(String(u.id));
+    const label = `${u.firstname} ${u.lastname}${u.designation ? ' (' + u.designation + ')' : ''}`;
+    const isSelected = value === selected ? ' selected' : '';
+    return `<option value="${value}"${isSelected}>${escapeHtml(label)}</option>`;
+  }).join('');
+
+  // Legacy free-typed value has no matching id — show the resolved
+  // text as a disabled placeholder instead of leaving the field
+  // blank; saving requires picking a fresh option from the list.
+  if (!selected && fallbackDisplayText) {
+    opts = `<option value="" selected disabled>${escapeHtml(fallbackDisplayText)} (re-select to change)</option>${opts}`;
+  }
+
+  return `<option value="">Select payable to</option>${opts}`;
+};
+
 /* ─── COST CENTER HELPERS ─── */
 const getCostCenterOptions = (selectedId) => {
   const dataEl = document.getElementById('costCentersData');
@@ -368,6 +398,7 @@ const initCaHeaderEditor = (referenceNo, options = {}) => {
   if (reviewState.isPastMode) {
     [ccSelect, payableInput, addressInput, ioInput].forEach(el => { if (el) el.setAttribute('disabled', 'disabled'); });
     if (ccSelect && window.jQuery && $.fn.select2) $(ccSelect).prop('disabled', true);
+    if (payableInput && window.jQuery && $.fn.select2) $(payableInput).prop('disabled', true);
     if (btn) btn.classList.add('d-none');
     return;
   }
@@ -400,7 +431,13 @@ const initCaHeaderEditor = (referenceNo, options = {}) => {
       ccSelect.addEventListener('change', checkDirty);
     }
   }
-  if (payableInput) payableInput.addEventListener('input', checkDirty);
+  if (payableInput) {
+    if (window.jQuery && $.fn.select2) {
+      $(payableInput).on('change', checkDirty);
+    } else {
+      payableInput.addEventListener('change', checkDirty);
+    }
+  }
   if (addressInput) addressInput.addEventListener('input', checkDirty);
   if (ioInput) ioInput.addEventListener('input', checkDirty);
 
@@ -542,7 +579,9 @@ const renderCashAdvance = (data, attachments = []) => {
       <div class="kna-overview-cell">
         <div class="kna-overview-label">Payable To</div>
         <div class="kna-overview-value">
-          <input type="text" class="form-control form-control-sm kna-ca-field-input" id="reviewPayableTo" data-field="payable_to" data-original="${escapeHtml(h.payable_to || '')}" value="${escapeHtml(h.payable_to || '')}" placeholder="Enter payable to..." style="min-width:140px;">
+          <select class="kna-cost-center-select" id="reviewPayableTo" data-field="payable_to" data-original="${escapeHtml(normalizeDate(h.payable_to_user_id))}" style="min-width:140px;">
+            ${getPayableToOptions(h.payable_to_user_id, h.payable_to)}
+          </select>
         </div>
       </div>
       <div class="kna-overview-cell">
@@ -606,6 +645,16 @@ const renderCashAdvance = (data, attachments = []) => {
   if (ccSelect && window.jQuery && $.fn.select2) {
     $(ccSelect).select2({
       placeholder: 'Select Cost Center',
+      allowClear: false,
+      width: 'style'
+    });
+  }
+
+  // Initialize Select2 for payable to
+  const payableToSelect = document.getElementById('reviewPayableTo');
+  if (payableToSelect && window.jQuery && $.fn.select2) {
+    $(payableToSelect).select2({
+      placeholder: 'Select Payable To',
       allowClear: false,
       width: 'style'
     });
@@ -964,7 +1013,9 @@ const renderReimbursement = (data, attachments = []) => {
    <div class="kna-overview-cell">
       <div class="kna-overview-label">Payable To</div>
       <div class="kna-overview-value">
-        <input type="text" class="form-control form-control-sm kna-ca-field-input" id="reviewPayableTo" data-field="payable_to" data-original="${escapeHtml(first.payable_to || '')}" value="${escapeHtml(first.payable_to || '')}" placeholder="Enter payable to..." style="min-width:140px;">
+        <select class="kna-cost-center-select" id="reviewPayableTo" data-field="payable_to" data-original="${escapeHtml(normalizeDate(first.payable_to_user_id))}" style="min-width:140px;">
+          ${getPayableToOptions(first.payable_to_user_id, first.payable_to)}
+        </select>
       </div>
     </div>
     <div class="kna-overview-cell">
@@ -1025,6 +1076,16 @@ const renderReimbursement = (data, attachments = []) => {
   if (rmbCcSelect && window.jQuery && $.fn.select2) {
     $(rmbCcSelect).select2({
       placeholder: 'Select Cost Center',
+      allowClear: false,
+      width: 'style'
+    });
+  }
+
+  // Initialize Select2 for payable to
+  const rmbPayableToSelect = document.getElementById('reviewPayableTo');
+  if (rmbPayableToSelect && window.jQuery && $.fn.select2) {
+    $(rmbPayableToSelect).select2({
+      placeholder: 'Select Payable To',
       allowClear: false,
       width: 'style'
     });
@@ -1706,5 +1767,5 @@ const handleReviewResize = () => {
   if (reviewState.transactionType === 'LIQUIDATION' || reviewState.transactionType === 'REIMBURSEMENT') initLiquidationCategorySelect2();
 };
 
-const initReviewPage = () => { cacheReviewDom(); loadReviewData(); bindDecisionEvents(); window.addEventListener('resize', handleReviewResize); };
+const initReviewPage = () => { cacheReviewDom(); loadPayableToPickerOptions(() => loadReviewData()); bindDecisionEvents(); window.addEventListener('resize', handleReviewResize); };
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initReviewPage); else initReviewPage();

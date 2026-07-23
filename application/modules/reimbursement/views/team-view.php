@@ -96,9 +96,21 @@ if (!empty($expense_types) && is_array($expense_types)) {
 		);
 	}
 }
+$payableToData = array();
+if (!empty($payable_to_users) && is_array($payable_to_users)) {
+	foreach ($payable_to_users as $u) {
+		$payableToData[] = array(
+			'id' => isset($u['id']) ? $u['id'] : '',
+			'firstname' => isset($u['firstname']) ? $u['firstname'] : '',
+			'lastname' => isset($u['lastname']) ? $u['lastname'] : '',
+			'designation' => isset($u['designation']) ? $u['designation'] : '',
+		);
+	}
+}
 ?>
 <input type="hidden" id="costCentersData" value="<?= html_escape(json_encode($ccData)) ?>">
 <input type="hidden" id="expenseTypesData" value="<?= html_escape(json_encode($expenseTypeData)) ?>">
+<input type="hidden" id="payableToUsersData" value="<?= html_escape(json_encode($payableToData)) ?>">
 
 <div class="page-inner kna-page" id="teamViewPage" data-reimbursement-id="<?= htmlspecialchars($reimbursement_no, ENT_QUOTES) ?>">
 	<div class="d-flex align-items-center justify-content-between mb-2 flex-wrap" style="gap:.5rem;">
@@ -148,7 +160,9 @@ if (!empty($expense_types) && is_array($expense_types)) {
 				</div>
 				<div>
 					<label class="kna-form-label">Payable To</label>
-					<input type="text" class="form-control form-control-sm" id="teamViewPayableTo">
+					<select class="form-control form-control-sm" id="teamViewPayableTo">
+						<option value="">Loading...</option>
+					</select>
 				</div>
 				<div>
 					<label class="kna-form-label">Address</label>

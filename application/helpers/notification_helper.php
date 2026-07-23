@@ -73,6 +73,17 @@ if (!function_exists('send_notification_email')) {
             $mail->Subject = (string) $subject;
             $mail->Body = (string) $bodyHtml;
 
+            // Embedded (CID) instead of a remotely-hosted <img src="https://...">
+            // — Gmail/Outlook/most corporate mail gateways block or strip
+            // remotely-fetched images by default, which is why the logo
+            // showed as a broken-image icon. An inline attachment travels
+            // with the message itself, so it always renders regardless of
+            // the recipient's "block external images" setting.
+            $logoPath = FCPATH . 'assets/img/k-net logo.png';
+            if (is_file($logoPath) && stripos($mail->Body, 'cid:knetlogo') !== false) {
+                $mail->addEmbeddedImage($logoPath, 'knetlogo', 'k-net-logo.png');
+            }
+
             $mail->send();
             $status = 'SENT';
         } catch (\Throwable $e) {

@@ -14,6 +14,28 @@ class Reimbursement extends MY_Controller
         $this->sp->setDatabase('dbknet');
     }
 
+    public function api_get_payable_to_options()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+
+            $departmentId = (int) ($this->session->userdata('user_info')['department_id'] ?? 0);
+            if ($departmentId <= 0) {
+                throw new Exception('Department not found for the logged-in user.');
+            }
+
+            $result = $this->sp->readData(
+                build_sp('sp_fetch_payable_to_users', 1),
+                array('DepartmentId' => $departmentId),
+                'result'
+            );
+
+            return $this->respondSuccess('OK', is_array($result) ? $result : array());
+        } catch (Exception $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
     public function index()
     {
         $activeFund = $this->getActiveFundForUser((int) $this->session->userdata('user_id'));
@@ -140,6 +162,15 @@ class Reimbursement extends MY_Controller
             $costCenters = array();
         }
 
+        $payableToUsers = $this->sp->readData(
+            build_sp('sp_fetch_payable_to_users', 1),
+            array('DepartmentId' => (int) $departmentId),
+            'result'
+        );
+        if (!is_array($payableToUsers)) {
+            $payableToUsers = array();
+        }
+
         $data = array(
             'title' => 'Team Reimbursement Details',
             'main_view' => '../modules/reimbursement/views/team-view',
@@ -148,6 +179,7 @@ class Reimbursement extends MY_Controller
             'reimbursement_no' => $ref,
             'expense_types' => $expenseTypes,
             'cost_centers' => $costCenters,
+            'payable_to_users' => $payableToUsers,
             'scripts' => array(
                 '../shared/pdfjs/pdf.min.js',
                 '../shared/receipt-ocr.js',

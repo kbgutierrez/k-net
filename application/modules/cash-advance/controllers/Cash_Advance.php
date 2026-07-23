@@ -51,6 +51,28 @@ class Cash_Advance extends MY_Controller
         return null;
     }
 
+    public function api_get_payable_to_options()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+
+            $departmentId = (int) ($this->session->userdata('user_info')['department_id'] ?? 0);
+            if ($departmentId <= 0) {
+                throw new Exception('Department not found for the logged-in user.');
+            }
+
+            $result = $this->sp->readData(
+                build_sp('sp_fetch_payable_to_users', 1),
+                array('DepartmentId' => $departmentId),
+                'result'
+            );
+
+            return $this->respondSuccess('OK', is_array($result) ? $result : array());
+        } catch (Exception $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
     public function add()
     {
         $userId = $this->session->userdata('user_id');

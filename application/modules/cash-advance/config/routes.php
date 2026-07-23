@@ -11,6 +11,7 @@ $route['transactions/cash-advance/api/get/timeline'] = 'Cash_Advance/api_get_tim
 $route['transactions/cash-advance/api/get/attachments'] = 'Cash_Advance/api_get_attachments';
 $route['transactions/cash-advance/attachment/view'] = 'Cash_Advance/view_attachment';
 $route['transactions/cash-advance/api/check-pending'] = 'Cash_Advance/api_check_pending';
+$route['transactions/cash-advance/api/get/payable-to-options'] = 'Cash_Advance/api_get_payable_to_options';
 $route['transactions/cash-advance/test-pdf-coords'] = 'Cash_Advance/test_pdf_coords';
 $route['transactions/cash-advance/api/kflow_callback'] = 'Cash_Advance/api_kflow_callback';
 ?>

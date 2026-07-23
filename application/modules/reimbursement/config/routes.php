@@ -16,6 +16,7 @@ $route['transactions/reimbursement/api/timeline'] = 'Reimbursement/api_get_timel
 $route['transactions/reimbursement/api/get/team'] = 'Reimbursement/api_get_team_report';
 $route['transactions/reimbursement/api/get/team-members'] = 'Reimbursement/api_get_team';
 $route['transactions/reimbursement/api/ocr'] = 'Reimbursement/api_ocr_receipt';
+$route['transactions/reimbursement/api/get/payable-to-options'] = 'Reimbursement/api_get_payable_to_options';
 $route['transactions/reimbursement/team/view/(:any)'] = 'Reimbursement/team_view/$1';
 $route['transactions/reimbursement/api/get/team-full'] = 'Reimbursement/api_get_team_reimbursement_full';
 $route['transactions/reimbursement/api/update/team-item'] = 'Reimbursement/api_update_team_reimbursement_item';

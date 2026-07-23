@@ -232,9 +232,37 @@ const cacheAddDom = () => {
 	domAdd.btnSaveNewCashAdvance = document.getElementById('btnSaveNewCashAdvance');
 };
 
+const loadPayableToOptions = () => {
+	if (!domAdd.newPayableTo) return;
+
+	ajax_loader('transactions/cash-advance/api/get/payable-to-options', {}).done((response) => {
+		const res = (typeof response === 'string') ? $.parseJSON(response) : response;
+		const rows = (res.status === 'success' && Array.isArray(res.data)) ? res.data : [];
+
+		domAdd.newPayableTo.innerHTML = ['<option value="">Select</option>']
+			.concat(rows.map((u) => {
+				const label = `${u.firstname} ${u.lastname}${u.designation ? ' (' + u.designation + ')' : ''}`;
+				return `<option value="${escapeHtml(String(u.id))}">${escapeHtml(label)}</option>`;
+			}))
+			.join('');
+
+		if ($(domAdd.newPayableTo).data('select2')) {
+			$(domAdd.newPayableTo).select2('destroy');
+		}
+		$(domAdd.newPayableTo).select2({
+			placeholder: 'Select Payable To',
+			allowClear: true,
+			width: '100%',
+		});
+	}).fail(() => {
+		domAdd.newPayableTo.innerHTML = '<option value="">Unable to load</option>';
+	});
+};
+
 const initAddPage = () => {
 	cacheAddDom();
 	setDefaultDates();
+	loadPayableToOptions();
 	if (domAdd.newCostCenter) {
 		$(domAdd.newCostCenter).select2({
 			placeholder: 'Select Cost Center',
