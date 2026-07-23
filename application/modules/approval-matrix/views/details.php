@@ -97,7 +97,11 @@
 					</select>
 				</div>
 			</div>
-			<div class="form-row">
+			<!-- Sales Office / Sales District scoping hidden for phase 1
+			     (non-sales departments only). The selects, their JS
+			     wiring, and the save payload fields stay intact so
+			     this can be re-enabled by removing d-none. -->
+			<div class="form-row d-none">
 				<div class="form-group col-md-3">
 					<label class="kna-form-label kna-small">Sales Office <span class="kna-small text-muted">(optional)</span></label>
 					<select class="form-control form-control-sm kna-small" id="salesOfficeId"><option value="">Loading...</option></select>
@@ -105,11 +109,6 @@
 				<div class="form-group col-md-3">
 					<label class="kna-form-label kna-small">Sales District <span class="kna-small text-muted">(optional)</span></label>
 					<select class="form-control form-control-sm kna-small" id="salesDistrictId" disabled><option value="">All Districts (office-wide)</option></select>
-				</div>
-			</div>
-			<div class="form-row">
-				<div class="form-group col-md-12 mb-0">
-					<div class="kna-small text-muted">Tip: Leave Sales Office and Sales District blank to apply this rule to the whole department. A rule set to a specific office or district always takes priority over one that isn't.</div>
 				</div>
 			</div>
 		</div>
