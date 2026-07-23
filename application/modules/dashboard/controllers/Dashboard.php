@@ -43,6 +43,7 @@ class Dashboard extends MY_Controller
             'revolvingFundCode' => $activeFund['fund_code'] ?? null,
             'allowSelfCashIn' => !empty($activeFund['allow_self_cash_in']),
             'revolvingFundLimit' => $activeFund['opening_balance'] ?? null,
+            'revolvingFundUnlimited' => !empty($activeFund['allow_negative_balance']),
             'canManageOverdueCa' => $this->userIsMatrixApprover((int) $user_id),
             'scripts' => array(
                 'index.js',
@@ -375,26 +376,11 @@ class Dashboard extends MY_Controller
                 'result'
             );
 
-            $pendingApprovals = array();
-            try {
-                $pendingApprovals = $this->sp->readData(
-                    build_sp('sp_fetch_pending_approvals_header', 3),
-                    array('UserId' => $userId, 'CursorId' => null, 'Take' => 50),
-                    'result'
-                );
-            } catch (\Throwable $e) {
-                $pendingApprovals = array();
-            }
-            $pendingApprovals = is_array($pendingApprovals) ? $pendingApprovals : array();
-
             return $this->respondSuccess('OK', array(
                 'summary' => is_array($summary) ? $summary : array(),
                 'recent' => is_array($recent) ? $recent : array(),
                 'status_overview' => is_array($statusOverview) ? $statusOverview : array(),
                 'attention' => is_array($attention) ? $attention : array(),
-                'pending_approvals' => array_slice($pendingApprovals, 0, 5),
-                'pending_approvals_count' => count($pendingApprovals),
-                'pending_approvals_has_more' => count($pendingApprovals) >= 50,
             ));
         } catch (\Throwable $e) {
             return $this->respondError('An error occurred: ' . $e->getMessage());

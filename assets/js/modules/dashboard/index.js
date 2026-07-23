@@ -9,9 +9,6 @@ const dashboardDom = {
 	attentionCount: null,
 	attentionList: null,
 	attentionState: null,
-	pendingApprovalsRow: null,
-	pendingApprovalsList: null,
-	pendingApprovalsCount: null,
 };
 
 const dashboardRoutes = {
@@ -235,43 +232,6 @@ const renderAttention = () => {
 	});
 };
 
-const renderPendingApprovals = () => {
-	const row = dashboardDom.pendingApprovalsRow;
-	const list = dashboardDom.pendingApprovalsList;
-	if (!row || !list) return;
-
-	const data = dashboardState.data || {};
-	const items = data.pending_approvals || [];
-	const totalCount = Number(data.pending_approvals_count || items.length);
-
-	if (!items.length) {
-		row.classList.add('d-none');
-		return;
-	}
-
-	row.classList.remove('d-none');
-	if (dashboardDom.pendingApprovalsCount) {
-		dashboardDom.pendingApprovalsCount.textContent = `View all (${totalCount})`;
-	}
-
-	list.innerHTML = items.map((item) => {
-		const ref = normalizeText(item.reference_no);
-		const requester = normalizeText(item.requester_name);
-		const typeLabel = TYPE_LABELS[item.transaction_type] || normalizeText(item.transaction_type);
-		const amount = item.ca_amount ?? item.lq_amount ?? item.amount;
-		return `
-			<div class="kna-approval-item">
-				<div class="kna-approval-main">
-					<div class="kna-approval-ref">${escapeHtml(ref)}</div>
-					<p class="kna-approval-meta">${escapeHtml(typeLabel)}${requester ? ' · ' + escapeHtml(requester) : ''}</p>
-				</div>
-				<div class="kna-approval-amount">${formatPHP(amount)}</div>
-				<a href="${base_url}transactions/approvals/review/${encodeURIComponent(ref)}" class="btn btn-primary btn-sm kna-small">Review</a>
-			</div>
-		`;
-	}).join('');
-};
-
 const loadDashboard = async () => {
 	dashboardState.requestId += 1;
 	const requestId = dashboardState.requestId;
@@ -287,7 +247,6 @@ const loadDashboard = async () => {
 		renderSummary();
 		renderRecentRequests();
 		renderAttention();
-		renderPendingApprovals();
 		setSectionState('ready');
 	} catch (error) {
 		if (requestId !== dashboardState.requestId) return;
@@ -315,9 +274,6 @@ const cacheDom = () => {
 	dashboardDom.attentionCount = document.getElementById('attentionCount');
 	dashboardDom.attentionList = document.getElementById('attentionList');
 	dashboardDom.attentionState = document.getElementById('attentionState');
-	dashboardDom.pendingApprovalsRow = document.getElementById('pendingApprovalsRow');
-	dashboardDom.pendingApprovalsList = document.getElementById('pendingApprovalsList');
-	dashboardDom.pendingApprovalsCount = document.getElementById('pendingApprovalsCount');
 };
 
 const passbookState = {
@@ -326,38 +282,49 @@ const passbookState = {
 };
 
 const renderPassbookRows = (rows, append) => {
-	const body = document.getElementById('fundPassbookBody');
-	if (!body) return;
+	const list = document.getElementById('fundPassbookList');
+	if (!list) return;
 
 	const html = (rows || []).map((row) => {
 		const amount = Number(row.amount || 0);
-		const moneyIn = amount > 0 ? formatPHP(amount) : '';
-		const moneyOut = amount < 0 ? formatPHP(Math.abs(amount)) : '';
+		const isIn = amount > 0;
+		const directionLabel = isIn ? 'Cash In' : 'Cash Out';
+		const signedAmount = `${isIn ? '+' : '−'}${formatPHP(Math.abs(amount))}`;
 		const trxDate = normalizeText(row.trx_date).slice(0, 10);
-		return `<tr>
-			<td>${escapeHtml(trxDate)}</td>
-			<td>${escapeHtml(row.trx_type_name || row.trx_type || '')}</td>
-			<td>${escapeHtml(row.remarks || '')}</td>
-			<td class="text-right">${moneyIn}</td>
-			<td class="text-right">${moneyOut}</td>
-			<td class="text-right">${formatPHP(row.balance_after)}</td>
-		</tr>`;
+		const iconGlyph = isIn ? '<i class="fas fa-arrow-down"></i>' : '<i class="fas fa-arrow-up"></i>';
+		const remarks = normalizeText(row.remarks);
+
+		return `
+			<div class="kna-passbook-item">
+				<div class="kna-passbook-icon ${isIn ? 'is-in' : 'is-out'}">${iconGlyph}</div>
+				<div class="kna-passbook-main">
+					<div class="kna-passbook-type">${escapeHtml(row.trx_type_name || row.trx_type || '')}</div>
+					<div class="kna-passbook-remarks" title="${escapeHtml(remarks)}">${escapeHtml(remarks || '—')}</div>
+					<div class="kna-passbook-date">${escapeHtml(trxDate)}</div>
+				</div>
+				<div class="kna-passbook-side">
+					<div class="kna-passbook-amount-label ${isIn ? 'is-in' : 'is-out'}">${directionLabel}</div>
+					<div class="kna-passbook-amount">${signedAmount}</div>
+					<div class="kna-passbook-balance">Bal: ${formatPHP(row.balance_after)}</div>
+				</div>
+			</div>
+		`;
 	}).join('');
 
 	if (append) {
-		body.insertAdjacentHTML('beforeend', html);
+		list.insertAdjacentHTML('beforeend', html);
 	} else {
-		body.innerHTML = html || '<tr><td colspan="6" class="text-center text-muted">No fund transactions yet.</td></tr>';
+		list.innerHTML = html || '<div class="kna-empty">No fund transactions yet.</div>';
 	}
 };
 
 const loadFundPassbook = (append = false) => {
-	const body = document.getElementById('fundPassbookBody');
-	if (!body) return;
+	const list = document.getElementById('fundPassbookList');
+	if (!list) return;
 
 	ajax_loader('dashboard/api/fund/passbook', {
 		CursorId: append ? passbookState.nextCursor : null,
-		Take: 20,
+		Take: 5,
 	}).done((response) => {
 		const res = (typeof response === 'string') ? $.parseJSON(response) : response;
 		if (res.status !== 'success') return;
@@ -378,9 +345,40 @@ const loadFundPassbook = (append = false) => {
 
 		const balanceEl = document.getElementById('fundBalanceValue');
 		if (balanceEl && data.balance !== undefined && data.balance !== null) {
-			balanceEl.textContent = formatPHP(data.balance).replace('PHP', '₱').trim();
+			updateFundBalanceDisplay(Number(data.balance), Number(balanceEl.getAttribute('data-fund-limit') || 0));
 		}
 	});
+};
+
+const updateFundBalanceDisplay = (balance, limit) => {
+	const balanceEl = document.getElementById('fundBalanceValue');
+	const fillEl = document.getElementById('fundUsageFill');
+	const badgeEl = document.getElementById('fundStatusBadge');
+	if (!balanceEl) return;
+
+	const isUnlimited = balanceEl.getAttribute('data-fund-unlimited') === '1';
+	const isNegative = balance < 0 && !isUnlimited;
+	const absFormatted = formatPHP(Math.abs(balance)).replace('PHP', '₱').trim();
+	balanceEl.textContent = balance < 0 ? `-${absFormatted}` : absFormatted;
+	balanceEl.classList.toggle('is-negative', isNegative);
+
+	if (fillEl) {
+		const usedPct = limit > 0 ? Math.max(0, Math.min(100, ((limit - balance) / limit) * 100)) : 0;
+		fillEl.style.width = `${isNegative ? 100 : usedPct}%`;
+		fillEl.classList.toggle('is-negative', isNegative);
+	}
+
+	if (badgeEl) {
+		if (isUnlimited) {
+			badgeEl.innerHTML = '<span class="kna-badge kna-badge-liquidation">Unlimited</span>';
+		} else if (isNegative) {
+			badgeEl.innerHTML = '<span class="kna-badge kna-badge-rejected">Over limit</span>';
+		} else if (limit > 0 && balance <= limit * 0.2) {
+			badgeEl.innerHTML = '<span class="kna-badge kna-badge-pending">Low</span>';
+		} else {
+			badgeEl.innerHTML = '';
+		}
+	}
 };
 
 const bindFundCashIn = () => {
@@ -474,19 +472,29 @@ const updateOverdueToolbar = () => {
 			: '';
 	}
 
+	// Two DOM representations of the same rows exist at once (table for
+	// desktop, cards for mobile — CSS hides one per breakpoint), so keep
+	// every checkbox instance in sync with the selection state, not just
+	// the one the user actually clicked.
+	const boxes = Array.from(document.querySelectorAll('.overdue-row-checkbox'));
+	boxes.forEach((cb) => {
+		cb.checked = overdueState.selected.has(cb.getAttribute('data-ref'));
+	});
+
 	const selectAll = document.getElementById('overdueSelectAll');
 	if (selectAll) {
-		const boxes = Array.from(document.querySelectorAll('.overdue-row-checkbox'));
 		selectAll.checked = boxes.length > 0 && boxes.every((cb) => cb.checked);
 	}
 };
 
 const renderOverdueList = () => {
 	const body = document.getElementById('overdueListBody');
-	if (!body) return;
+	const mobileList = document.getElementById('overdueListMobile');
+	if (!body || !mobileList) return;
 
 	if (!overdueState.rows.length) {
 		body.innerHTML = '<tr><td colspan="10" class="text-center text-muted kna-small">No cash advances awaiting liquidation.</td></tr>';
+		mobileList.innerHTML = '<div class="kna-empty">No cash advances awaiting liquidation.</div>';
 		updateOverdueToolbar();
 		return;
 	}
@@ -512,6 +520,47 @@ const renderOverdueList = () => {
 		</tr>`;
 	}).join('');
 
+	mobileList.innerHTML = overdueState.rows.map((row) => {
+		const ref = normalizeText(row.cash_advance_id);
+		const remarks = normalizeText(row.due_extension_remarks);
+		const extendedBy = normalizeText(row.due_extended_by_name);
+		const remarksHtml = remarks
+			? `<div class="kna-overdue-remarks">${escapeHtml(remarks)}${extendedBy ? ` <span class="text-muted">(${escapeHtml(extendedBy)})</span>` : ''}</div>`
+			: '';
+
+		return `
+			<div class="kna-overdue-item">
+				<div class="kna-overdue-item-head">
+					<div class="kna-overdue-item-check">
+						<input type="checkbox" class="overdue-row-checkbox" data-ref="${escapeHtml(ref)}" ${overdueState.selected.has(ref) ? 'checked' : ''}>
+					</div>
+					<div class="kna-overdue-item-title">
+						<span class="kna-overdue-ref">${escapeHtml(ref)}</span>
+						${overdueDueBadge(row)}
+					</div>
+				</div>
+				<div class="kna-overdue-row">
+					<span class="kna-overdue-label">Employee</span>
+					<span class="kna-overdue-value">${escapeHtml(normalizeText(row.employee_name))}</span>
+				</div>
+				<div class="kna-overdue-row">
+					<span class="kna-overdue-label">Department</span>
+					<span class="kna-overdue-value">${escapeHtml(normalizeText(row.department_name))}</span>
+				</div>
+				<div class="kna-overdue-row">
+					<span class="kna-overdue-label">Released / Due</span>
+					<span class="kna-overdue-value">${escapeHtml(normalizeText(row.released_date).slice(0, 10))} → ${escapeHtml(normalizeText(row.due_date).slice(0, 10))}</span>
+				</div>
+				<div class="kna-overdue-row">
+					<span class="kna-overdue-label">Amount</span>
+					<span class="kna-overdue-amount">${formatPHP(row.amount)}</span>
+				</div>
+				${remarksHtml}
+				<button type="button" class="btn btn-sm btn-outline-primary kna-small btn-extend" data-action="extend" data-ref="${escapeHtml(ref)}">Extend Due Date</button>
+			</div>
+		`;
+	}).join('');
+
 	updateOverdueToolbar();
 };
 
@@ -529,9 +578,10 @@ const loadOverdueList = () => {
 
 const bindOverduePanel = () => {
 	const body = document.getElementById('overdueListBody');
-	if (!body) return;
+	const mobileList = document.getElementById('overdueListMobile');
+	if (!body || !mobileList) return;
 
-	body.addEventListener('change', (event) => {
+	const handleCheckboxChange = (event) => {
 		const cb = event.target.closest('.overdue-row-checkbox');
 		if (!cb) return;
 		const ref = cb.getAttribute('data-ref');
@@ -541,9 +591,9 @@ const bindOverduePanel = () => {
 			overdueState.selected.delete(ref);
 		}
 		updateOverdueToolbar();
-	});
+	};
 
-	body.addEventListener('click', (event) => {
+	const handleExtendClick = (event) => {
 		const btn = event.target.closest('button[data-action="extend"]');
 		if (!btn) return;
 		overdueState.extendRef = btn.getAttribute('data-ref');
@@ -558,14 +608,18 @@ const bindOverduePanel = () => {
 		}
 		if (remarksEl) remarksEl.value = '';
 		$('#extendDueModal').modal('show');
-	});
+	};
+
+	body.addEventListener('change', handleCheckboxChange);
+	body.addEventListener('click', handleExtendClick);
+	mobileList.addEventListener('change', handleCheckboxChange);
+	mobileList.addEventListener('click', handleExtendClick);
 
 	const selectAll = document.getElementById('overdueSelectAll');
 	if (selectAll) {
 		selectAll.addEventListener('change', () => {
 			const checked = selectAll.checked;
 			document.querySelectorAll('.overdue-row-checkbox').forEach((cb) => {
-				cb.checked = checked;
 				const ref = cb.getAttribute('data-ref');
 				if (checked) {
 					overdueState.selected.add(ref);

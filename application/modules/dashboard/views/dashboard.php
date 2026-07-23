@@ -15,7 +15,7 @@
     }
 
     .kna-title {
-        font-size: 20px;
+        font-size: 17px;
         font-weight: 600;
         margin: 0 0 8px;
         line-height: 1.2;
@@ -27,8 +27,8 @@
     }
 
     .kna-kpi {
-        font-size: 19px;
-        line-height: 1.15;
+        font-size: 16px;
+        line-height: 1.2;
         font-weight: 600;
         margin: 0;
         color: #1d2a3a;
@@ -40,6 +40,43 @@
         margin: 0 0 6px;
         text-transform: uppercase;
         letter-spacing: .3px;
+    }
+
+    .kna-kpi-sub {
+        font-size: 11px;
+        color: #9aa7b4;
+        margin: 0;
+    }
+
+    .kna-kpi.is-negative {
+        color: #a02020;
+    }
+
+    .kna-fund-usage-bar {
+        height: 4px;
+        border-radius: 999px;
+        background: #edf2f7;
+        overflow: hidden;
+        margin-top: 6px;
+    }
+
+    .kna-fund-usage-fill {
+        height: 100%;
+        border-radius: inherit;
+        background: #2f6eb4;
+        transition: width .2s ease;
+    }
+
+    .kna-fund-usage-fill.is-negative {
+        background: #c0392b;
+    }
+
+    .kna-fund-sub {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        margin-top: 6px;
     }
 
     .kna-section-title {
@@ -125,6 +162,244 @@
         align-items: center;
         justify-content: flex-end;
         gap: 6px;
+    }
+
+    /* Fund Passbook — a receipt-style list (same approach as Recent
+       Requests) instead of a table, so it never needs horizontal
+       scroll on narrow screens and columns never fight for width. */
+    .kna-passbook-list {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .kna-passbook-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 10px 4px;
+        border-bottom: 1px solid #f0f3f7;
+    }
+
+    .kna-passbook-item:last-child {
+        border-bottom: none;
+    }
+
+    .kna-passbook-icon {
+        flex: 0 0 auto;
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        margin-top: 1px;
+    }
+
+    .kna-passbook-icon.is-in { background: #e6f4ff; color: #0056b3; }
+    .kna-passbook-icon.is-out { background: #eef2f7; color: #45566b; }
+
+    .kna-passbook-main {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .kna-passbook-type {
+        font-size: 12px;
+        font-weight: 700;
+        color: #1f2937;
+    }
+
+    .kna-passbook-remarks {
+        font-size: 11px;
+        color: #708090;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        margin-top: 1px;
+    }
+
+    .kna-passbook-date {
+        font-size: 10px;
+        color: #9aa7b4;
+        margin-top: 3px;
+    }
+
+    .kna-passbook-side {
+        flex: 0 0 auto;
+        text-align: right;
+        padding-left: 6px;
+    }
+
+    .kna-passbook-amount-label {
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .3px;
+        white-space: nowrap;
+    }
+
+    .kna-passbook-amount-label.is-in { color: #0056b3; }
+    .kna-passbook-amount-label.is-out { color: #45566b; }
+
+    .kna-passbook-amount {
+        font-size: 13px;
+        font-weight: 700;
+        color: #1d2a3a;
+        white-space: nowrap;
+    }
+
+    .kna-passbook-balance {
+        font-size: 10px;
+        color: #9aa7b4;
+        margin-top: 3px;
+        white-space: nowrap;
+    }
+
+    /* Show More — a flush footer row on the list rather than a
+       floating pill button, so it reads as part of the passbook
+       instead of a separate control. */
+    .kna-show-more-btn {
+        width: 100%;
+        border: none;
+        border-top: 1px solid #f0f3f7;
+        background: transparent;
+        padding: 9px 4px 2px;
+        margin-top: 4px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #4a6b8a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        cursor: pointer;
+    }
+
+    .kna-show-more-btn:hover {
+        color: #0b4f8c;
+    }
+
+    .kna-show-more-btn:focus {
+        outline: none;
+    }
+
+    .kna-show-more-btn:focus-visible {
+        outline: 2px solid #2f6eb4;
+        outline-offset: 2px;
+        border-radius: 4px;
+    }
+
+    .kna-show-more-btn i {
+        font-size: 10px;
+    }
+
+    @media (max-width: 575.98px) {
+        .kna-passbook-remarks {
+            white-space: normal;
+            overflow: visible;
+        }
+    }
+
+    /* Pending Liquidations — data-dense table on desktop, cards on
+       mobile (same split ca_reports uses), since this row carries a
+       checkbox, several fields, and an action button that don't
+       collapse into a single-line list item cleanly. */
+    .kna-overdue-list {
+        display: none;
+    }
+
+    .kna-overdue-item {
+        border: 1px solid #f0e0d0;
+        border-radius: 6px;
+        padding: 10px;
+        margin-bottom: 8px;
+        background: #fffaf5;
+    }
+
+    .kna-overdue-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .kna-overdue-item-head {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+
+    .kna-overdue-item-check {
+        flex: 0 0 auto;
+        margin-top: 2px;
+    }
+
+    .kna-overdue-item-title {
+        flex: 1 1 auto;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .kna-overdue-ref {
+        font-size: 13px;
+        font-weight: 700;
+        color: #233243;
+    }
+
+    .kna-overdue-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 4px;
+        font-size: 12px;
+    }
+
+    .kna-overdue-row:last-of-type {
+        margin-bottom: 0;
+    }
+
+    .kna-overdue-label {
+        color: #9aa7b4;
+        font-size: 11px;
+    }
+
+    .kna-overdue-value {
+        color: #1d2a3a;
+        font-weight: 600;
+        text-align: right;
+    }
+
+    .kna-overdue-amount {
+        font-size: 13px;
+        font-weight: 700;
+        color: #1d2a3a;
+    }
+
+    .kna-overdue-remarks {
+        font-size: 11px;
+        color: #708090;
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px dashed #ecd9c5;
+    }
+
+    .kna-overdue-item .btn-extend {
+        width: 100%;
+        margin-top: 8px;
+    }
+
+    @media (max-width: 767.98px) {
+        .kna-overdue-table-wrap {
+            display: none;
+        }
+
+        .kna-overdue-list {
+            display: block;
+        }
     }
 
     .kna-badge {
@@ -247,7 +522,7 @@
         border-radius: 50%;
         background: #eef6f0;
         color: #3fa45e;
-        font-size: 15px;
+        font-size: 14px;
         font-weight: 700;
     }
 
@@ -326,7 +601,7 @@
         }
 
         .kna-title {
-            font-size: 17px;
+            font-size: 15px;
         }
 
         .kna-card .card-body {
@@ -402,25 +677,37 @@
                         </button>
                         <?php endif; ?>
                     </div>
-                    <p class="kna-kpi" id="fundBalanceValue"><?= '₱' . number_format((float) ($revolvingFundBalance ?? 0), 2) ?></p>
+                    <?php
+                        $fundBalanceNum = (float) ($revolvingFundBalance ?? 0);
+                        $fundLimitNum = (float) ($revolvingFundLimit ?? 0);
+                        $fundIsUnlimited = !empty($revolvingFundUnlimited);
+                        $fundIsNegative = $fundBalanceNum < 0 && !$fundIsUnlimited;
+                        $fundUsedPct = $fundLimitNum > 0 ? max(0, min(100, (($fundLimitNum - $fundBalanceNum) / $fundLimitNum) * 100)) : 0;
+                        $fundBadgeHtml = '';
+                        if ($fundIsUnlimited) {
+                            $fundBadgeHtml = '<span class="kna-badge kna-badge-liquidation">Unlimited</span>';
+                        } elseif ($fundIsNegative) {
+                            $fundBadgeHtml = '<span class="kna-badge kna-badge-rejected">Over limit</span>';
+                        } elseif ($fundLimitNum > 0 && $fundBalanceNum <= $fundLimitNum * 0.2) {
+                            $fundBadgeHtml = '<span class="kna-badge kna-badge-pending">Low</span>';
+                        }
+                    ?>
+                    <p class="kna-kpi<?= $fundIsNegative ? ' is-negative' : '' ?>" id="fundBalanceValue" data-fund-limit="<?= $fundLimitNum ?>" data-fund-unlimited="<?= $fundIsUnlimited ? '1' : '0' ?>">
+                        <?= ($fundBalanceNum < 0 ? '-₱' : '₱') . number_format(abs($fundBalanceNum), 2) ?>
+                    </p>
+                    <?php if (!$fundIsUnlimited): ?>
+                    <div class="kna-fund-usage-bar" id="fundUsageBarWrap">
+                        <div class="kna-fund-usage-fill<?= $fundIsNegative ? ' is-negative' : '' ?>" id="fundUsageFill" style="width:<?= $fundIsNegative ? 100 : $fundUsedPct ?>%;"></div>
+                    </div>
+                    <?php endif; ?>
+                    <div class="kna-fund-sub">
+                        <span class="kna-kpi-sub">Starting ₱<?= number_format($fundLimitNum, 2) ?></span>
+                        <span id="fundStatusBadge"><?= $fundBadgeHtml ?></span>
+                    </div>
                 </div>
             </div>
         </div>
         <?php endif; ?>
-    </div>
-
-    <div class="row mb-2 d-none" id="pendingApprovalsRow">
-        <div class="col-12">
-            <div class="card kna-card kna-approval-card">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h3 class="kna-section-title">Awaiting Your Action</h3>
-                        <a href="<?= base_url('transactions/approvals') ?>" class="kna-small" id="pendingApprovalsCount">View all</a>
-                    </div>
-                    <div id="pendingApprovalsList"></div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <?php if (!empty($hasActiveFund)): ?>
@@ -432,23 +719,11 @@
                         <h3 class="kna-section-title">Fund History</h3>
                         <div class="kna-small text-muted" id="fundPassbookCount">0 transaction(s)</div>
                     </div>
-                    <div class="table-responsive">
-                        <table class="table table-sm kna-small mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>Transaction</th>
-                                    <th>Remarks</th>
-                                    <th class="text-right">Money In</th>
-                                    <th class="text-right">Money Out</th>
-                                    <th class="text-right">Balance</th>
-                                </tr>
-                            </thead>
-                            <tbody id="fundPassbookBody"></tbody>
-                        </table>
-                    </div>
-                    <div class="text-center mt-2 d-none" id="fundPassbookMoreWrap">
-                        <button type="button" class="btn btn-outline-secondary btn-sm kna-small" id="btnFundPassbookMore">Load More</button>
+                    <div class="kna-passbook-list" id="fundPassbookList"></div>
+                    <div class="d-none" id="fundPassbookMoreWrap">
+                        <button type="button" class="kna-show-more-btn" id="btnFundPassbookMore">
+                            Show More <i class="fas fa-chevron-down"></i>
+                        </button>
                     </div>
                     <div class="kna-state d-none" id="fundPassbookState"></div>
                 </div>
@@ -471,25 +746,26 @@
                             <i class="fas fa-bell mr-1"></i> Notify Selected
                         </button>
                     </div>
-                    <div class="table-responsive">
+                    <div class="table-responsive kna-overdue-table-wrap">
                         <table class="table table-sm kna-small mb-0">
                             <thead>
                                 <tr>
                                     <th style="width:28px;"><input type="checkbox" id="overdueSelectAll"></th>
-                                    <th>Cash Advance No</th>
-                                    <th>Employee</th>
-                                    <th>Department</th>
-                                    <th class="text-right">Amount</th>
-                                    <th>Released</th>
-                                    <th>Due Date</th>
-                                    <th>Status</th>
-                                    <th>Extension Remarks</th>
-                                    <th class="text-center">Action</th>
+                                    <th style="min-width:130px;">Cash Advance No</th>
+                                    <th style="min-width:150px;">Employee</th>
+                                    <th style="min-width:130px;">Department</th>
+                                    <th class="text-right" style="width:110px;">Amount</th>
+                                    <th style="width:100px;">Released</th>
+                                    <th style="width:100px;">Due Date</th>
+                                    <th style="width:130px;">Status</th>
+                                    <th style="min-width:180px;max-width:240px;">Extension Remarks</th>
+                                    <th class="text-center" style="width:90px;">Action</th>
                                 </tr>
                             </thead>
                             <tbody id="overdueListBody"></tbody>
                         </table>
                     </div>
+                    <div class="kna-overdue-list" id="overdueListMobile"></div>
                 </div>
             </div>
         </div>

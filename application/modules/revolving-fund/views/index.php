@@ -261,7 +261,7 @@
 							<div class="col-md-6 form-group d-flex flex-column justify-content-end">
 								<div class="custom-control custom-checkbox">
 									<input type="checkbox" class="custom-control-input" id="rfFundAllowNegative">
-									<label class="custom-control-label kna-small" for="rfFundAllowNegative">Allow negative balance</label>
+									<label class="custom-control-label kna-small" for="rfFundAllowNegative">Unlimited fund (allow negative balance)</label>
 								</div>
 								<div class="custom-control custom-checkbox mb-2">
 									<input type="checkbox" class="custom-control-input" id="rfFundAllowSelfCashIn">
