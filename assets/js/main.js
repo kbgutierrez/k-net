@@ -505,6 +505,196 @@
     });
   }
 
+  /* ─── Global Quick Search (navbar) ── */
+  const GSEARCH_TYPE_META = {
+    CASH_ADVANCE: { icon: 'fa-hand-holding-usd', cls: 'type-cash-advance', label: 'Cash Advance' },
+    LIQUIDATION: { icon: 'fa-receipt', cls: 'type-liquidation', label: 'Liquidation' },
+    REIMBURSEMENT: { icon: 'fa-wallet', cls: 'type-reimbursement', label: 'Reimbursement' },
+    REPLENISHMENT: { icon: 'fa-sync-alt', cls: 'type-replenishment', label: 'Replenishment' },
+  };
+
+  let gsearchDebounceTimer = null;
+  let gsearchRequestId = 0;
+
+  const gsearchFormatPHP = (amount) =>
+    Number(amount || 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' });
+
+  const closeGlobalSearchResults = () => {
+    const panel = document.getElementById('kna-gsearch-results');
+    if (panel) panel.classList.add('d-none');
+  };
+
+  /* ─── Favorite modules (Quick Links) — shared cache used by both the
+     search dropdown's star toggle and the dashboard's Quick Links card. */
+  let favoriteModuleRoutes = new Set();
+
+  const moduleIconFor = (moduleName) => {
+    const n = String(moduleName || '').toLowerCase();
+    if (n.includes('cash advance')) return 'fa-hand-holding-usd';
+    if (n.includes('liquidation')) return 'fa-receipt';
+    if (n.includes('reimburs')) return 'fa-wallet';
+    if (n.includes('replenish') || n.includes('revolving')) return 'fa-sync-alt';
+    if (n.includes('approval')) return 'fa-check-circle';
+    if (n.includes('report')) return 'fa-chart-bar';
+    if (n.includes('notification')) return 'fa-bell';
+    if (n.includes('expense type')) return 'fa-tags';
+    return 'fa-th-large';
+  };
+
+  const loadFavoriteModules = () => {
+    if (typeof ajax_loader !== 'function') return;
+    ajax_loader('dashboard/api/favorites/list', {}).done((response) => {
+      const res = (typeof response === 'string') ? JSON.parse(response) : response;
+      const rows = (res && res.status === 'success' && Array.isArray(res.data)) ? res.data : [];
+      favoriteModuleRoutes = new Set(rows.map((r) => r.module_route));
+      document.dispatchEvent(new CustomEvent('knet:favorites-loaded', { detail: { rows } }));
+    }).fail(() => {});
+  };
+
+  const toggleFavoriteModule = (moduleName, moduleRoute, moduleGroup) => {
+    if (typeof ajax_loader !== 'function' || !moduleRoute) return;
+    ajax_loader('dashboard/api/favorites/toggle', {
+      ModuleName: moduleName || '',
+      ModuleRoute: moduleRoute,
+      ModuleGroup: moduleGroup || '',
+    }).done((response) => {
+      const res = (typeof response === 'string') ? JSON.parse(response) : response;
+      if (!res || res.status !== 'success') return;
+      const isFavorite = !!(res.data && res.data.is_favorite);
+      if (isFavorite) {
+        favoriteModuleRoutes.add(moduleRoute);
+      } else {
+        favoriteModuleRoutes.delete(moduleRoute);
+      }
+      document.querySelectorAll('.kna-gsearch-fav-btn').forEach((btn) => {
+        if (btn.dataset.route === moduleRoute) {
+          btn.classList.toggle('is-favorite', isFavorite);
+          btn.querySelector('i').className = isFavorite ? 'fas fa-star' : 'far fa-star';
+          btn.title = isFavorite ? 'Remove from Quick Links' : 'Add to Quick Links';
+        }
+      });
+      document.dispatchEvent(new CustomEvent('knet:favorites-updated', {
+        detail: { route: moduleRoute, name: moduleName, group: moduleGroup, isFavorite },
+      }));
+    }).fail(() => {});
+  };
+
+  window.knetFavorites = {
+    routes: () => favoriteModuleRoutes,
+    load: loadFavoriteModules,
+    toggle: toggleFavoriteModule,
+  };
+
+  const renderGlobalSearchResults = (rows, keyword) => {
+    const panel = document.getElementById('kna-gsearch-results');
+    if (!panel) return;
+
+    if (!rows.length) {
+      panel.innerHTML = `<div class="kna-gsearch-empty">No matches for "${escapeHtmlNotif(keyword)}"</div>`;
+      panel.classList.remove('d-none');
+      return;
+    }
+
+    panel.innerHTML = rows.map((row) => {
+      if (row.transaction_type === 'MODULE') {
+        const name = row.module_name || row.description || '';
+        const route = row.module_route || '';
+        const group = row.module_group || row.requester_name || '';
+        const isFav = favoriteModuleRoutes.has(route);
+        const url = `${base_url}${route}`;
+        return `
+          <div class="kna-gsearch-item kna-gsearch-module">
+            <a href="${url}" class="kna-gsearch-module-link">
+              <div class="kna-gsearch-icon-badge type-module"><i class="fas ${moduleIconFor(name)}"></i></div>
+              <div class="kna-gsearch-main">
+                <div class="kna-gsearch-ref">${escapeHtmlNotif(name)}</div>
+                <div class="kna-gsearch-desc">Module · ${escapeHtmlNotif(group)}</div>
+              </div>
+            </a>
+            <button type="button" class="kna-gsearch-fav-btn ${isFav ? 'is-favorite' : ''}" data-route="${escapeHtmlNotif(route)}" data-name="${escapeHtmlNotif(name)}" data-group="${escapeHtmlNotif(group)}" title="${isFav ? 'Remove from Quick Links' : 'Add to Quick Links'}">
+              <i class="${isFav ? 'fas' : 'far'} fa-star"></i>
+            </button>
+          </div>
+        `;
+      }
+
+      const meta = GSEARCH_TYPE_META[row.transaction_type] || { icon: 'fa-file-invoice', cls: '', label: row.transaction_type };
+      const isApprover = Number(row.is_approver) === 1;
+      const isPending = Number(row.is_pending) === 1;
+      const url = `${base_url}${notifRouteForReference(row.reference_no, isApprover, isPending)}`;
+      return `
+        <a href="${url}" class="kna-gsearch-item">
+          <div class="kna-gsearch-icon-badge ${meta.cls}"><i class="fas ${meta.icon}"></i></div>
+          <div class="kna-gsearch-main">
+            <div class="kna-gsearch-ref">${escapeHtmlNotif(row.reference_no)}</div>
+            <div class="kna-gsearch-desc">${escapeHtmlNotif(meta.label)} · ${escapeHtmlNotif(row.description || row.requester_name || '')}</div>
+          </div>
+          <div class="kna-gsearch-side">
+            <div class="kna-gsearch-amount">${gsearchFormatPHP(row.amount)}</div>
+            <div class="kna-gsearch-status">${escapeHtmlNotif(row.status_name || '')}</div>
+          </div>
+        </a>
+      `;
+    }).join('');
+    panel.classList.remove('d-none');
+  };
+
+  const runGlobalSearch = (keyword) => {
+    const panel = document.getElementById('kna-gsearch-results');
+    if (!panel) return;
+
+    if (keyword.length < 2) {
+      panel.innerHTML = '<div class="kna-gsearch-hint">Keep typing… (min. 2 characters)</div>';
+      panel.classList.remove('d-none');
+      return;
+    }
+
+    const requestId = ++gsearchRequestId;
+    ajax_loader('dashboard/api/global-search', { Keyword: keyword }).done((response) => {
+      if (requestId !== gsearchRequestId) return; // a newer keystroke's request already landed
+      const res = (typeof response === 'string') ? JSON.parse(response) : response;
+      const rows = (res && res.status === 'success' && Array.isArray(res.data)) ? res.data : [];
+      renderGlobalSearchResults(rows, keyword);
+    }).fail(() => {
+      if (requestId !== gsearchRequestId) return;
+      panel.innerHTML = '<div class="kna-gsearch-empty">Search failed. Please try again.</div>';
+      panel.classList.remove('d-none');
+    });
+  };
+
+  const initGlobalSearch = () => {
+    const input = document.getElementById('kna-gsearch-input');
+    const panel = document.getElementById('kna-gsearch-results');
+    if (!input || !panel || typeof ajax_loader !== 'function') return;
+
+    input.addEventListener('input', () => {
+      const keyword = input.value.trim();
+      clearTimeout(gsearchDebounceTimer);
+      if (!keyword) { closeGlobalSearchResults(); return; }
+      gsearchDebounceTimer = setTimeout(() => runGlobalSearch(keyword), 300);
+    });
+
+    input.addEventListener('focus', () => {
+      if (input.value.trim().length >= 2) panel.classList.remove('d-none');
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { closeGlobalSearchResults(); input.blur(); }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.kna-gsearch-wrap')) closeGlobalSearchResults();
+    });
+
+    panel.addEventListener('click', (e) => {
+      const favBtn = e.target.closest('.kna-gsearch-fav-btn');
+      if (!favBtn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      toggleFavoriteModule(favBtn.dataset.name, favBtn.dataset.route, favBtn.dataset.group);
+    });
+  };
+
   // Initialize
   closeMobileSidebar();
   closeMobileDrawer();
@@ -518,6 +708,8 @@
   // synchronous script in the page — including that one — has
   // already run.
   document.addEventListener('DOMContentLoaded', loadHeaderNotifications);
+  document.addEventListener('DOMContentLoaded', initGlobalSearch);
+  document.addEventListener('DOMContentLoaded', loadFavoriteModules);
 
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', () => updateFabVisibility());

@@ -578,10 +578,20 @@
         </div>
       </div>
 
-      <!-- IO Number -->
-      <div class="form-group col-4" style="margin-bottom:12px;">
-        <label class="kna-form-label">IO Number</label>
-        <div class="kna-readonly" id="viewIONumber">-</div>
+      <!-- Payable To & Address -->
+      <div class="kna-info-row kna-info-row-3">
+        <div class="form-group">
+          <label class="kna-form-label">Payable To</label>
+          <div class="kna-readonly" id="viewPayableTo">-</div>
+        </div>
+        <div class="form-group">
+          <label class="kna-form-label">Address</label>
+          <div class="kna-readonly" id="viewAddress">-</div>
+        </div>
+        <div class="form-group">
+          <label class="kna-form-label">IO Number</label>
+          <div class="kna-readonly" id="viewIONumber">-</div>
+        </div>
       </div>
 
       <!-- Notes -->

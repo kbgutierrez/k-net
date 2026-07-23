@@ -8,6 +8,8 @@ const domDetail = {
 	viewStatus: null,
 	viewPurpose: null,
 	viewCostCenter: null,
+	viewPayableTo: null,
+	viewAddress: null,
 	viewIONumber: null,
 	viewTimeline: null,
 	viewPdfSection: null,
@@ -725,6 +727,8 @@ const cacheDetailDom = () => {
 	domDetail.viewStatus = document.getElementById('viewStatus');
 	domDetail.viewPurpose = document.getElementById('viewPurpose');
 	domDetail.viewCostCenter = document.getElementById('viewCostCenter');
+	domDetail.viewPayableTo = document.getElementById('viewPayableTo');
+	domDetail.viewAddress = document.getElementById('viewAddress');
 	domDetail.viewIONumber = document.getElementById('viewIONumber');
 	domDetail.viewTimeline = document.getElementById('viewTimeline');
 	domDetail.viewPdfSection = document.getElementById('viewPdfSection');
@@ -814,6 +818,12 @@ const loadDetailData = (loadTimeline = true) => {
 				ccDisplay = ccId;
 			}
 			domDetail.viewCostCenter.textContent = ccDisplay;
+		}
+		if (domDetail.viewPayableTo) {
+			domDetail.viewPayableTo.textContent = normalizeDate(record.payable_to || '') || '-';
+		}
+		if (domDetail.viewAddress) {
+			domDetail.viewAddress.textContent = normalizeDate(record.address || '') || '-';
 		}
 		if (domDetail.viewIONumber) {
 			domDetail.viewIONumber.textContent = normalizeDate(record.io_number || '') || '-';

@@ -266,6 +266,10 @@
 		<div class="card-body py-2">
 			<div class="d-flex flex-wrap align-items-end" style="gap:.5rem;">
 				<div class="kna-filter-field">
+					<label class="kna-small kna-form-label mb-1">Search</label>
+					<input type="text" class="form-control form-control-sm kna-small" id="filterKeyword" placeholder="LQ/CA no. or purpose" autocomplete="off" style="width:180px;">
+				</div>
+				<div class="kna-filter-field">
 					<label class="kna-small kna-form-label mb-1">Date Range</label>
 					<input type="text" class="form-control form-control-sm kna-small" id="filterDateRange" placeholder="Select range" autocomplete="off" readonly style="width:180px;">
 				</div>

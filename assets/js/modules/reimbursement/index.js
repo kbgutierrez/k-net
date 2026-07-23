@@ -165,6 +165,14 @@ const matchesFilters = (row) => {
 	const range = domList.filterDateRangePicker ? parseDateRange(domList.filterDateRangePicker.value) : { from: '', to: '' };
 	const status = domList.filterStatus.value;
 	const amountRange = domList.filterAmountRange.value;
+	const keyword = (domList.filterKeyword ? domList.filterKeyword.value : '').trim().toLowerCase();
+
+	if (keyword) {
+		const haystack = `${row.reimbursementNo} ${row.description}`.toLowerCase();
+		if (haystack.indexOf(keyword) === -1) {
+			return false;
+		}
+	}
 
 	if (status && row.status !== status) {
 		return false;
@@ -336,6 +344,7 @@ const refreshUI = () => {
 };
 
 const resetFilters = () => {
+	if (domList.filterKeyword) domList.filterKeyword.value = '';
 	if (domList.filterDateRangePicker) {
 		domList.filterDateRangePicker.clear();
 	}
@@ -345,6 +354,7 @@ const resetFilters = () => {
 };
 
 const cacheListDom = () => {
+	domList.filterKeyword = document.getElementById('filterKeyword');
 	domList.filterDateRange = document.getElementById('filterDateRange');
 	domList.filterDateRangePicker = document.getElementById('filterDateRange');
 	domList.filterStatus = document.getElementById('filterStatus');
@@ -379,6 +389,7 @@ const initListPage = () => {
 			},
 		});
 	}
+	if (domList.filterKeyword) domList.filterKeyword.addEventListener('input', applyFilters);
 	domList.filterStatus.addEventListener('change', applyFilters);
 	domList.filterAmountRange.addEventListener('change', applyFilters);
 	domList.btnReset.addEventListener('click', resetFilters);

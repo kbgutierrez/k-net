@@ -86,11 +86,17 @@ const refreshFilterOptions = () => {
 };
 
 const matchesFilters = (row) => {
+	const keyword = normalizeText(dom.filterKeyword && dom.filterKeyword.value).trim().toLowerCase();
 	const department = normalizeText(dom.filterDepartment && dom.filterDepartment.value);
 	const company = normalizeText(dom.filterCompany && dom.filterCompany.value);
 	const employee = normalizeText(dom.filterEmployee && dom.filterEmployee.value);
 	const status = normalizeText(dom.filterStatus && dom.filterStatus.value);
 	const range = parseDateRange();
+
+	if (keyword) {
+		const haystack = `${row.refNo} ${row.purpose} ${row.employee}`.toLowerCase();
+		if (haystack.indexOf(keyword) === -1) return false;
+	}
 
 	if (department && row.department !== department) return false;
 	if (company && row.company !== company) return false;
@@ -233,6 +239,7 @@ const loadCashAdvances = () => {
 
 const resetFilters = () => {
 	desktopPage = 1;
+	if (dom.filterKeyword) dom.filterKeyword.value = '';
 	if (dom.filterDateRangePicker) dom.filterDateRangePicker.clear();
 	if (dom.filterDepartment) dom.filterDepartment.value = '';
 	if (dom.filterCompany) dom.filterCompany.value = '';
@@ -251,6 +258,7 @@ const goToPath = (path) => {
 };
 
 const cacheDom = () => {
+	dom.filterKeyword = document.getElementById('filterKeyword');
 	dom.filterDateRange = document.getElementById('filterDateRange');
 	dom.filterDepartment = document.getElementById('filterDepartment');
 	dom.filterCompany = document.getElementById('filterCompany');
@@ -267,6 +275,7 @@ const cacheDom = () => {
 };
 
 const bindEvents = () => {
+	if (dom.filterKeyword) dom.filterKeyword.addEventListener('input', applyFilters);
 	if (dom.filterDepartment) dom.filterDepartment.addEventListener('change', applyFilters);
 	if (dom.filterCompany) dom.filterCompany.addEventListener('change', applyFilters);
 	if (dom.filterEmployee) dom.filterEmployee.addEventListener('change', applyFilters);

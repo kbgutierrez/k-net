@@ -150,7 +150,7 @@ const renderEditAttachment = (name, item, isRemoved = false) => {
 	const fileRemove = !isRemoved ? `<i class="fas fa-times kna-file-remove" data-edit-action="removeAttachment" data-edit-id="${item._editId}" data-filename="${escapeHtml(name)}" title="Remove attachment"></i>` : '';
 	return `<span class="kna-file-wrap ${isRemoved ? 'removed' : ''}" data-filename="${escapeHtml(name)}" data-edit-id="${item._editId}">
 		<i class="fas fa-file-alt" style="color:#6366f1;font-size:11px;"></i>
-		<a href="${url}" target="_blank" rel="noopener">${escapeHtml(name)}</a>${fileRemove}${undoLink}
+		<a href="${url}" target="_blank" rel="noopener" title="${escapeHtml(name)}">${escapeHtml(name)}</a>${fileRemove}${undoLink}
 	</span>`;
 };
 

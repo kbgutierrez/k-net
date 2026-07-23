@@ -162,9 +162,18 @@ const matchesDateRange = (row) => {
 	return row.submittedDate >= from && row.submittedDate <= to;
 };
 
+const matchesApprovalKeyword = (row) => {
+	const input = document.getElementById('filterKeyword');
+	const keyword = (input ? input.value : '').trim().toLowerCase();
+	if (!keyword) return true;
+	const haystack = `${row.referenceNo} ${row.requestor} ${row.department}`.toLowerCase();
+	return haystack.indexOf(keyword) !== -1;
+};
+
 const getFilteredApprovals = () => approvals
 	.filter((row) => selectedTransactionType === 'ALL' || row.transactionType === selectedTransactionType)
-	.filter(matchesDateRange);
+	.filter(matchesDateRange)
+	.filter(matchesApprovalKeyword);
 
 const renderDesktopPagination = (rows) => {
 	const desktopPagination = document.getElementById('desktopPagination');
@@ -477,6 +486,16 @@ const initListPage = () => {
 		});
 	}
 
+	const filterKeyword = document.getElementById('filterKeyword');
+	if (filterKeyword) {
+		filterKeyword.addEventListener('input', () => {
+			approvalsDesktopPage = 1;
+			paymentSelectedRefs.clear();
+			refreshApprovalsList();
+			updatePaymentBatchBar();
+		});
+	}
+
 	const filterDateRange = document.getElementById('filterDateRange');
 	if (filterDateRange && typeof flatpickr !== 'undefined') {
 		approvalsDateRangePicker = flatpickr(filterDateRange, {
@@ -499,6 +518,7 @@ const initListPage = () => {
 		btnResetApprovalFilters.addEventListener('click', () => {
 			if (approvalsDateRangePicker) approvalsDateRangePicker.clear();
 			if (filterTransactionType) filterTransactionType.value = 'ALL';
+			if (filterKeyword) filterKeyword.value = '';
 			selectedTransactionType = 'ALL';
 			approvalsDesktopPage = 1;
 			paymentSelectedRefs.clear();

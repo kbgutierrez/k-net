@@ -195,6 +195,7 @@ const renderExpenseItems = () => {
 		const et = getExpenseTypeByCode(it.expenseType), desc = normalizeDate((et || {}).description);
 		const atts = getAllAttachments(it), summary = ocr.label(atts, it.id), hasAtt = atts.length > 0;
 		const btnLabel = hasAtt ? 'Replace' : 'Attach';
+		const attTitle = hasAtt ? escapeHtml(atts.map((f) => f.name || f.fileName || '').join(', ')) : '';
 		return `
 			<div class="kna-item-row" data-item-id="${it.id}">
 				<div class="kna-item-row-index">${i + 1}</div>
@@ -204,7 +205,7 @@ const renderExpenseItems = () => {
 					<div class="kna-item-field kna-f-attach">
 						<span class="kna-item-field-label">Attachment</span>
 						<div class="kna-item-attach-inline">
-							<span class="kna-attachment-cell">${summary}</span>
+							<span class="kna-attachment-cell" title="${attTitle}">${summary}</span>
 							<button type="button" class="btn btn-outline-primary btn-sm kna-small" data-item-action="attach" data-item-id="${it.id}">${btnLabel}</button>
 							<input type="file" class="d-none" data-item-file="upload" data-item-id="${it.id}" accept="image/*,application/pdf" multiple>
 							<input type="file" class="d-none" data-item-file="camera" data-item-id="${it.id}" accept="image/*" capture="environment">

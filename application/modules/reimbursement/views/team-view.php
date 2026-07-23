@@ -51,7 +51,7 @@
 	.kna-vat-wrap { display: inline-flex; align-items: center; height: 28px; margin: 0; cursor: pointer; }
 	.kna-vat-input { width: 14px; height: 14px; margin: 0; accent-color: #2563eb; }
 	.kna-item-attach-inline { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-	.kna-item-attach-inline .kna-attachment-cell { font-size: 10px; font-weight: 600; }
+	.kna-item-attach-inline .kna-attachment-cell { font-size: 10px; font-weight: 600; display: inline-block; max-width: 130px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; vertical-align: middle; }
 	.kna-item-attach-inline .btn { font-size: 10px; padding: 3px 8px; height: 24px; line-height: 1; }
 	.kna-attachment-cell { font-size: 12px; font-weight: 600; white-space: normal; overflow: hidden; text-overflow: ellipsis; line-height: 1.25; }
 

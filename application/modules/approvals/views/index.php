@@ -220,6 +220,10 @@
                 <?php endif; ?>
             </div>
             <div>
+                <label class="kna-small kna-form-label mb-1">Search</label>
+                <input type="text" class="form-control form-control-sm kna-small" id="filterKeyword" placeholder="Ref no. or requestor" autocomplete="off" style="width:180px;">
+            </div>
+            <div>
                 <label class="kna-small kna-form-label mb-1">Type</label>
                 <select class="form-control form-control-sm kna-small" id="filterTransactionType" style="width:160px;">
                     <option value="ALL">All Items</option>

@@ -710,9 +710,69 @@ const bindOverduePanel = () => {
 	}
 };
 
+const quickLinkIcon = (name) => {
+	const n = String(name || '').toLowerCase();
+	if (n.includes('cash advance')) return 'fa-hand-holding-usd';
+	if (n.includes('liquidation')) return 'fa-receipt';
+	if (n.includes('reimburs')) return 'fa-wallet';
+	if (n.includes('replenish') || n.includes('revolving')) return 'fa-sync-alt';
+	if (n.includes('approval')) return 'fa-check-circle';
+	if (n.includes('report')) return 'fa-chart-bar';
+	if (n.includes('notification')) return 'fa-bell';
+	if (n.includes('expense type')) return 'fa-tags';
+	return 'fa-th-large';
+};
+
+const renderQuickLinks = (rows) => {
+	const row = document.getElementById('quickLinksRow');
+	if (!row) return;
+
+	if (!rows || !rows.length) {
+		row.classList.add('d-none');
+		row.innerHTML = '';
+		return;
+	}
+
+	row.innerHTML = rows.map((r) => `
+		<a href="${base_url}${r.module_route}" class="kna-quicklink-tile">
+			<div class="kna-quicklink-icon"><i class="fas ${quickLinkIcon(r.module_name)}"></i></div>
+			<div class="kna-quicklink-name">${escapeHtml(r.module_name)}</div>
+			<button type="button" class="kna-quicklink-remove" data-route="${escapeHtml(r.module_route)}" data-name="${escapeHtml(r.module_name)}" data-group="${escapeHtml(r.module_group || '')}" title="Remove from Quick Links">
+				<i class="fas fa-times"></i>
+			</button>
+		</a>
+	`).join('');
+	row.classList.remove('d-none');
+};
+
+const bindQuickLinks = () => {
+	const grid = document.getElementById('quickLinksRow');
+	if (!grid) return;
+	grid.addEventListener('click', (e) => {
+		const btn = e.target.closest('.kna-quicklink-remove');
+		if (!btn) return;
+		e.preventDefault();
+		e.stopPropagation();
+		if (window.knetFavorites) {
+			window.knetFavorites.toggle(btn.dataset.name, btn.dataset.route, btn.dataset.group);
+		}
+	});
+};
+
+// Registered at parse time (not inside $(document).ready) so it is
+// guaranteed to be listening before main.js's favorites fetch — kicked
+// off from its own earlier DOMContentLoaded handler — resolves.
+document.addEventListener('knet:favorites-loaded', (e) => {
+	renderQuickLinks((e.detail && e.detail.rows) || []);
+});
+document.addEventListener('knet:favorites-updated', () => {
+	if (window.knetFavorites) window.knetFavorites.load();
+});
+
 const initDashboard = () => {
 	cacheDom();
 	bindEvents();
+	bindQuickLinks();
 	loadDashboard();
 	bindFundCashIn();
 	loadFundPassbook(false);

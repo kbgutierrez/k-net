@@ -17,8 +17,29 @@
     .kna-title {
         font-size: 17px;
         font-weight: 600;
-        margin: 0 0 8px;
+        margin: 0;
         line-height: 1.2;
+    }
+
+    .kna-dash-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+    }
+
+    .kna-dash-header .kna-title {
+        flex: 0 0 auto;
+    }
+
+    @media (max-width: 575.98px) {
+        .kna-dash-header {
+            flex-wrap: wrap;
+        }
+
+        .kna-dash-header .kna-quicklinks-grid {
+            flex-basis: 100%;
+        }
     }
 
     .kna-small {
@@ -628,11 +649,97 @@
             font-size: 11px !important;
         }
     }
+
+    .kna-quicklinks-grid {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 6px;
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding-bottom: 3px;
+        scrollbar-width: thin;
+    }
+
+    .kna-quicklinks-grid::-webkit-scrollbar {
+        height: 4px;
+    }
+
+    .kna-quicklinks-grid::-webkit-scrollbar-thumb {
+        background: #d6dee7;
+        border-radius: 999px;
+    }
+
+    .kna-quicklink-tile {
+        display: inline-flex;
+        flex: 0 0 auto;
+        align-items: center;
+        gap: 5px;
+        border: 1px solid #e6edf5;
+        border-radius: 999px;
+        padding: 3px 6px 3px 5px;
+        background: #fbfdff;
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .kna-quicklink-tile:hover {
+        border-color: #c7d6e6;
+        background: #f3f8fd;
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .kna-quicklink-icon {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 9px;
+        background: #e9f1fb;
+        color: #2f6eb4;
+        flex: 0 0 auto;
+    }
+
+    .kna-quicklink-name {
+        font-size: 11px;
+        font-weight: 600;
+        color: #233243;
+        line-height: 1;
+        white-space: nowrap;
+    }
+
+    .kna-quicklink-remove {
+        flex: 0 0 auto;
+        width: 14px;
+        height: 14px;
+        border: none;
+        background: transparent;
+        color: #b6c0cc;
+        font-size: 8px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 2px;
+    }
+
+    .kna-quicklink-remove:hover {
+        background: #fdeaea;
+        color: #a02020;
+    }
 </style>
 
 <div class="page-inner kna-page">
 
-    <div class="kna-title">Dashboard</div>
+    <div class="kna-dash-header">
+        <div class="kna-title">Dashboard</div>
+        <div class="kna-quicklinks-grid d-none" id="quickLinksRow"></div>
+    </div>
 
     <div class="kna-kpi-row">
         <div>

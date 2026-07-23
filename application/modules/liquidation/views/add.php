@@ -82,7 +82,7 @@
     gap: 6px;
     flex-wrap: wrap;
   }
-  .kna-item-attach-inline .kna-attachment-cell { font-size: 10px; font-weight: 600; }
+  .kna-item-attach-inline .kna-attachment-cell { font-size: 10px; font-weight: 600; display: inline-block; max-width: 130px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; vertical-align: middle; }
   .kna-item-attach-inline .btn {
     font-size: 10px;
     padding: 3px 8px;

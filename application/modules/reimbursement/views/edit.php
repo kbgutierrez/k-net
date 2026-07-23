@@ -81,8 +81,8 @@
 	.kna-thumb { width: 58px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid #e5e7eb; transition: transform .15s, border-color .15s; }
 	.kna-thumb:hover { transform: scale(1.1); border-color: #6366f1; }
 	.kna-thumb-label { font-size: 10px; color: #6b7280; margin-top: 2px; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
-	.kna-file-wrap { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; margin-bottom: 3px; }
-	.kna-file-wrap a { color: #4f46e5; text-decoration: none; font-weight: 600; }
+	.kna-file-wrap { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; margin-bottom: 3px; max-width: 140px; }
+	.kna-file-wrap a { color: #4f46e5; text-decoration: none; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100px; display: inline-block; vertical-align: middle; }
 	.kna-file-wrap a:hover { text-decoration: underline; }
 	.kna-file-wrap .kna-file-remove { color: #ef4444; cursor: pointer; font-size: 10px; margin-left: 2px; }
 	.kna-file-wrap.removed { opacity: 0.4; text-decoration: line-through; }

@@ -67,6 +67,156 @@ class Dashboard extends MY_Controller
         return !empty($row);
     }
 
+    public function api_global_search()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $userId = (int) $this->session->userdata('user_id');
+            if ($userId <= 0) {
+                return $this->respondError('User not authenticated.');
+            }
+
+            $keyword = isset($data['Keyword']) ? trim((string) $data['Keyword']) : '';
+            if (mb_strlen($keyword) < 2) {
+                return $this->respondSuccess('OK', array());
+            }
+
+            $result = $this->sp->readData(
+                build_sp('sp_global_search', 2),
+                array('UserId' => $userId, 'Keyword' => $keyword),
+                'result'
+            );
+            $result = is_array($result) ? $result : array();
+
+            $moduleMatches = $this->searchOwnModules($keyword);
+
+            return $this->respondSuccess('OK', array_merge($moduleMatches, $result));
+        } catch (\Throwable $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
+    private function searchOwnModules($keyword)
+    {
+        $keyword = trim((string) $keyword);
+        if ($keyword === '' || empty($this->module) || !is_array($this->module)) {
+            return array();
+        }
+
+        $needle = mb_strtolower($keyword);
+        $maxDistance = mb_strlen($needle) <= 4 ? 1 : (mb_strlen($needle) <= 8 ? 2 : 3);
+        $matches = array();
+
+        foreach ($this->module as $m) {
+            $name = trim((string) ($m['module'] ?? ''));
+            $route = trim((string) ($m['route'] ?? ''));
+            if ($name === '' || $route === '') {
+                continue;
+            }
+
+            $haystack = mb_strtolower($name);
+            $isMatch = (mb_strpos($haystack, $needle) !== false);
+
+            if (!$isMatch && mb_strlen($needle) >= 3) {
+                foreach (preg_split('/\s+/', $haystack) as $word) {
+                    if ($word !== '' && levenshtein($word, $needle) <= $maxDistance) {
+                        $isMatch = true;
+                        break;
+                    }
+                }
+            }
+
+            if ($isMatch) {
+                $matches[] = array(
+                    'transaction_type' => 'MODULE',
+                    'reference_no' => null,
+                    'description' => $name,
+                    'requester_name' => (string) ($m['module_group'] ?? ''),
+                    'amount' => null,
+                    'status_name' => null,
+                    'created_date' => null,
+                    'is_approver' => null,
+                    'is_pending' => null,
+                    'module_name' => $name,
+                    'module_route' => $route,
+                    'module_group' => (string) ($m['module_group'] ?? ''),
+                );
+            }
+        }
+
+        return $matches;
+    }
+
+    public function api_get_favorite_modules()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+
+            $userId = (int) $this->session->userdata('user_id');
+            if ($userId <= 0) {
+                return $this->respondError('User not authenticated.');
+            }
+
+            $rows = $this->sp->readData(
+                build_sp('sp_fetch_favorite_modules', 1),
+                array('UserId' => $userId),
+                'result'
+            );
+
+            return $this->respondSuccess('OK', is_array($rows) ? $rows : array());
+        } catch (\Throwable $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
+    public function api_toggle_favorite_module()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $userId = (int) $this->session->userdata('user_id');
+            if ($userId <= 0) {
+                return $this->respondError('User not authenticated.');
+            }
+
+            $moduleName = isset($data['ModuleName']) ? trim((string) $data['ModuleName']) : '';
+            $moduleRoute = isset($data['ModuleRoute']) ? trim((string) $data['ModuleRoute']) : '';
+            $moduleGroup = isset($data['ModuleGroup']) ? trim((string) $data['ModuleGroup']) : '';
+
+            if ($moduleName === '' || $moduleRoute === '') {
+                return $this->respondError('Module is required.');
+            }
+
+            $allowedRoutes = array();
+            foreach ((array) $this->module as $m) {
+                $allowedRoutes[trim((string) ($m['route'] ?? ''))] = true;
+            }
+            if (!isset($allowedRoutes[$moduleRoute])) {
+                return $this->respondError('You do not have access to this module.');
+            }
+
+            $result = $this->sp->readData(
+                build_sp('sp_toggle_favorite_module', 4),
+                array(
+                    'UserId' => $userId,
+                    'ModuleName' => $moduleName,
+                    'ModuleRoute' => $moduleRoute,
+                    'ModuleGroup' => $moduleGroup !== '' ? $moduleGroup : null,
+                ),
+                'row'
+            );
+
+            return $this->respondSuccess('OK', array(
+                'is_favorite' => !empty($result['is_favorite']),
+            ));
+        } catch (\Throwable $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
     public function api_get_overdue_liquidations()
     {
         try {

@@ -6,6 +6,7 @@ let desktopPage = 1;
 const PAGE_SIZE = 10;
 
 const dom = {
+	filterKeyword: null,
 	filterDateRange: null,
 	filterDateRangePicker: null,
 	filterStatus: null,
@@ -210,6 +211,14 @@ const inAmountRange = (amount, range) => {
 const matchesFilters = (row) => {
 	const status = dom.filterStatus.value;
 	const amountRange = dom.filterAmountRange.value;
+	const keyword = (dom.filterKeyword ? dom.filterKeyword.value : '').trim().toLowerCase();
+
+	if (keyword) {
+		const haystack = `${row.refNo} ${row.purpose}`.toLowerCase();
+		if (haystack.indexOf(keyword) === -1) {
+			return false;
+		}
+	}
 
 	if (status && row.status !== status) {
 		return false;
@@ -330,6 +339,7 @@ const refreshUI = () => {
 
 const resetFilters = () => {
 	desktopPage = 1;
+	if (dom.filterKeyword) dom.filterKeyword.value = '';
 	if (dom.filterDateRangePicker) {
 		dom.filterDateRangePicker.clear();
 	}
@@ -339,6 +349,7 @@ const resetFilters = () => {
 };
 
 const cacheDom = () => {
+	dom.filterKeyword = document.getElementById('filterKeyword');
 	dom.filterDateRange = document.getElementById('filterDateRange');
 	dom.filterStatus = document.getElementById('filterStatus');
 	dom.filterAmountRange = document.getElementById('filterAmountRange');
@@ -388,6 +399,7 @@ const handleNewRequestClick = () => {
 };
 
 const bindEvents = () => {
+	if (dom.filterKeyword) dom.filterKeyword.addEventListener('input', applyFilters);
 	dom.filterStatus.addEventListener('change', applyFilters);
 	dom.filterAmountRange.addEventListener('change', applyFilters);
 	dom.btnReset.addEventListener('click', resetFilters);

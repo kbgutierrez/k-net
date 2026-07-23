@@ -78,6 +78,13 @@
       <nav class="navbar navbar-header navbar-expand-lg bg-primary">
         <div class="container-fluid">
           <ul class="navbar-nav topbar-nav ml-md-auto align-items-center ">
+              <li class="nav-item kna-gsearch-wrap">
+                <div class="kna-gsearch">
+                  <i class="fas fa-search kna-gsearch-icon"></i>
+                  <input type="text" id="kna-gsearch-input" class="kna-gsearch-input" placeholder="Search CA, LQ, RMB no. or name…" autocomplete="off">
+                  <div class="kna-gsearch-results d-none" id="kna-gsearch-results"></div>
+                </div>
+              </li>
               <li class="nav-item dropdown hidden-caret">
                 <a class="nav-link dropdown-toggle" href="#" id="notifDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                   <i class="fa fa-bell"></i>

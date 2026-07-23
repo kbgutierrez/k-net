@@ -457,10 +457,22 @@ class Cash_Advance extends MY_Controller
             );
             $costCenterName = $costCenterRow['cost_center_name'] ?? '';
 
+            // Payable To is now picked via Select2 and posted as the chosen
+            // user's id — resolve it to "Firstname Lastname" here since the
+            // PDF (and KFlow) must show a real name, never the raw id.
+            $payableToDisplay = trim((string) $data['PayableTo']);
+            $payableToUserId = (int) $payableToDisplay;
+            if ($payableToUserId > 0) {
+                $payableToInfo = get_user_info($payableToUserId);
+                if (is_array($payableToInfo) && (trim((string) ($payableToInfo['firstname'] ?? '')) !== '' || trim((string) ($payableToInfo['lastname'] ?? '')) !== '')) {
+                    $payableToDisplay = trim(trim((string) ($payableToInfo['firstname'] ?? '')) . ' ' . trim((string) ($payableToInfo['lastname'] ?? '')));
+                }
+            }
+
             $pdfData = array(
                 'Date' => $data['Date'],
                 'CashAdvanceId' => $caRef,
-                'PayableTo' => $data['PayableTo'],
+                'PayableTo' => $payableToDisplay,
                 'AddressLine1' => $addressLine1,
                 'AddressLine2' => $addressLine2,
                 'Amount' => $data['Amount'],
