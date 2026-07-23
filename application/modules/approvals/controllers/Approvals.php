@@ -16,10 +16,23 @@ class Approvals extends MY_Controller
     {
         try {
             $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
 
-            $departmentId = (int) ($this->session->userdata('user_info')['department_id'] ?? 0);
+            // The Payable To picker on the review page must list the
+            // REQUESTER's department, not the approver's own — an
+            // approver in Finance reviewing an ICT employee's CA needs
+            // ICT names, not Finance names. UserId here is the
+            // transaction's requester (h.user_id from
+            // sp_fetch_transaction_details), not the logged-in approver.
+            $userId = isset($data['UserId']) ? (int) $data['UserId'] : 0;
+            if ($userId <= 0) {
+                throw new Exception('UserId is required.');
+            }
+
+            $userInfo = get_user_info($userId);
+            $departmentId = (int) ($userInfo['department_id'] ?? 0);
             if ($departmentId <= 0) {
-                throw new Exception('Department not found for the logged-in user.');
+                throw new Exception('Department not found for that user.');
             }
 
             $result = $this->sp->readData(

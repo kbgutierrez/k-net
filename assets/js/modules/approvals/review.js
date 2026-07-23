@@ -285,8 +285,11 @@ const renderAttachment = name => {
 /* ─── PAYABLE TO HELPERS ─── */
 let reviewPayableToOptions = [];
 
-const loadPayableToPickerOptions = (callback) => {
-  ajax_loader('transactions/approvals/api/get/payable-to-options', {}).done((response) => {
+// Scoped to the REQUESTER's department (not the logged-in approver's) —
+// an approver in Finance reviewing an ICT employee's CA needs ICT names.
+const loadPayableToPickerOptions = (requesterUserId, callback) => {
+  if (!requesterUserId) { reviewPayableToOptions = []; if (callback) callback(); return; }
+  ajax_loader('transactions/approvals/api/get/payable-to-options', { UserId: requesterUserId }).done((response) => {
     const res = typeof response === 'string' ? $.parseJSON(response) : response;
     reviewPayableToOptions = (res.status === 'success' && Array.isArray(res.data)) ? res.data : [];
     if (callback) callback();
@@ -1650,12 +1653,21 @@ const loadReviewData = () => {
     }
 
     reviewState.transactionType = items[0].transaction_type;
-    if (reviewState.transactionType === 'CASH_ADVANCE') renderCashAdvance(items, attachments);
-    else if (reviewState.transactionType === 'LIQUIDATION') renderLiquidation(items, attachments);
-    else if (reviewState.transactionType === 'REIMBURSEMENT') renderReimbursement(items, attachments);
-    else { if (domReview.viewApprovalItems) domReview.viewApprovalItems.innerHTML = '<div class="alert alert-danger kna-small">Unknown transaction type: ' + escapeHtml(reviewState.transactionType) + '</div>'; return; }
-    renderReviewTimeline(); updateSummary();
-    applyPaymentActionBar(canAdvise, canRelease, paymentCapability);
+    if (reviewState.transactionType !== 'LIQUIDATION' && reviewState.transactionType !== 'CASH_ADVANCE' && reviewState.transactionType !== 'REIMBURSEMENT') {
+      if (domReview.viewApprovalItems) domReview.viewApprovalItems.innerHTML = '<div class="alert alert-danger kna-small">Unknown transaction type: ' + escapeHtml(reviewState.transactionType) + '</div>';
+      return;
+    }
+
+    // Payable To options must be scoped to the REQUESTER's department
+    // (items[0].user_id), only known now that details have loaded —
+    // fetch before rendering so the picker's <option> list is ready.
+    loadPayableToPickerOptions(items[0].user_id, () => {
+      if (reviewState.transactionType === 'CASH_ADVANCE') renderCashAdvance(items, attachments);
+      else if (reviewState.transactionType === 'LIQUIDATION') renderLiquidation(items, attachments);
+      else if (reviewState.transactionType === 'REIMBURSEMENT') renderReimbursement(items, attachments);
+      renderReviewTimeline(); updateSummary();
+      applyPaymentActionBar(canAdvise, canRelease, paymentCapability);
+    });
   }).fail(() => { if (domReview.viewApprovalItems) domReview.viewApprovalItems.innerHTML = '<div class="alert alert-danger kna-small">Server error while fetching details.</div>'; });
 };
 
@@ -1767,5 +1779,5 @@ const handleReviewResize = () => {
   if (reviewState.transactionType === 'LIQUIDATION' || reviewState.transactionType === 'REIMBURSEMENT') initLiquidationCategorySelect2();
 };
 
-const initReviewPage = () => { cacheReviewDom(); loadPayableToPickerOptions(() => loadReviewData()); bindDecisionEvents(); window.addEventListener('resize', handleReviewResize); };
+const initReviewPage = () => { cacheReviewDom(); loadReviewData(); bindDecisionEvents(); window.addEventListener('resize', handleReviewResize); };
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initReviewPage); else initReviewPage();
