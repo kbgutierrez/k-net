@@ -270,6 +270,11 @@
                 <i class="fas fa-file-download mr-1"></i> Generate Petty Cash Slips
             </button>
             <?php endif; ?>
+            <?php if (!empty($hasBizlinkExportCapability)): ?>
+            <button type="button" class="btn btn-outline-secondary btn-sm kna-small" id="btnDownloadBizlinkExport" disabled>
+                <i class="fas fa-university mr-1"></i> Generate Text File
+            </button>
+            <?php endif; ?>
         </div>
     </div>
 

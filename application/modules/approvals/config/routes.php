@@ -21,4 +21,6 @@ $route['transactions/approvals/api/payment/release'] = 'Approvals/api_release_pa
 $route['transactions/approvals/api/payment/bulk-action'] = 'Approvals/api_bulk_payment_action';
 $route['transactions/approvals/petty-cash-slips-batch'] = 'Approvals/download_petty_cash_slips_batch';
 $route['transactions/approvals/api/petty-cash-slips/eligibility'] = 'Approvals/api_petty_cash_slips_eligibility';
+$route['transactions/approvals/bizlink-export-batch'] = 'Approvals/download_bizlink_export_batch';
+$route['transactions/approvals/api/bizlink-export/eligibility'] = 'Approvals/api_bizlink_export_eligibility';
 $route['transactions/approvals/test-petty-cash-coords'] = 'Approvals/test_petty_cash_coords';

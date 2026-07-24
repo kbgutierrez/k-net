@@ -52,6 +52,7 @@ class Approvals extends MY_Controller
         $hasAdvisoryCapability = $this->userHasPaymentCapabilityColumn('is_payment_advisory');
         $hasReleaseCapability = $this->userHasPaymentCapabilityColumn('is_payment_release');
         $hasPettyCashSlipCapability = $this->userHasPaymentCapabilityColumn('is_petty_cash_slip');
+        $hasBizlinkExportCapability = $this->userHasPaymentCapabilityColumn('is_bizlink_export');
 
         $data = array(
             'title' => 'Approvals',
@@ -62,6 +63,7 @@ class Approvals extends MY_Controller
             'hasAdvisoryCapability' => $hasAdvisoryCapability,
             'hasReleaseCapability' => $hasReleaseCapability,
             'hasPettyCashSlipCapability' => $hasPettyCashSlipCapability,
+            'hasBizlinkExportCapability' => $hasBizlinkExportCapability,
             'scripts' => array('index.js'),
         );
         $this->load->view('main', $data);
@@ -772,6 +774,99 @@ class Approvals extends MY_Controller
             ->set_content_type('application/pdf')
             ->set_header('Content-Disposition: ' . $disposition . '; filename="PettyCashSlips_' . date('Ymd_His') . '.pdf"')
             ->set_output($pdfContent);
+    }
+
+    private function userHasBizlinkExportCapability($referenceNo, $userId)
+    {
+        $row = $this->sp->db->select('D.id')
+            ->from('tbl_approval_matrix_details D')
+            ->join('tbl_approval_header H', 'H.approval_matrix_id = D.matrix_header_id')
+            ->where('H.reference_id', $referenceNo)
+            ->where('H.is_active', 1)
+            ->where('D.approver_id', (int) $userId)
+            ->where('D.is_bizlink_export', 1)
+            ->limit(1)
+            ->get()
+            ->row_array();
+
+        return !empty($row);
+    }
+
+    public function api_bizlink_export_eligibility()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $referenceNumbers = isset($data['reference_numbers']) && is_array($data['reference_numbers'])
+                ? $data['reference_numbers']
+                : array();
+
+            if (count($referenceNumbers) === 0) {
+                throw new Exception('No transactions selected.');
+            }
+
+            $userId = (int) $this->session->userdata('user_id');
+            if ($userId <= 0) {
+                throw new Exception('User not authenticated.');
+            }
+
+            $allowed = array();
+            $skipped = array();
+
+            foreach ($referenceNumbers as $referenceNo) {
+                $referenceNo = trim((string) $referenceNo);
+                if ($referenceNo === '') {
+                    continue;
+                }
+
+                if ($this->userHasBizlinkExportCapability($referenceNo, $userId)) {
+                    $allowed[] = $referenceNo;
+                } else {
+                    $skipped[] = $referenceNo;
+                }
+            }
+
+            return $this->respondSuccess('OK', array(
+                'allowed' => $allowed,
+                'skipped' => $skipped,
+            ));
+        } catch (Throwable $e) {
+            return $this->respondError($e->getMessage());
+        }
+    }
+
+    public function download_bizlink_export_batch()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $referenceNumbers = isset($data['reference_numbers']) && is_array($data['reference_numbers'])
+                ? $data['reference_numbers']
+                : array();
+
+            $userId = (int) $this->session->userdata('user_id');
+            if ($userId <= 0) {
+                throw new Exception('User not authenticated.');
+            }
+
+            $eligible = array();
+            foreach ($referenceNumbers as $referenceNo) {
+                $referenceNo = trim((string) $referenceNo);
+                if ($referenceNo !== '' && $this->userHasBizlinkExportCapability($referenceNo, $userId)) {
+                    $eligible[] = $referenceNo;
+                }
+            }
+
+            if (count($eligible) === 0) {
+                return $this->respondError('You are not assigned to generate the text file for the selected transaction(s). Please ask your administrator to enable the BizLink Export control for you on the approval matrix used by these transactions.');
+            }
+
+            return $this->respondError('Text file generation is not yet available -- the exact BPI file format is still being verified. This will be enabled once confirmed.');
+        } catch (Throwable $e) {
+            return $this->respondError($e->getMessage());
+        }
     }
 
     private function fetchPettyCashSlipFields($referenceNo)

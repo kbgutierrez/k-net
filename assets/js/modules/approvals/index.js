@@ -414,6 +414,10 @@ const updateApprovalTabChrome = () => {
 	if (btnDownloadBatchPettyCashSlipsEl) {
 		btnDownloadBatchPettyCashSlipsEl.classList.toggle('d-none', !isPastTab());
 	}
+	const btnDownloadBizlinkExportEl = document.getElementById('btnDownloadBizlinkExport');
+	if (btnDownloadBizlinkExportEl) {
+		btnDownloadBizlinkExportEl.classList.toggle('d-none', !isPastTab());
+	}
 	if (!isBatchSelectableTab()) {
 		paymentSelectedRefs.clear();
 	}
@@ -432,6 +436,10 @@ const updatePaymentBatchBar = () => {
 	const btnDownloadSlips = document.getElementById('btnDownloadBatchPettyCashSlips');
 	if (btnDownloadSlips) {
 		btnDownloadSlips.disabled = paymentSelectedRefs.size === 0;
+	}
+	const btnDownloadBizlink = document.getElementById('btnDownloadBizlinkExport');
+	if (btnDownloadBizlink) {
+		btnDownloadBizlink.disabled = paymentSelectedRefs.size === 0;
 	}
 	const selectAll = document.getElementById('paymentSelectAll');
 	if (selectAll) {
@@ -724,6 +732,59 @@ const initListPage = () => {
 				openPettyCashSlipPreview(allowed);
 			}).fail(() => {
 				Swal.fire({ icon: 'error', title: 'Error', text: 'Server error while checking petty cash slip eligibility.' });
+			});
+		});
+	}
+
+	const btnDownloadBizlinkExport = document.getElementById('btnDownloadBizlinkExport');
+	if (btnDownloadBizlinkExport) {
+		btnDownloadBizlinkExport.addEventListener('click', () => {
+			if (paymentSelectedRefs.size === 0) {
+				return;
+			}
+
+			ajax_loader_loading('transactions/approvals/api/bizlink-export/eligibility', {
+				reference_numbers: Array.from(paymentSelectedRefs),
+			}).done((response) => {
+				const res = (typeof response === 'string') ? $.parseJSON(response) : response;
+				if (res.status !== 'success') {
+					Swal.fire({ icon: 'error', title: 'Failed', text: res.response || 'Could not check text file export eligibility.' });
+					return;
+				}
+
+				const data = res.data || {};
+				const allowed = data.allowed || [];
+				const skipped = data.skipped || [];
+
+				const refListHtml = (refs) => {
+					const shown = refs.slice(0, 3).map(escapeHtml).join('<br>');
+					const more = refs.length > 3 ? `<br>+${refs.length - 3} more` : '';
+					return `<b>${shown}</b>${more}`;
+				};
+
+				if (allowed.length === 0) {
+					Swal.fire({
+						icon: 'warning',
+						title: 'Not Allowed',
+						html: `You can't generate the text file for:<br>${refListHtml(skipped)}`,
+					});
+					return;
+				}
+
+				ajax_loader_loading('transactions/approvals/bizlink-export-batch', {
+					reference_numbers: allowed,
+				}).done((exportResponse) => {
+					const exportRes = (typeof exportResponse === 'string') ? $.parseJSON(exportResponse) : exportResponse;
+					Swal.fire({
+						icon: exportRes.status === 'success' ? 'success' : 'info',
+						title: exportRes.status === 'success' ? 'Generated' : 'Not Available Yet',
+						text: exportRes.response || 'Text file generation is not yet available.',
+					});
+				}).fail(() => {
+					Swal.fire({ icon: 'error', title: 'Error', text: 'Server error while generating the text file.' });
+				});
+			}).fail(() => {
+				Swal.fire({ icon: 'error', title: 'Error', text: 'Server error while checking text file export eligibility.' });
 			});
 		});
 	}
