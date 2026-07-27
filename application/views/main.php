@@ -101,11 +101,6 @@
                       </div>
                     </div>
                   </li>
-                  <li>
-                    <a href="<?=base_url('transactions/approvals');?>" class="dropdown-item text-center kna-small font-weight-bold" style="color:#5f2a8a;">
-                      View All
-                    </a>
-                  </li>
                 </ul>
               </li>
   

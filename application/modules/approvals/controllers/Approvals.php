@@ -409,13 +409,13 @@ class Approvals extends MY_Controller
                 foreach ($result as &$row) {
                     if (!is_array($row)) {
                         continue;
+                    }
 
-                        if (!isset($row['approved_amount'])) {
-                            $row['approved_amount'] = null;
-                        }
-                        if (!isset($row['approved_amount_in_words'])) {
-                            $row['approved_amount_in_words'] = '';
-                        }
+                    if (!isset($row['approved_amount'])) {
+                        $row['approved_amount'] = null;
+                    }
+                    if (!isset($row['approved_amount_in_words'])) {
+                        $row['approved_amount_in_words'] = '';
                     }
 
                     $finalPath = isset($row['final_pdf_path']) ? $this->normalizeRelativeAssetPath($row['final_pdf_path']) : '';
