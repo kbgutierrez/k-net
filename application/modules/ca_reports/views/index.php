@@ -150,6 +150,9 @@
     <div>
       <div class="kna-title">Cash Advance Report</div>
     </div>
+    <button type="button" class="btn btn-success btn-sm kna-small kna-mobile-cta" id="btnDownloadExcel">
+      <i class="fas fa-file-excel mr-1"></i>Download Excel
+    </button>
   </div>
 
   <!-- Filters -->

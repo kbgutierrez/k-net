@@ -8,5 +8,6 @@ $route['reports/ca_reports/view/(:any)'] = 'CA_Reports/view/$1';
 $route['reports/ca_reports/api/get'] = 'CA_Reports/api_get';
 $route['reports/ca_reports/api/get/detail'] = 'CA_Reports/api_get_detail';
 $route['reports/ca_reports/api/get/timeline'] = 'CA_Reports/api_get_timeline';
+$route['reports/ca_reports/download/excel'] = 'CA_Reports/download_excel';
 
 ?>

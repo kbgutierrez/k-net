@@ -71,3 +71,6 @@ sp_reimbursement_resubmit_helpers.sql
 sp_fetch_reimbursement_list.sql
 drop_expense_category_id.sql
 application/config/notification_email.php
+test1.xlsx
+.gitignore
+assets/templates/Mass Journal Entries Template.xlsx

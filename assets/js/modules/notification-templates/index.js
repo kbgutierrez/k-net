@@ -68,9 +68,24 @@ const renderTemplatesPagination = (rows) => {
 	const totalPages = Math.max(1, Math.ceil(rows.length / TEMPLATES_PAGE_SIZE));
 	if (templatesDesktopPage > totalPages) templatesDesktopPage = totalPages;
 
+	// Slide a fixed-size window of page numbers around the current
+	// page instead of listing every page.
+	const WINDOW_SIZE = 5;
+	let windowStart = Math.max(1, templatesDesktopPage - Math.floor(WINDOW_SIZE / 2));
+	let windowEnd = Math.min(totalPages, windowStart + WINDOW_SIZE - 1);
+	windowStart = Math.max(1, windowEnd - WINDOW_SIZE + 1);
+
 	let links = '';
-	for (let page = 1; page <= totalPages; page += 1) {
+	if (windowStart > 1) {
+		links += `<li class="page-item"><a class="page-link" href="#" data-action="page" data-page="1">1</a></li>`;
+		links += `<li class="page-item disabled"><span class="page-link">&hellip;</span></li>`;
+	}
+	for (let page = windowStart; page <= windowEnd; page += 1) {
 		links += `<li class="page-item ${page === templatesDesktopPage ? 'active' : ''}"><a class="page-link" href="#" data-action="page" data-page="${page}">${page}</a></li>`;
+	}
+	if (windowEnd < totalPages) {
+		links += `<li class="page-item disabled"><span class="page-link">&hellip;</span></li>`;
+		links += `<li class="page-item"><a class="page-link" href="#" data-action="page" data-page="${totalPages}">${totalPages}</a></li>`;
 	}
 	pagination.innerHTML = `
 		<li class="page-item ${templatesDesktopPage > 1 ? '' : 'disabled'}"><a class="page-link" href="#" data-action="prev">&lsaquo;</a></li>

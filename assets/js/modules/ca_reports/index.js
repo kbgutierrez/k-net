@@ -17,6 +17,7 @@ const dom = {
 	cashAdvanceTable: null,
 	cashAdvanceTbody: null,
 	cashAdvanceMobileList: null,
+	btnDownloadExcel: null,
 };
 
 const escapeHtml = (value = '') => String(value)
@@ -120,13 +121,34 @@ const renderDesktopPagination = (rows) => {
 
 	const canPrev = desktopPage > 1;
 	const canNext = desktopPage < totalPages;
+	// Slide a fixed-size window of page numbers around the current
+	// page instead of listing every page.
+	const WINDOW_SIZE = 5;
+	let windowStart = Math.max(1, desktopPage - Math.floor(WINDOW_SIZE / 2));
+	let windowEnd = Math.min(totalPages, windowStart + WINDOW_SIZE - 1);
+	windowStart = Math.max(1, windowEnd - WINDOW_SIZE + 1);
+
 	let pageLinks = '';
 
-	for (let page = 1; page <= totalPages; page += 1) {
+	if (windowStart > 1) {
+		pageLinks += `
+			<li class="page-item"><a class="page-link" href="#" data-page="1">1</a></li>
+			<li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+		`;
+	}
+
+	for (let page = windowStart; page <= windowEnd; page += 1) {
 		pageLinks += `
 			<li class="page-item ${page === desktopPage ? 'active' : ''}">
 				<a class="page-link" href="#" data-page="${page}">${page}</a>
 			</li>
+		`;
+	}
+
+	if (windowEnd < totalPages) {
+		pageLinks += `
+			<li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+			<li class="page-item"><a class="page-link" href="#" data-page="${totalPages}">${totalPages}</a></li>
 		`;
 	}
 
@@ -257,6 +279,25 @@ const goToPath = (path) => {
 	window.location.href = `${base_url}reports/${path}`;
 };
 
+const downloadExcel = () => {
+	const params = new URLSearchParams();
+	const range = parseDateRange();
+	const department = normalizeText(dom.filterDepartment && dom.filterDepartment.value);
+	const company = normalizeText(dom.filterCompany && dom.filterCompany.value);
+	const employee = normalizeText(dom.filterEmployee && dom.filterEmployee.value);
+	const status = normalizeText(dom.filterStatus && dom.filterStatus.value);
+
+	if (range.from) params.set('DateFrom', range.from);
+	if (range.to) params.set('DateTo', range.to);
+	if (department) params.set('Department', department);
+	if (company) params.set('Company', company);
+	if (employee) params.set('Employee', employee);
+	if (status) params.set('Status', status);
+
+	const query = params.toString();
+	window.location.href = `${base_url}reports/ca_reports/download/excel${query ? '?' + query : ''}`;
+};
+
 const cacheDom = () => {
 	dom.filterKeyword = document.getElementById('filterKeyword');
 	dom.filterDateRange = document.getElementById('filterDateRange');
@@ -272,6 +313,7 @@ const cacheDom = () => {
 	dom.cashAdvanceTable = document.getElementById('cashAdvanceTable');
 	dom.cashAdvanceTbody = document.getElementById('cashAdvanceTbody');
 	dom.cashAdvanceMobileList = document.getElementById('cashAdvanceMobileList');
+	dom.btnDownloadExcel = document.getElementById('btnDownloadExcel');
 };
 
 const bindEvents = () => {
@@ -281,6 +323,7 @@ const bindEvents = () => {
 	if (dom.filterEmployee) dom.filterEmployee.addEventListener('change', applyFilters);
 	if (dom.filterStatus) dom.filterStatus.addEventListener('change', applyFilters);
 	if (dom.btnReset) dom.btnReset.addEventListener('click', resetFilters);
+	if (dom.btnDownloadExcel) dom.btnDownloadExcel.addEventListener('click', downloadExcel);
 
 	if (dom.desktopPagination) {
 		dom.desktopPagination.addEventListener('click', (event) => {

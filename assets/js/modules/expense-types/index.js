@@ -170,12 +170,31 @@ const renderDesktopPagination = (rows) => {
 	const canPrev = desktopPage > 1;
 	const canNext = desktopPage < totalPages || hasMoreRows;
 
+	// Slide a fixed-size window of page numbers around the current
+	// page instead of listing every page.
+	const WINDOW_SIZE = 5;
+	let windowStart = Math.max(1, desktopPage - Math.floor(WINDOW_SIZE / 2));
+	let windowEnd = Math.min(totalPages, windowStart + WINDOW_SIZE - 1);
+	windowStart = Math.max(1, windowEnd - WINDOW_SIZE + 1);
+
 	let pageLinks = '';
-	for (let page = 1; page <= totalPages; page += 1) {
+	if (windowStart > 1) {
+		pageLinks += `
+			<li class="page-item"><a class="page-link" href="#" data-page="1">1</a></li>
+			<li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+		`;
+	}
+	for (let page = windowStart; page <= windowEnd; page += 1) {
 		pageLinks += `
 			<li class="page-item ${page === desktopPage ? 'active' : ''}">
 				<a class="page-link" href="#" data-page="${page}">${page}</a>
 			</li>
+		`;
+	}
+	if (windowEnd < totalPages) {
+		pageLinks += `
+			<li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+			<li class="page-item"><a class="page-link" href="#" data-page="${totalPages}">${totalPages}</a></li>
 		`;
 	}
 

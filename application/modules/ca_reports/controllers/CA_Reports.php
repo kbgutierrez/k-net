@@ -130,59 +130,76 @@ class CA_Reports extends MY_Controller
 
 
 
+    private function buildFilteredQuery($filters)
+    {
+        $dateFrom = trim((string) $filters['DateFrom']);
+        $dateTo = trim((string) $filters['DateTo']);
+        $status = trim((string) $filters['Status']);
+        $department = trim((string) $filters['Department']);
+        $company = trim((string) $filters['Company']);
+        $employee = trim((string) $filters['Employee']);
+
+        $db = $this->sp->db;
+        $db->select(
+            "A.id,
+            A.cash_advance_id,
+            A.user_id,
+            LTRIM(RTRIM(ISNULL(B.lastname, '') + ', ' + ISNULL(B.firstname, ''))) AS employee_name,
+            ISNULL(C.CMPNYNM, '') AS company_name,
+            ISNULL(D.short_name, '') AS department_name,
+            A.amount,
+            A.description,
+            A.needed_date,
+            A.created_date,
+            A.updated_date,
+            A.status_code,
+            A.status_name",
+            false
+        );
+        $db->from('vw_ca A');
+        $db->join('BigEUsers.dbo.users B', 'A.user_id = B.id', 'inner', false);
+        $db->join('BigEHRIS.dbo.department D', 'B.department_id = D.department_id', 'left', false);
+        $db->join('BIGEDISER.dbo.TBL_CMPNY_CLSS C', 'B.company = C.ID AND C.ISACTV = 1', 'left', false);
+
+        if ($dateFrom !== '') {
+            $db->where('CONVERT(date, A.created_date) >=', $dateFrom, false);
+        }
+        if ($dateTo !== '') {
+            $db->where('CONVERT(date, A.created_date) <=', $dateTo, false);
+        }
+        if ($status !== '') {
+            $db->where('A.status_name', $status);
+        }
+        if ($department !== '') {
+            $db->where("ISNULL(D.short_name, '') =", $department, false);
+        }
+        if ($company !== '') {
+            $db->where("ISNULL(C.CMPNYNM, '') =", $company, false);
+        }
+        if ($employee !== '') {
+            $db->where("LTRIM(RTRIM(ISNULL(B.lastname, '') + ', ' + ISNULL(B.firstname, ''))) =", $employee, false);
+        }
+
+        $db->order_by('A.id', 'DESC');
+
+        return $db;
+    }
+
     public function api_get()
     {
         try {
             $this->output->set_content_type('application/json');
-            $dateFrom = trim((string) $this->input->post('DateFrom'));
-            $dateTo = trim((string) $this->input->post('DateTo'));
-            $status = trim((string) $this->input->post('Status'));
-            $department = trim((string) $this->input->post('Department'));
-            $company = trim((string) $this->input->post('Company'));
-            $employee = trim((string) $this->input->post('Employee'));
 
-            $db = $this->sp->db;
-            $db->select(
-                "A.id,
-                A.cash_advance_id,
-                A.user_id,
-                LTRIM(RTRIM(ISNULL(B.lastname, '') + ', ' + ISNULL(B.firstname, ''))) AS employee_name,
-                CAST(ISNULL(B.company, '') AS NVARCHAR(100)) AS company_name,
-                ISNULL(D.short_name, '') AS department_name,
-                A.amount,
-                A.description,
-                A.needed_date,
-                A.created_date,
-                A.updated_date,
-                A.status_code,
-                A.status_name",
-                false
+            $filters = array(
+                'DateFrom' => $this->input->post('DateFrom'),
+                'DateTo' => $this->input->post('DateTo'),
+                'Status' => $this->input->post('Status'),
+                'Department' => $this->input->post('Department'),
+                'Company' => $this->input->post('Company'),
+                'Employee' => $this->input->post('Employee'),
             );
-            $db->from('vw_ca A');
-            $db->join('BigEUsers.dbo.users B', 'A.user_id = B.id', 'inner', false);
-            $db->join('BigEHRIS.dbo.department D', 'B.department_id = D.department_id', 'left', false);
 
-            if ($dateFrom !== '') {
-                $db->where('CONVERT(date, A.created_date) >=', $dateFrom, false);
-            }
-            if ($dateTo !== '') {
-                $db->where('CONVERT(date, A.created_date) <=', $dateTo, false);
-            }
-            if ($status !== '') {
-                $db->where('A.status_name', $status);
-            }
-            if ($department !== '') {
-                $db->where("ISNULL(D.short_name, '') =", $department, false);
-            }
-            if ($company !== '') {
-                $db->where("CAST(ISNULL(B.company, '') AS NVARCHAR(100)) =", $company, false);
-            }
-            if ($employee !== '') {
-                $db->where("LTRIM(RTRIM(ISNULL(B.lastname, '') + ', ' + ISNULL(B.firstname, ''))) =", $employee, false);
-            }
-
-            $db->order_by('A.id', 'DESC');
-            $result = $db->get()->result_array();
+            $result = $this->buildFilteredQuery($filters)->get()->result_array();
 
             $nextCursorId = null;
             if (!empty($result)) {
@@ -205,6 +222,57 @@ class CA_Reports extends MY_Controller
                 'response' => "An error occurred: " . $e->getMessage(),
             ));
         }
+    }
+
+    public function download_excel()
+    {
+        $filters = array(
+            'DateFrom' => $this->input->get('DateFrom'),
+            'DateTo' => $this->input->get('DateTo'),
+            'Status' => $this->input->get('Status'),
+            'Department' => $this->input->get('Department'),
+            'Company' => $this->input->get('Company'),
+            'Employee' => $this->input->get('Employee'),
+        );
+
+        $result = $this->buildFilteredQuery($filters)->get()->result_array();
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Cash Advance Report');
+
+        $headers = array('Cash Advance No.', 'Employee', 'Department', 'Company', 'Amount', 'Purpose', 'Needed Date', 'Requested Date', 'Status');
+        $sheet->fromArray($headers, null, 'A1');
+        $sheet->getStyle('A1:I1')->getFont()->setBold(true);
+
+        $rowIndex = 2;
+        foreach ($result as $row) {
+            $sheet->fromArray(array(
+                isset($row['cash_advance_id']) ? $row['cash_advance_id'] : '',
+                isset($row['employee_name']) ? $row['employee_name'] : '',
+                isset($row['department_name']) ? $row['department_name'] : '',
+                isset($row['company_name']) ? $row['company_name'] : '',
+                isset($row['amount']) ? (float) $row['amount'] : 0,
+                isset($row['description']) ? $row['description'] : '',
+                isset($row['needed_date']) ? $row['needed_date'] : '',
+                isset($row['created_date']) ? $row['created_date'] : '',
+                isset($row['status_name']) ? $row['status_name'] : '',
+            ), null, 'A' . $rowIndex);
+            $rowIndex++;
+        }
+
+        foreach (range('A', 'I') as $col) {
+            $sheet->getColumnDimension($col)->setWidth(22);
+        }
+
+        $filename = 'cash-advance-report-' . date('Ymd-His') . '.xlsx';
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Cache-Control: max-age=0');
+
+        $writer = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($spreadsheet, 'Xlsx');
+        $writer->save('php://output');
+        exit;
     }
 
     public function api_get_detail()

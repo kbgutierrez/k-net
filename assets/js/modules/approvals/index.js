@@ -194,10 +194,25 @@ const renderDesktopPagination = (rows) => {
 	const canPrev = approvalsDesktopPage > 1;
 	const canNext = approvalsDesktopPage < totalPages;
 
+	// Slide a fixed-size window of page numbers around the current
+	// page instead of listing every page.
+	const WINDOW_SIZE = 5;
+	let windowStart = Math.max(1, approvalsDesktopPage - Math.floor(WINDOW_SIZE / 2));
+	let windowEnd = Math.min(totalPages, windowStart + WINDOW_SIZE - 1);
+	windowStart = Math.max(1, windowEnd - WINDOW_SIZE + 1);
+
 	let pageLinks = '';
-	for (let page = 1; page <= totalPages; page += 1) {
+	if (windowStart > 1) {
+		pageLinks += `<li class="page-item"><a class="page-link" href="#" data-action="page" data-page="1">1</a></li>`;
+		pageLinks += `<li class="page-item disabled"><span class="page-link">&hellip;</span></li>`;
+	}
+	for (let page = windowStart; page <= windowEnd; page += 1) {
 		const active = page === approvalsDesktopPage ? 'active' : '';
 		pageLinks += `<li class="page-item ${active}"><a class="page-link" href="#" data-action="page" data-page="${page}">${page}</a></li>`;
+	}
+	if (windowEnd < totalPages) {
+		pageLinks += `<li class="page-item disabled"><span class="page-link">&hellip;</span></li>`;
+		pageLinks += `<li class="page-item"><a class="page-link" href="#" data-action="page" data-page="${totalPages}">${totalPages}</a></li>`;
 	}
 
 	desktopPagination.innerHTML = `

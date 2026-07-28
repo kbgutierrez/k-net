@@ -52,6 +52,7 @@ if (!function_exists('_groq_ocr_candidate_models')) {
     {
         return array(
             'qwen/qwen3.6-27b',
+            'openai/gpt-oss-120b',
             'meta-llama/llama-4-scout-17b-16e-instruct',
             'meta-llama/llama-4-maverick-17b-128e-instruct',
         );
@@ -99,7 +100,7 @@ if (!function_exists('_groq_ocr_call_api')) {
         $payload = array(
             'model' => $model,
             'temperature' => 0.2,
-            'max_completion_tokens' => 700,
+            'max_completion_tokens' => 1000,
             'top_p' => 1,
             'stream' => false,
             'messages' => array(

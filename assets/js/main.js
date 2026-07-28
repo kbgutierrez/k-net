@@ -328,6 +328,21 @@
     return `transactions/approvals/review/${encodeURIComponent(ref)}`;
   };
 
+  // Shared across every report module's row-click "View" action, so the
+  // reference-prefix-to-destination mapping lives in exactly one place
+  // instead of being re-derived (and risking drift) in each report's JS.
+  window.knetResolveTransactionRoute = notifRouteForReference;
+
+  // Shared "CODE - Name" display convention for cost center and expense
+  // category across every report, so a bare code or a bare name never
+  // has to be guessed at in isolation.
+  window.knetFormatCodeName = (code, name) => {
+    const c = (code === null || code === undefined) ? '' : String(code).trim();
+    const n = (name === null || name === undefined) ? '' : String(name).trim();
+    if (c && n) return `${c} - ${n}`;
+    return c || n || '-';
+  };
+
   const notifRelativeTime = (rawDate) => {
     if (!rawDate) return '';
     const then = new Date(String(rawDate).replace(' ', 'T'));
