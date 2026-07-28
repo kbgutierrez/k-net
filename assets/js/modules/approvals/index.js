@@ -64,20 +64,40 @@ const getTransactionTypeLabel = (type) => {
 	return escapeHtml(normalizeDate(type));
 };
 
+const daysBetween = (fromIso, toIso) => {
+	if (!fromIso || !toIso) {
+		return null;
+	}
+	const from = new Date(`${fromIso}T00:00:00`);
+	const to = new Date(`${toIso}T00:00:00`);
+	if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+		return null;
+	}
+	return Math.round((to.getTime() - from.getTime()) / 86400000);
+};
+
+const todayIso = () => new Date().toISOString().slice(0, 10);
+
 const normalizeApprovalRows = (rows) =>
-	(rows || []).map((row) => ({
-		approvalDetailId: Number(row.approval_detail_id || 0),
-		referenceNo: normalizeDate(row.reference_no),
-		transactionType: normalizeDate(row.transaction_type),
-		userId: Number(row.user_id || 0),
-		requestor: normalizeDate(row.requester_name),
-		department: normalizeDate(row.department),
-		amount: Number(row.ca_amount ?? row.lq_amount ?? 0),
-		submittedDate: normalizeDate(row.submitted_date).slice(0, 10),
-		decisionStatus: normalizeDate(row.decision_status).toUpperCase(),
-		decidedDate: normalizeDate(row.decided_date).slice(0, 10),
-		paymentAction: normalizeDate(row.payment_action).toUpperCase(),
-	}));
+	(rows || []).map((row) => {
+		const submittedDate = normalizeDate(row.submitted_date).slice(0, 10);
+		const decidedDate = normalizeDate(row.decided_date).slice(0, 10);
+		return {
+			approvalDetailId: Number(row.approval_detail_id || 0),
+			referenceNo: normalizeDate(row.reference_no),
+			transactionType: normalizeDate(row.transaction_type),
+			userId: Number(row.user_id || 0),
+			requestor: normalizeDate(row.requester_name),
+			department: normalizeDate(row.department),
+			amount: Number(row.ca_amount ?? row.lq_amount ?? 0),
+			submittedDate,
+			decisionStatus: normalizeDate(row.decision_status).toUpperCase(),
+			decidedDate,
+			paymentAction: normalizeDate(row.payment_action).toUpperCase(),
+			agingDays: daysBetween(submittedDate, todayIso()),
+			turnaroundDays: daysBetween(submittedDate, decidedDate),
+		};
+	});
 
 const loadApprovals = (reset = false) => {
 	if (approvalsIsLoadingRows) {
@@ -240,6 +260,16 @@ const isPastTab = () => selectedApprovalTab === 'past';
 const isPaymentTab = () => selectedApprovalTab === 'payment';
 const isBatchSelectableTab = () => isPaymentTab() || isPastTab();
 
+const getAgingBadgeHtml = (days) => {
+	if (days === null || days === undefined) {
+		return '—';
+	}
+	let cls = 'kna-badge-approved';
+	if (days >= 14) cls = 'kna-badge-rejected';
+	else if (days >= 7) cls = 'kna-badge-pending';
+	return `<span class="kna-badge ${cls}">${escapeHtml(String(days))}</span>`;
+};
+
 const getStatusBadgeHtml = (decisionStatus) => {
 	if (decisionStatus === 'APPROVED') {
 		return '<span class="kna-badge kna-badge-approved">Approved</span>';
@@ -292,6 +322,8 @@ const renderMobileCards = (pageRows) => {
 				<div><strong>Department:</strong> ${escapeHtml(row.department)}</div>
 				<div><strong>Amount:</strong> ${formatPHP(row.amount)}</div>
 				<div><strong>Date:</strong> ${formatDisplayDate(row.submittedDate)}</div>
+				${(!isPastTab() && !isPaymentTab()) ? `<div><strong>Aging (Days):</strong> ${getAgingBadgeHtml(row.agingDays)}</div>` : ''}
+				${isPastTab() ? `<div><strong>Turnaround (Days):</strong> ${getAgingBadgeHtml(row.turnaroundDays)}</div>` : ''}
 			</div>
 			<div class="mt-2">
 				<a
@@ -320,7 +352,7 @@ const refreshApprovalsList = () => {
 
 	const start = (approvalsDesktopPage - 1) * APPROVALS_PAGE_SIZE;
 	const pageRows = rows.slice(start, start + APPROVALS_PAGE_SIZE);
-	const colCount = (isPastTab() || isPaymentTab()) ? 7 : 6;
+	const colCount = isPastTab() ? 8 : 7;
 	const checkboxColCount = isBatchSelectableTab() ? colCount + 1 : colCount;
 
 	if (!pageRows.length) {
@@ -358,7 +390,9 @@ const refreshApprovalsList = () => {
 			<td>${escapeHtml(row.department)}</td>
 			<td>${formatPHP(row.amount)}</td>
 			<td>${formatDisplayDate(row.submittedDate)}</td>
+			${(!isPastTab() && !isPaymentTab()) ? `<td class="text-center">${getAgingBadgeHtml(row.agingDays)}</td>` : ''}
 			${isPastTab() ? `<td>${getStatusBadgeHtml(row.decisionStatus)}</td>` : ''}
+			${isPastTab() ? `<td class="text-center">${getAgingBadgeHtml(row.turnaroundDays)}</td>` : ''}
 			${isPaymentTab() ? `<td>${getPaymentActionBadgeHtml(row.paymentAction)}</td>` : ''}
 		</tr>
 	`).join('');
@@ -389,6 +423,8 @@ const updateApprovalTabChrome = () => {
 	const resultLabel = document.getElementById('resultLabel');
 	const statusColumnHeader = document.getElementById('statusColumnHeader');
 	const paymentActionColumnHeader = document.getElementById('paymentActionColumnHeader');
+	const agingColumnHeader = document.getElementById('agingColumnHeader');
+	const turnaroundColumnHeader = document.getElementById('turnaroundColumnHeader');
 
 	if (pageTitle) {
 		pageTitle.textContent = isPastTab() ? 'Past Approvals' : (isPaymentTab() ? 'For Payment' : 'Pending Approvals');
@@ -401,6 +437,12 @@ const updateApprovalTabChrome = () => {
 	}
 	if (paymentActionColumnHeader) {
 		paymentActionColumnHeader.classList.toggle('d-none', !isPaymentTab());
+	}
+	if (agingColumnHeader) {
+		agingColumnHeader.classList.toggle('d-none', isPastTab() || isPaymentTab());
+	}
+	if (turnaroundColumnHeader) {
+		turnaroundColumnHeader.classList.toggle('d-none', !isPastTab());
 	}
 
 	const paymentCheckboxColumnHeader = document.getElementById('paymentCheckboxColumnHeader');

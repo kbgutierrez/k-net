@@ -9,9 +9,8 @@
 	.kna-form-label { margin-bottom: .3rem; font-weight: 600; color: #34495e; }
 	.kna-table td, .kna-table th { font-size: 12px !important; padding: .5rem .45rem; vertical-align: middle; white-space: nowrap; }
 	.kna-badge { padding: .2rem .4rem; border-radius: 3px; font-size: 11px; font-weight: 600; display: inline-block; }
-	.kna-badge-ok { background: #e8f7ee; color: #17663a; }
-	.kna-badge-warn { background: #fff4e5; color: #a15c00; }
-	.kna-badge-danger { background: #fdeaea; color: #a71d2a; }
+	.kna-badge-rmb { background: #fff4e6; color: #b35c00; }
+	.kna-badge-lq { background: #e8f7ee; color: #17663a; }
 	.kna-mobile-list .kna-item { border: 1px solid #dde3eb; border-radius: 6px; padding: .65rem; margin-bottom: .5rem; background: #fff; }
 	.kna-mobile-list .kna-item:last-child { margin-bottom: 0; }
 	.kna-mobile-list .kna-row { display: flex; align-items: center; justify-content: space-between; gap: .45rem; margin-bottom: .25rem; }
@@ -32,43 +31,35 @@
 <div class="page-inner kna-page">
 	<div class="d-flex align-items-center justify-content-between mb-2 kna-stack-mobile">
 		<div>
-			<div class="kna-title">Pending Approvals Aging</div>
+			<div class="kna-title">GL Breakdown Report</div>
 		</div>
-		<button type="button" class="btn btn-success btn-sm kna-small kna-mobile-cta" id="btnDownloadExcel">
-			<i class="fas fa-file-excel mr-1"></i>Download Excel
+		<button type="button" class="btn btn-success btn-sm kna-small kna-mobile-cta" id="btnExportExcel">
+			<i class="fas fa-file-excel mr-1"></i>Export to Excel
 		</button>
 	</div>
 
 	<div class="row mb-2">
-		<div class="col-md-3 col-6 pr-md-2 mb-2 mb-md-0">
+		<div class="col-md-4 col-6 pr-md-2 mb-2 mb-md-0">
 			<div class="card kna-card h-100">
 				<div class="card-body">
-					<p class="kna-kpi-caption">Pending Items</p>
-					<p class="kna-kpi" id="sumTotal">0</p>
+					<p class="kna-kpi-caption">Total Expenses</p>
+					<p class="kna-kpi" id="sumTotal">0.00</p>
 				</div>
 			</div>
 		</div>
-		<div class="col-md-3 col-6 px-md-2 mb-2 mb-md-0">
+		<div class="col-md-4 col-6 px-md-2 mb-2 mb-md-0">
 			<div class="card kna-card h-100">
 				<div class="card-body">
-					<p class="kna-kpi-caption">Over 7 Days</p>
-					<p class="kna-kpi" id="sumOver7">0</p>
+					<p class="kna-kpi-caption">Reimbursement</p>
+					<p class="kna-kpi" id="sumRMB">0.00</p>
 				</div>
 			</div>
 		</div>
-		<div class="col-md-3 col-6 pr-md-2 pl-md-2 mb-2 mb-md-0">
+		<div class="col-md-4 col-6 pl-md-2">
 			<div class="card kna-card h-100">
 				<div class="card-body">
-					<p class="kna-kpi-caption">Over 14 Days</p>
-					<p class="kna-kpi" id="sumOver14">0</p>
-				</div>
-			</div>
-		</div>
-		<div class="col-md-3 col-6 pl-md-2">
-			<div class="card kna-card h-100">
-				<div class="card-body">
-					<p class="kna-kpi-caption">Oldest (Days)</p>
-					<p class="kna-kpi" id="sumOldest">0</p>
+					<p class="kna-kpi-caption">Liquidation</p>
+					<p class="kna-kpi" id="sumLQ">0.00</p>
 				</div>
 			</div>
 		</div>
@@ -78,21 +69,25 @@
 		<div class="card-body py-2">
 			<div class="d-flex flex-wrap align-items-end" style="gap:.5rem;">
 				<div>
-					<label class="kna-small kna-form-label mb-1">Search</label>
-					<input type="text" class="form-control form-control-sm kna-small" id="filterKeyword" placeholder="Reference no. or requester" style="width:240px;">
+					<label class="kna-small kna-form-label mb-1">Date Range</label>
+					<input type="text" class="form-control form-control-sm kna-small" id="filterDateRange" placeholder="Select range" autocomplete="off" readonly style="width:180px;">
 				</div>
 				<div>
-					<label class="kna-small kna-form-label mb-1">Type</label>
-					<select class="form-control form-control-sm kna-small" id="filterType" style="width:170px;">
-						<option value="">All Types</option>
-						<option value="CASH_ADVANCE">Cash Advance</option>
+					<label class="kna-small kna-form-label mb-1">GL Code</label>
+					<select class="form-control form-control-sm kna-small" id="filterCategory" style="width:220px;">
+						<option value="">All GL Codes</option>
+					</select>
+				</div>
+				<div>
+					<label class="kna-small kna-form-label mb-1">Source</label>
+					<select class="form-control form-control-sm kna-small" id="filterSource" style="width:150px;">
+						<option value="">All Sources</option>
 						<option value="REIMBURSEMENT">Reimbursement</option>
 						<option value="LIQUIDATION">Liquidation</option>
 					</select>
 				</div>
 				<div>
-					<label class="kna-small kna-form-label mb-1">Min Aging (Days)</label>
-					<input type="number" min="0" class="form-control form-control-sm kna-small" id="filterMinAging" placeholder="0" style="width:120px;">
+					<button type="button" class="btn btn-primary btn-sm kna-small" id="btnApply" style="height:31px;">Apply</button>
 				</div>
 				<div>
 					<button type="button" class="btn btn-outline-secondary btn-sm" id="btnReset" title="Clear filters" style="height:31px;width:31px;padding:0;">
@@ -106,28 +101,31 @@
 	<div class="card kna-card d-none d-md-block">
 		<div class="card-body">
 			<div class="d-flex align-items-center justify-content-between mb-2">
-				<div class="kna-small text-muted">Pending Approvals</div>
+				<div class="kna-small text-muted">GL Details</div>
 				<div class="kna-small text-muted" id="resultCount">0 record(s)</div>
 			</div>
 			<div class="table-responsive">
-				<table class="table table-sm kna-table" id="agingTable" style="width:100%">
+				<table class="table table-sm kna-table" id="breakdownTable" style="width:100%">
 					<thead>
 						<tr>
-							<th style="width:130px;">Type</th>
-							<th style="width:150px;">Reference No.</th>
-							<th style="width:160px;">Requester</th>
-							<th style="width:150px;">Department</th>
-							<th style="width:150px;">Cost Center</th>
-							<th style="width:110px;" class="text-right">Amount</th>
-							<th style="width:130px;">Submitted Date</th>
-							<th style="width:100px;" class="text-center">Aging (Days)</th>
+							<th style="width:110px;">Source</th>
+							<th style="width:130px;">Reference No.</th>
+							<th style="width:220px;">GL</th>
+							<th style="width:170px;">Cost Center</th>
+							<th style="width:110px;">Document Date</th>
+							<th style="width:120px;">Invoice No.</th>
+							<th style="width:110px;">Actual Amount</th>
+							<th style="width:110px;">Net Amount</th>
+							<th style="width:100px;">VAT Amount</th>
+							<th style="width:180px;">Vendor</th>
+							<th style="width:120px;">Vendor TIN</th>
 						</tr>
 					</thead>
-					<tbody id="agingTbody"></tbody>
+					<tbody id="breakdownTbody"></tbody>
 				</table>
 			</div>
 			<div class="d-flex justify-content-end mt-2">
-				<nav aria-label="Aging desktop pagination">
+				<nav aria-label="Breakdown desktop pagination">
 					<ul class="pagination pagination-sm mb-0" id="desktopPagination"></ul>
 				</nav>
 			</div>
@@ -137,10 +135,15 @@
 	<div class="card kna-card d-md-none">
 		<div class="card-body">
 			<div class="d-flex align-items-center justify-content-between mb-2">
-				<div class="kna-small text-muted">Pending Approvals</div>
+				<div class="kna-small text-muted">GL Details</div>
 				<div class="kna-small text-muted" id="resultCountMobile">0 record(s)</div>
 			</div>
-			<div class="kna-mobile-list" id="agingMobileList"></div>
+			<div class="kna-mobile-list" id="breakdownMobileList"></div>
+			<div class="text-center mt-2">
+				<button type="button" class="btn btn-outline-primary btn-sm kna-small" id="btnLoadMoreMobile" style="display:none;">
+					Load More
+				</button>
+			</div>
 		</div>
 	</div>
 </div>

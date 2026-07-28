@@ -296,7 +296,9 @@
                                 <th>Department</th>
                                 <th>Amount</th>
                                 <th>Submission Date</th>
+                                <th class="d-none text-center" id="agingColumnHeader">Aging (Days)</th>
                                 <th class="d-none" id="statusColumnHeader">Status</th>
+                                <th class="d-none" id="turnaroundColumnHeader">Turnaround (Days)</th>
                                 <th class="d-none" id="paymentActionColumnHeader">Payment Step</th>
                             </tr>
                         </thead>

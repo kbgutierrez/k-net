@@ -6,7 +6,7 @@ require 'vendor/autoload.php';
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
-class Disbursement_Register_Report extends MY_Controller
+class Payment_Advisory_Release_Report extends MY_Controller
 {
     public function __construct()
     {
@@ -18,8 +18,8 @@ class Disbursement_Register_Report extends MY_Controller
     public function index()
     {
         $data = array(
-            'title' => 'Disbursement Register',
-            'main_view' => '../modules/disbursement-register/views/index',
+            'title' => 'Payment Advisory & Release Register',
+            'main_view' => '../modules/payment-advisory-release/views/index',
             'module_group' => $this->module_group,
             'module' => $this->module,
             'scripts' => array(
@@ -38,7 +38,7 @@ class Disbursement_Register_Report extends MY_Controller
         );
 
         $result = $this->sp->readData(
-            build_sp('sp_fetch_disbursement_register', count($params)),
+            build_sp('sp_fetch_payment_register', count($params)),
             $params,
             'result'
         );
@@ -78,15 +78,20 @@ class Disbursement_Register_Report extends MY_Controller
     private function applyFilters($rows)
     {
         $keyword = strtolower(trim((string) $this->input->get_post('Keyword')));
+        $eventType = trim((string) $this->input->get_post('EventType'));
         $transactionType = trim((string) $this->input->get_post('TransactionType'));
         $dateFrom = trim((string) $this->input->get_post('DateFrom'));
         $dateTo = trim((string) $this->input->get_post('DateTo'));
 
-        if ($keyword === '' && $transactionType === '' && $dateFrom === '' && $dateTo === '') {
+        if ($keyword === '' && $eventType === '' && $transactionType === '' && $dateFrom === '' && $dateTo === '') {
             return $rows;
         }
 
-        return array_values(array_filter($rows, function ($row) use ($keyword, $transactionType, $dateFrom, $dateTo) {
+        return array_values(array_filter($rows, function ($row) use ($keyword, $eventType, $transactionType, $dateFrom, $dateTo) {
+            if ($eventType !== '' && (!isset($row['event_type']) || $row['event_type'] !== $eventType)) {
+                return false;
+            }
+
             if ($transactionType !== '' && (!isset($row['transaction_type']) || $row['transaction_type'] !== $transactionType)) {
                 return false;
             }
@@ -120,11 +125,11 @@ class Disbursement_Register_Report extends MY_Controller
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Disbursement Register');
+        $sheet->setTitle('Payment Register');
 
-        $headers = array('Reference No.', 'Transaction Type', 'Status', 'Requester', 'Payable To', 'Department', 'Cost Center', 'Amount', 'Released By', 'Released Date', 'Remarks');
+        $headers = array('Reference No.', 'Transaction Type', 'Event', 'Status', 'Requester', 'Payable To', 'Department', 'Cost Center', 'Amount', 'Actioned By', 'Date/Time', 'Remarks');
         $sheet->fromArray($headers, null, 'A1');
-        $sheet->getStyle('A1:K1')->getFont()->setBold(true);
+        $sheet->getStyle('A1:L1')->getFont()->setBold(true);
 
         $rowIndex = 2;
         foreach ($result as $row) {
@@ -135,6 +140,7 @@ class Disbursement_Register_Report extends MY_Controller
             $sheet->fromArray(array(
                 isset($row['reference_no']) ? $row['reference_no'] : '',
                 isset($row['transaction_type']) ? $row['transaction_type'] : '',
+                isset($row['event_type']) ? $row['event_type'] : '',
                 isset($row['action']) ? $row['action'] : '',
                 isset($row['requester_name']) ? $row['requester_name'] : '',
                 isset($row['payable_to']) ? $row['payable_to'] : '',
@@ -148,11 +154,11 @@ class Disbursement_Register_Report extends MY_Controller
             $rowIndex++;
         }
 
-        foreach (range('A', 'K') as $col) {
+        foreach (range('A', 'L') as $col) {
             $sheet->getColumnDimension($col)->setWidth(20);
         }
 
-        $filename = 'disbursement-register-' . date('Ymd-His') . '.xlsx';
+        $filename = 'payment-advisory-release-' . date('Ymd-His') . '.xlsx';
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
         header('Cache-Control: max-age=0');

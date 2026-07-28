@@ -6,7 +6,7 @@ require 'vendor/autoload.php';
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
-class Expense_Type_Breakdown_Report extends MY_Controller
+class Gl_Breakdown_Report extends MY_Controller
 {
     public function __construct()
     {
@@ -18,8 +18,8 @@ class Expense_Type_Breakdown_Report extends MY_Controller
     public function index()
     {
         $data = array(
-            'title' => 'Expense Type Breakdown Report',
-            'main_view' => '../modules/expense-type-breakdown/views/index',
+            'title' => 'GL Breakdown Report',
+            'main_view' => '../modules/gl-breakdown/views/index',
             'module_group' => $this->module_group,
             'module' => $this->module,
             'scripts' => array(
@@ -114,9 +114,9 @@ class Expense_Type_Breakdown_Report extends MY_Controller
         $spreadsheet = new Spreadsheet();
 
         $summarySheet = $spreadsheet->getActiveSheet();
-        $summarySheet->setTitle('Summary by Expense Type');
+        $summarySheet->setTitle('Summary by GL Code');
         $summarySheet->fromArray(
-            array('Expense Category Code', 'Category Name', 'Reimbursement', 'Liquidation', 'Total'),
+            array('GL Code', 'GL Description', 'Reimbursement', 'Liquidation', 'Total'),
             null,
             'A1'
         );
@@ -144,7 +144,7 @@ class Expense_Type_Breakdown_Report extends MY_Controller
         $detailSheet = $spreadsheet->createSheet();
         $detailSheet->setTitle('Details');
         $detailSheet->fromArray(
-            array('Source', 'Reference No.', 'Expense Category', 'Category Name', 'Cost Center', 'Document Date', 'Invoice No.', 'Actual Amount', 'Net Amount', 'VAT Amount', 'Approved Amount', 'Vendor', 'Vendor TIN'),
+            array('Source', 'Reference No.', 'GL Code', 'GL Description', 'Cost Center', 'Document Date', 'Invoice No.', 'Actual Amount', 'Net Amount', 'VAT Amount', 'Approved Amount', 'Vendor', 'Vendor TIN'),
             null,
             'A1'
         );
@@ -183,7 +183,7 @@ class Expense_Type_Breakdown_Report extends MY_Controller
 
         $spreadsheet->setActiveSheetIndex(0);
 
-        $filename = 'expense-type-breakdown-report-' . date('Ymd-His') . '.xlsx';
+        $filename = 'gl-breakdown-report-' . date('Ymd-His') . '.xlsx';
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
         header('Cache-Control: max-age=0');

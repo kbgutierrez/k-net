@@ -53,8 +53,8 @@ const normalizeApiRows = (rows) =>
 	(rows || []).map((row) => ({
 		sourceModule: normalizeText(row.source_module),
 		referenceNo: normalizeText(row.reference_no),
-		expenseCategory: normalizeText(row.expense_category) || '(Uncategorized)',
-		categoryName: normalizeText(row.category_name) || 'Uncategorized',
+		expenseCategory: normalizeText(row.expense_category) || '(No GL Code)',
+		categoryName: normalizeText(row.category_name) || 'Unassigned',
 		costCenterId: normalizeText(row.cost_center_id),
 		costCenterName: normalizeText(row.cost_center_name),
 		documentDate: toIsoDate(row.document_date),
@@ -76,7 +76,7 @@ const populateCategoryFilter = (rows) => {
 	});
 
 	const current = dom.filterCategory.value;
-	const options = ['<option value="">All Categories</option>'];
+	const options = ['<option value="">All GL Codes</option>'];
 	Array.from(seen.entries())
 		.sort((a, b) => a[1].localeCompare(b[1]))
 		.forEach(([code, name]) => {
@@ -109,7 +109,7 @@ const loadBreakdown = () => {
 		DateTo: range.to,
 	};
 
-	const request = ajax_loader('reports/expense-type-breakdown/api/get', payload);
+	const request = ajax_loader('reports/gl-breakdown/api/get', payload);
 
 	request.done((response) => {
 		const res = (typeof response === 'string') ? $.parseJSON(response) : response;
@@ -331,7 +331,7 @@ const exportExcel = () => {
 	const range = parseDateRange();
 	if (range.from) params.set('DateFrom', range.from);
 	if (range.to) params.set('DateTo', range.to);
-	window.location.href = `${base_url}reports/expense-type-breakdown/download/excel?${params.toString()}`;
+	window.location.href = `${base_url}reports/gl-breakdown/download/excel?${params.toString()}`;
 };
 
 const cacheDom = () => {
