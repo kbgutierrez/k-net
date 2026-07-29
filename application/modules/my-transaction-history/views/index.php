@@ -102,6 +102,10 @@
 		<div class="card-body py-2">
 			<div class="d-flex flex-wrap align-items-end" style="gap:.5rem;">
 				<div>
+					<label class="kna-small kna-form-label mb-1">Date Range</label>
+					<input type="text" class="form-control form-control-sm kna-small" id="filterDateRange" placeholder="All time" autocomplete="off" readonly style="width:180px;">
+				</div>
+				<div>
 					<label class="kna-small kna-form-label mb-1">Search</label>
 					<input type="text" class="form-control form-control-sm kna-small" id="filterKeyword" placeholder="Reference no. or description" style="width:240px;">
 				</div>

@@ -4,6 +4,8 @@ let desktopPage = 1;
 const PAGE_SIZE = 10;
 
 const dom = {
+	filterDateRange: null,
+	filterDateRangePicker: null,
 	filterKeyword: null,
 	filterType: null,
 	filterStatus: null,
@@ -190,16 +192,35 @@ const goToDesktopPage = (targetPage) => {
 	refreshUI();
 };
 
+const parseDateRange = () => {
+	if (!dom.filterDateRangePicker || !Array.isArray(dom.filterDateRangePicker.selectedDates) || dom.filterDateRangePicker.selectedDates.length !== 2) {
+		return { from: '', to: '' };
+	}
+	return {
+		from: dom.filterDateRangePicker.selectedDates[0].toISOString().slice(0, 10),
+		to: dom.filterDateRangePicker.selectedDates[1].toISOString().slice(0, 10),
+	};
+};
+
 const matchesFilters = (row) => {
 	const keyword = normalizeText(dom.filterKeyword.value).trim().toLowerCase();
 	const type = normalizeText(dom.filterType.value).trim();
 	const status = normalizeText(dom.filterStatus.value).trim();
+	const range = parseDateRange();
 
 	if (type && row.transactionType !== type) {
 		return false;
 	}
 
 	if (status && row.statusName !== status) {
+		return false;
+	}
+
+	if (range.from && row.createdDate < range.from) {
+		return false;
+	}
+
+	if (range.to && row.createdDate > range.to) {
 		return false;
 	}
 
@@ -310,6 +331,7 @@ const applyFilters = () => {
 
 const resetFilters = () => {
 	desktopPage = 1;
+	if (dom.filterDateRangePicker) dom.filterDateRangePicker.clear();
 	dom.filterKeyword.value = '';
 	dom.filterType.value = '';
 	dom.filterStatus.value = '';
@@ -321,16 +343,20 @@ const downloadExcel = () => {
 	const keyword = normalizeText(dom.filterKeyword.value).trim();
 	const type = normalizeText(dom.filterType.value).trim();
 	const status = normalizeText(dom.filterStatus.value).trim();
+	const range = parseDateRange();
 
 	if (keyword) params.set('Keyword', keyword);
 	if (type) params.set('Type', type);
 	if (status) params.set('Status', status);
+	if (range.from) params.set('DateFrom', range.from);
+	if (range.to) params.set('DateTo', range.to);
 
 	const query = params.toString();
 	window.location.href = `${base_url}reports/my-transaction-history/download/excel${query ? '?' + query : ''}`;
 };
 
 const cacheDom = () => {
+	dom.filterDateRange = document.getElementById('filterDateRange');
 	dom.filterKeyword = document.getElementById('filterKeyword');
 	dom.filterType = document.getElementById('filterType');
 	dom.filterStatus = document.getElementById('filterStatus');
@@ -353,6 +379,9 @@ const cacheDom = () => {
 };
 
 const bindEvents = () => {
+	if (dom.filterDateRangePicker) {
+		dom.filterDateRange.addEventListener('change', applyFilters);
+	}
 	dom.filterKeyword.addEventListener('input', applyFilters);
 	dom.filterType.addEventListener('change', applyFilters);
 	dom.filterStatus.addEventListener('change', applyFilters);
@@ -403,6 +432,15 @@ const bindEvents = () => {
 
 const init = () => {
 	cacheDom();
+
+	if (dom.filterDateRange && typeof flatpickr !== 'undefined') {
+		dom.filterDateRangePicker = flatpickr(dom.filterDateRange, {
+			mode: 'range',
+			dateFormat: 'Y-m-d',
+			allowInput: false,
+		});
+	}
+
 	bindEvents();
 	loadHistory();
 };

@@ -74,20 +74,32 @@ class My_Transaction_History_Report extends MY_Controller
         $keyword = trim((string) $this->input->get_post('Keyword'));
         $type = trim((string) $this->input->get_post('Type'));
         $status = trim((string) $this->input->get_post('Status'));
+        $dateFrom = trim((string) $this->input->get_post('DateFrom'));
+        $dateTo = trim((string) $this->input->get_post('DateTo'));
 
-        if ($keyword === '' && $type === '' && $status === '') {
+        if ($keyword === '' && $type === '' && $status === '' && $dateFrom === '' && $dateTo === '') {
             return $rows;
         }
 
         $keyword = strtolower($keyword);
         $status = strtolower($status);
 
-        return array_values(array_filter($rows, function ($row) use ($keyword, $type, $status) {
+        return array_values(array_filter($rows, function ($row) use ($keyword, $type, $status, $dateFrom, $dateTo) {
             if ($type !== '' && (!isset($row['transaction_type']) || $row['transaction_type'] !== $type)) {
                 return false;
             }
 
             if ($status !== '' && (!isset($row['status_name']) || strpos(strtolower($row['status_name']), $status) === false)) {
+                return false;
+            }
+
+            $createdDate = isset($row['created_date']) ? substr((string) $row['created_date'], 0, 10) : '';
+
+            if ($dateFrom !== '' && ($createdDate === '' || $createdDate < $dateFrom)) {
+                return false;
+            }
+
+            if ($dateTo !== '' && ($createdDate === '' || $createdDate > $dateTo)) {
                 return false;
             }
 
