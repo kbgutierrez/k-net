@@ -285,17 +285,17 @@ const renderDesktopTable = (rows) => {
 	rows.forEach((row) => {
 		const tr = document.createElement('tr');
 		tr.innerHTML = `
-			<td class="font-weight-bold"><a href="#" class="kna-row-link" data-ref="${escapeHtml(row.referenceNo)}">${escapeHtml(row.referenceNo || '-')}</a></td>
-			<td>${escapeHtml(getTypeLabel(row.transactionType))}</td>
-			<td>${getEventBadge(row.eventType)}</td>
-			<td style="max-width:160px;white-space:normal;word-break:break-word;" title="${escapeHtml(row.requesterName)}">${escapeHtml(row.requesterName || '-')}</td>
-			<td style="max-width:150px;white-space:normal;word-break:break-word;" title="${escapeHtml(row.payableTo)}">${escapeHtml(row.payableTo || '-')}</td>
-			<td style="max-width:150px;white-space:normal;word-break:break-word;" title="${escapeHtml(row.department)}">${escapeHtml(row.department || '-')}</td>
-			<td style="max-width:170px;white-space:normal;word-break:break-word;" title="${escapeHtml(window.knetFormatCodeName(row.costCenterId, row.costCenterName))}">${escapeHtml(window.knetFormatCodeName(row.costCenterId, row.costCenterName))}</td>
-			<td class="text-right">${formatAmount(row.amount)}</td>
-			<td style="max-width:150px;white-space:normal;word-break:break-word;" title="${escapeHtml(row.actorName)}">${escapeHtml(row.actorName || '-')}</td>
-			<td>${escapeHtml(toDisplayDateTime(row.createdDate) || '-')}</td>
-			<td style="max-width:180px;white-space:normal;word-break:break-word;" title="${escapeHtml(row.remarks)}">${escapeHtml(row.remarks || '-')}</td>
+			<td class="font-weight-bold" style="white-space:nowrap;"><a href="#" class="kna-row-link" data-ref="${escapeHtml(row.referenceNo)}">${escapeHtml(row.referenceNo || '-')}</a></td>
+			<td style="white-space:nowrap;">${escapeHtml(getTypeLabel(row.transactionType))}</td>
+			<td style="white-space:nowrap;">${getEventBadge(row.eventType)}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.requesterName)}">${escapeHtml(row.requesterName || '-')}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.payableTo)}">${escapeHtml(row.payableTo || '-')}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.department)}">${escapeHtml(row.department || '-')}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(window.knetFormatCodeName(row.costCenterId, row.costCenterName))}">${escapeHtml(window.knetFormatCodeName(row.costCenterId, row.costCenterName))}</td>
+			<td class="text-right" style="white-space:nowrap;">${formatAmount(row.amount)}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.actorName)}">${escapeHtml(row.actorName || '-')}</td>
+			<td style="white-space:nowrap;">${escapeHtml(toDisplayDateTime(row.createdDate) || '-')}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.remarks)}">${escapeHtml(row.remarks || '-')}</td>
 		`;
 		dom.registerTbody.appendChild(tr);
 	});

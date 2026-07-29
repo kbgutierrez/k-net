@@ -219,17 +219,17 @@ const renderDesktopTable = (rows) => {
 		const categoryDisplay = window.knetFormatCodeName(row.expenseCategory, row.categoryName);
 		const costCenterDisplay = window.knetFormatCodeName(row.costCenterId, row.costCenterName);
 		tr.innerHTML = `
-			<td>${getSourceBadge(row.sourceModule)}</td>
-			<td><a href="#" class="kna-row-link" data-ref="${escapeHtml(row.referenceNo)}">${escapeHtml(row.referenceNo || '-')}</a></td>
-			<td style="max-width:220px;white-space:normal;word-break:break-word;" title="${escapeHtml(categoryDisplay)}">${escapeHtml(categoryDisplay)}</td>
-			<td style="max-width:170px;white-space:normal;word-break:break-word;" title="${escapeHtml(costCenterDisplay)}">${escapeHtml(costCenterDisplay)}</td>
-			<td>${escapeHtml(row.documentDate || '-')}</td>
-			<td>${escapeHtml(row.invoiceReceiptNo || '-')}</td>
-			<td class="text-right">${formatMoney(row.actualAmount)}</td>
-			<td class="text-right">${formatMoney(row.netAmount)}</td>
-			<td class="text-right">${formatMoney(row.vatAmount)}</td>
-			<td style="max-width:180px;white-space:normal;word-break:break-word;" title="${escapeHtml(row.vendorName)}">${escapeHtml(row.vendorName || '-')}</td>
-			<td>${escapeHtml(row.vendorTin || '-')}</td>
+			<td style="white-space:nowrap;">${getSourceBadge(row.sourceModule)}</td>
+			<td style="white-space:nowrap;"><a href="#" class="kna-row-link" data-ref="${escapeHtml(row.referenceNo)}">${escapeHtml(row.referenceNo || '-')}</a></td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(categoryDisplay)}">${escapeHtml(categoryDisplay)}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(costCenterDisplay)}">${escapeHtml(costCenterDisplay)}</td>
+			<td style="white-space:nowrap;">${escapeHtml(row.documentDate || '-')}</td>
+			<td style="white-space:nowrap;">${escapeHtml(row.invoiceReceiptNo || '-')}</td>
+			<td class="text-right" style="white-space:nowrap;">${formatMoney(row.actualAmount)}</td>
+			<td class="text-right" style="white-space:nowrap;">${formatMoney(row.netAmount)}</td>
+			<td class="text-right" style="white-space:nowrap;">${formatMoney(row.vatAmount)}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.vendorName)}">${escapeHtml(row.vendorName || '-')}</td>
+			<td style="white-space:nowrap;">${escapeHtml(row.vendorTin || '-')}</td>
 		`;
 		dom.breakdownTbody.appendChild(tr);
 	});

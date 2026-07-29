@@ -226,14 +226,14 @@ const renderDesktopTable = (rows) => {
 		const outstanding = isOutstanding(row);
 		const tr = document.createElement('tr');
 		tr.innerHTML = `
-			<td class="font-weight-bold"><a href="#" class="kna-row-link" data-ref="${escapeHtml(row.cashAdvanceId)}">${escapeHtml(row.cashAdvanceId)}</a></td>
-			<td style="max-width:150px;white-space:normal;word-break:break-word;" title="${escapeHtml(row.userName)}">${escapeHtml(row.userName)}</td>
-			<td style="max-width:170px;white-space:normal;word-break:break-word;" title="${escapeHtml(formatCostCenter(row))}">${escapeHtml(formatCostCenter(row))}</td>
-			<td class="text-right">${formatMoney(row.caAmount)}</td>
-			<td class="text-right">${formatMoney(row.liquidatedAmount)}</td>
-			<td class="text-right">${formatMoney(row.variance)}</td>
-			<td>${escapeHtml(row.statusName || '-')}</td>
-			<td class="text-center">${getAgeBadge(row.ageDays, outstanding)}</td>
+			<td class="font-weight-bold" style="white-space:nowrap;"><a href="#" class="kna-row-link" data-ref="${escapeHtml(row.cashAdvanceId)}">${escapeHtml(row.cashAdvanceId)}</a></td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.userName)}">${escapeHtml(row.userName)}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(formatCostCenter(row))}">${escapeHtml(formatCostCenter(row))}</td>
+			<td class="text-right" style="white-space:nowrap;">${formatMoney(row.caAmount)}</td>
+			<td class="text-right" style="white-space:nowrap;">${formatMoney(row.liquidatedAmount)}</td>
+			<td class="text-right" style="white-space:nowrap;">${formatMoney(row.variance)}</td>
+			<td style="white-space:nowrap;">${escapeHtml(row.statusName || '-')}</td>
+			<td class="text-center" style="white-space:nowrap;">${getAgeBadge(row.ageDays, outstanding)}</td>
 		`;
 		dom.varianceTbody.appendChild(tr);
 	});

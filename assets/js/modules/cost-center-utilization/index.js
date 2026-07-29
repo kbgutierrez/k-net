@@ -215,12 +215,12 @@ const renderDesktopTable = (rows) => {
 	rows.forEach((row) => {
 		const tr = document.createElement('tr');
 		tr.innerHTML = `
-			<td class="font-weight-bold" style="max-width:250px;white-space:normal;word-break:break-word;" title="${escapeHtml(formatCostCenter(row))}">${escapeHtml(formatCostCenter(row))}</td>
-			<td>${getTypeBadge(row.transactionType)}</td>
-			<td><a href="#" class="kna-row-link" data-ref="${escapeHtml(row.referenceNo)}">${escapeHtml(row.referenceNo || '-')}</a></td>
-			<td class="text-right">${formatMoney(row.amount)}</td>
-			<td>${escapeHtml(row.transactionDate || '-')}</td>
-			<td>${escapeHtml(row.statusName || '-')}</td>
+			<td class="font-weight-bold" style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(formatCostCenter(row))}">${escapeHtml(formatCostCenter(row))}</td>
+			<td style="white-space:nowrap;">${getTypeBadge(row.transactionType)}</td>
+			<td style="white-space:nowrap;"><a href="#" class="kna-row-link" data-ref="${escapeHtml(row.referenceNo)}">${escapeHtml(row.referenceNo || '-')}</a></td>
+			<td class="text-right" style="white-space:nowrap;">${formatMoney(row.amount)}</td>
+			<td style="white-space:nowrap;">${escapeHtml(row.transactionDate || '-')}</td>
+			<td style="white-space:nowrap;">${escapeHtml(row.statusName || '-')}</td>
 		`;
 		dom.utilizationTbody.appendChild(tr);
 	});

@@ -208,18 +208,18 @@
 				<div class="kna-small text-muted" id="resultCount">0 record(s)</div>
 			</div>
 			<div class="table-responsive">
-				<table class="table table-sm kna-table" id="costCenterTable" style="width:100%">
+				<table class="table table-sm kna-table" id="costCenterTable" style="width:100%;">
 					<thead>
 						<tr>
-							<th style="width:130px;">Code</th>
-							<th style="width:220px;">Name</th>
-							<th style="width:70px;">Category</th>
-							<th style="width:90px;">Status</th>
-							<th style="width:130px;">Created By</th>
-							<th style="width:110px;">Created Date</th>
-							<th style="width:130px;">Updated By</th>
-							<th style="width:110px;">Updated Date</th>
-							<th style="width:120px;" class="text-center">Actions</th>
+							<th style="min-width:130px;">Code</th>
+							<th style="min-width:260px;">Name</th>
+							<th style="min-width:120px;">Category</th>
+							<th style="min-width:120px;">Status</th>
+							<th style="min-width:150px;">Created By</th>
+							<th style="min-width:105px;">Created Date</th>
+							<th style="min-width:150px;">Updated By</th>
+							<th style="min-width:105px;">Updated Date</th>
+							<th style="min-width:120px;" class="text-center">Actions</th>
 						</tr>
 					</thead>
 					<tbody id="costCenterTbody"></tbody>

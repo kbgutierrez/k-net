@@ -242,16 +242,16 @@ const renderDesktopTable = (rows) => {
 		const tr = document.createElement('tr');
 		const costCenterDisplay = window.knetFormatCodeName(row.costCenterId, row.costCenterName);
 		tr.innerHTML = `
-			<td class="font-weight-bold"><a href="#" class="kna-row-link" data-ref="${escapeHtml(row.liquidationId)}">${escapeHtml(row.liquidationId || '-')}</a></td>
-			<td><a href="#" class="kna-row-link" data-ref="${escapeHtml(row.cashAdvanceId)}">${escapeHtml(row.cashAdvanceId || '-')}</a></td>
-			<td style="max-width:160px;white-space:normal;word-break:break-word;" title="${escapeHtml(row.employeeName)}">${escapeHtml(row.employeeName || '-')}</td>
-			<td style="max-width:150px;white-space:normal;word-break:break-word;" title="${escapeHtml(row.departmentName)}">${escapeHtml(row.departmentName || '-')}</td>
-			<td style="max-width:170px;white-space:normal;word-break:break-word;" title="${escapeHtml(costCenterDisplay)}">${escapeHtml(costCenterDisplay)}</td>
-			<td class="text-right">${formatAmount(row.caAmount)}</td>
-			<td class="text-right">${formatAmount(row.totalAmountSpent)}</td>
-			<td style="max-width:220px;white-space:normal;word-break:break-word;" title="${escapeHtml(row.description)}">${escapeHtml(row.description || '-')}</td>
-			<td>${escapeHtml(row.submittedDate || '-')}</td>
-			<td>${getStatusBadge(row.statusName)}</td>
+			<td class="font-weight-bold" style="white-space:nowrap;"><a href="#" class="kna-row-link" data-ref="${escapeHtml(row.liquidationId)}">${escapeHtml(row.liquidationId || '-')}</a></td>
+			<td style="white-space:nowrap;"><a href="#" class="kna-row-link" data-ref="${escapeHtml(row.cashAdvanceId)}">${escapeHtml(row.cashAdvanceId || '-')}</a></td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.employeeName)}">${escapeHtml(row.employeeName || '-')}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.departmentName)}">${escapeHtml(row.departmentName || '-')}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(costCenterDisplay)}">${escapeHtml(costCenterDisplay)}</td>
+			<td class="text-right" style="white-space:nowrap;">${formatAmount(row.caAmount)}</td>
+			<td class="text-right" style="white-space:nowrap;">${formatAmount(row.totalAmountSpent)}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.description)}">${escapeHtml(row.description || '-')}</td>
+			<td style="white-space:nowrap;">${escapeHtml(row.submittedDate || '-')}</td>
+			<td style="white-space:nowrap;">${getStatusBadge(row.statusName)}</td>
 		`;
 		dom.liquidationTbody.appendChild(tr);
 	});

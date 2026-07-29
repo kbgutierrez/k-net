@@ -106,21 +106,21 @@
 				<div class="kna-small text-muted" id="resultCount">0 record(s)</div>
 			</div>
 			<div class="table-responsive">
-				<table class="table table-sm kna-table" id="ledgerTable" style="width:100%">
+				<table class="table table-sm kna-table" id="ledgerTable" style="width:100%;">
 					<thead>
 						<tr>
-							<th style="width:110px;">Transaction Date</th>
-							<th style="width:150px;">Fund Code</th>
-							<th style="width:200px;">Fund Scope</th>
-							<th style="width:150px;">Transaction Type</th>
-							<th style="width:130px;">Reference No.</th>
-							<th style="width:160px;">Employee</th>
-							<th style="width:140px;">Position</th>
-							<th style="width:110px;" class="text-right">Amount</th>
-							<th style="width:120px;" class="text-right">Balance After</th>
-							<th style="width:200px;">Remarks</th>
-							<th style="width:130px;">Created By</th>
-							<th style="width:140px;">Created Date</th>
+							<th style="min-width:100px;">Transaction Date</th>
+							<th style="min-width:130px;">Fund Code</th>
+							<th style="min-width:260px;">Fund Scope</th>
+							<th style="min-width:140px;">Transaction Type</th>
+							<th style="min-width:120px;">Reference No.</th>
+							<th style="min-width:150px;">Employee</th>
+							<th style="min-width:130px;">Position</th>
+							<th style="min-width:110px;" class="text-right">Amount</th>
+							<th style="min-width:120px;" class="text-right">Balance After</th>
+							<th style="min-width:260px;">Remarks</th>
+							<th style="min-width:150px;">Created By</th>
+							<th style="min-width:140px;">Created Date</th>
 						</tr>
 					</thead>
 					<tbody id="ledgerTbody"></tbody>

@@ -193,13 +193,13 @@ const goToDesktopPage = (targetPage) => {
 const matchesFilters = (row) => {
 	const keyword = normalizeText(dom.filterKeyword.value).trim().toLowerCase();
 	const type = normalizeText(dom.filterType.value).trim();
-	const status = normalizeText(dom.filterStatus.value).trim().toLowerCase();
+	const status = normalizeText(dom.filterStatus.value).trim();
 
 	if (type && row.transactionType !== type) {
 		return false;
 	}
 
-	if (status && row.statusName.toLowerCase().indexOf(status) === -1) {
+	if (status && row.statusName !== status) {
 		return false;
 	}
 
@@ -224,15 +224,15 @@ const renderDesktopTable = (rows) => {
 	rows.forEach((row) => {
 		const tr = document.createElement('tr');
 		tr.innerHTML = `
-			<td>${getTypeBadge(row.transactionType)}</td>
-			<td class="font-weight-bold"><a href="#" class="kna-row-link" data-ref="${escapeHtml(row.referenceNo)}">${escapeHtml(row.referenceNo || '-')}</a></td>
-			<td style="max-width:220px;white-space:normal;word-break:break-word;" title="${escapeHtml(row.description)}">${escapeHtml(row.description || '-')}</td>
-			<td style="max-width:170px;white-space:normal;word-break:break-word;" title="${escapeHtml(window.knetFormatCodeName(row.costCenterId, row.costCenterName))}">${escapeHtml(window.knetFormatCodeName(row.costCenterId, row.costCenterName))}</td>
-			<td class="text-right">${formatAmount(row.amount)}</td>
-			<td>${escapeHtml(row.statusName || '-')}</td>
-			<td>${escapeHtml(row.neededDate || '-')}</td>
-			<td>${escapeHtml(row.createdDate || '-')}</td>
-			<td>${escapeHtml(row.updatedDate || '-')}</td>
+			<td style="white-space:nowrap;">${getTypeBadge(row.transactionType)}</td>
+			<td class="font-weight-bold" style="white-space:nowrap;"><a href="#" class="kna-row-link" data-ref="${escapeHtml(row.referenceNo)}">${escapeHtml(row.referenceNo || '-')}</a></td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.description)}">${escapeHtml(row.description || '-')}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(window.knetFormatCodeName(row.costCenterId, row.costCenterName))}">${escapeHtml(window.knetFormatCodeName(row.costCenterId, row.costCenterName))}</td>
+			<td class="text-right" style="white-space:nowrap;">${formatAmount(row.amount)}</td>
+			<td style="white-space:nowrap;">${escapeHtml(row.statusName || '-')}</td>
+			<td style="white-space:nowrap;">${escapeHtml(row.neededDate || '-')}</td>
+			<td style="white-space:nowrap;">${escapeHtml(row.createdDate || '-')}</td>
+			<td style="white-space:nowrap;">${escapeHtml(row.updatedDate || '-')}</td>
 		`;
 		dom.historyTbody.appendChild(tr);
 	});
@@ -355,7 +355,7 @@ const cacheDom = () => {
 const bindEvents = () => {
 	dom.filterKeyword.addEventListener('input', applyFilters);
 	dom.filterType.addEventListener('change', applyFilters);
-	dom.filterStatus.addEventListener('input', applyFilters);
+	dom.filterStatus.addEventListener('change', applyFilters);
 	dom.btnReset.addEventListener('click', resetFilters);
 	dom.btnDownloadExcel.addEventListener('click', downloadExcel);
 

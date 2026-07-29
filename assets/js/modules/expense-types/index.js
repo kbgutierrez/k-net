@@ -268,16 +268,16 @@ const renderDesktopTable = (rows) => {
 	rows.forEach((row) => {
 		const tr = document.createElement('tr');
 		tr.innerHTML = `
-			<td class="font-weight-bold">${escapeHtml(row.expenseCode || '-')}</td>
-			<td class="text-truncate" style="max-width:180px;" title="${escapeHtml(row.categoryName)}">${escapeHtml(row.categoryName)}</td>
-			<td class="text-truncate" style="max-width:180px;" title="${escapeHtml(row.longText)}">${escapeHtml(row.longText || '-')}</td>
-			<td class="text-truncate" style="max-width:140px;" title="${escapeHtml(row.shortText)}">${escapeHtml(row.shortText || '-')}</td>
-			<td>${getCategoryBadge(row.category)}</td>
-			<td>${getStatusBadge(row.statusCode, row.statusName)}</td>
-			<td class="text-truncate" style="max-width:120px;" title="${escapeHtml(row.createdBy || '-')}">${escapeHtml(row.createdBy || '-')}</td>
-			<td>${escapeHtml(row.createdDate || '-')}</td>
-			<td class="text-truncate" style="max-width:120px;" title="${escapeHtml(row.updatedBy || '-')}">${escapeHtml(row.updatedBy || '-')}</td>
-			<td>${escapeHtml(row.updatedDate || '-')}</td>
+			<td class="font-weight-bold" style="white-space:nowrap;">${escapeHtml(row.expenseCode || '-')}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.categoryName)}">${escapeHtml(row.categoryName)}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.longText)}">${escapeHtml(row.longText || '-')}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.shortText)}">${escapeHtml(row.shortText || '-')}</td>
+			<td style="white-space:nowrap;">${getCategoryBadge(row.category)}</td>
+			<td style="white-space:nowrap;">${getStatusBadge(row.statusCode, row.statusName)}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.createdBy || '-')}">${escapeHtml(row.createdBy || '-')}</td>
+			<td style="white-space:nowrap;">${escapeHtml(row.createdDate || '-')}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.updatedBy || '-')}">${escapeHtml(row.updatedBy || '-')}</td>
+			<td style="white-space:nowrap;">${escapeHtml(row.updatedDate || '-')}</td>
 			<td class="text-center kna-actions">
 				<button type="button" class="btn btn-sm btn-outline-primary" data-action="view" data-id="${row.id}">View</button>
 				<button type="button" class="btn btn-sm btn-outline-secondary" data-action="edit" data-id="${row.id}">Edit</button>

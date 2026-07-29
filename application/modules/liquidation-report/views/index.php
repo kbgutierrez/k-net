@@ -125,19 +125,19 @@
 				<div class="kna-small text-muted" id="resultCount">0 record(s)</div>
 			</div>
 			<div class="table-responsive">
-				<table class="table table-sm kna-table" id="liquidationTable" style="width:100%">
+				<table class="table table-sm kna-table" id="liquidationTable" style="width:100%;">
 					<thead>
 						<tr>
-							<th style="width:130px;">Liquidation No.</th>
-							<th style="width:130px;">Cash Advance No.</th>
-							<th style="width:160px;">Employee</th>
-							<th style="width:150px;">Department</th>
-							<th style="width:170px;">Cost Center</th>
-							<th style="width:110px;" class="text-right">CA Amount</th>
-							<th style="width:120px;" class="text-right">Liquidated</th>
-							<th style="width:220px;">Description</th>
-							<th style="width:130px;">Submitted Date</th>
-							<th style="width:120px;">Status</th>
+							<th style="min-width:120px;">Liquidation No.</th>
+							<th style="min-width:120px;">Cash Advance No.</th>
+							<th style="min-width:150px;">Employee</th>
+							<th style="min-width:170px;">Department</th>
+							<th style="min-width:200px;">Cost Center</th>
+							<th style="min-width:110px;" class="text-right">CA Amount</th>
+							<th style="min-width:110px;" class="text-right">Liquidated</th>
+							<th style="min-width:260px;">Description</th>
+							<th style="min-width:105px;">Submitted Date</th>
+							<th style="min-width:130px;">Status</th>
 						</tr>
 					</thead>
 					<tbody id="liquidationTbody"></tbody>

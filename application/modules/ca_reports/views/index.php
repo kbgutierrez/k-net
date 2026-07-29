@@ -214,19 +214,19 @@
       </div>
 
       <div class="table-responsive">
-        <table class="table table-sm kna-table" id="cashAdvanceTable" style="width:100%">
+        <table class="table table-sm kna-table" id="cashAdvanceTable" style="width:100%;">
           <thead>
             <tr>
-              <th style="width:170px;">Cash Advance No</th>
-              <th style="min-width:180px;">Employee</th>
-              <th style="min-width:160px;">Department</th>
+              <th style="min-width:130px;">Cash Advance No</th>
+              <th style="min-width:160px;">Employee</th>
+              <th style="min-width:170px;">Department</th>
               <th style="min-width:160px;">Company</th>
-              <th class="text-right">Amount</th>
-              <th style="min-width:320px;">Purpose</th>
-              <th>Needed On</th>
-              <th>Requested</th>
-              <th>Status</th>
-              <th class="text-center">Actions</th>
+              <th style="min-width:110px;" class="text-right">Amount</th>
+              <th style="min-width:260px;">Purpose</th>
+              <th style="min-width:105px;">Needed On</th>
+              <th style="min-width:105px;">Requested</th>
+              <th style="min-width:130px;">Status</th>
+              <th style="min-width:100px;" class="text-center">Actions</th>
             </tr>
           </thead>
           <tbody id="cashAdvanceTbody">

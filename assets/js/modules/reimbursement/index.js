@@ -209,10 +209,10 @@ const renderDesktopTable = (rows) => {
 				: `<button type="button" class="btn btn-sm btn-outline-primary" data-action="view" data-ref="${escapeHtml(row.reimbursementNo)}">View</button>`;
 		const tr = document.createElement('tr');
 		tr.innerHTML = `
-			<td>${escapeHtml(row.reimbursementNo)}</td>
-			<td class="text-right">${formatPHP(row.totalAmount)}</td>
-			<td>${escapeHtml(row.submittedDate)}</td>
-			<td>${getStatusBadge(row.status)}</td>
+			<td style="white-space:nowrap;">${escapeHtml(row.reimbursementNo)}</td>
+			<td class="text-right" style="white-space:nowrap;">${formatPHP(row.totalAmount)}</td>
+			<td style="white-space:nowrap;">${escapeHtml(row.submittedDate)}</td>
+			<td style="white-space:nowrap;">${getStatusBadge(row.status)}</td>
 			<td class="text-center kna-actions">
 				${actionButton}
 			</td>
@@ -567,13 +567,13 @@ const renderTeamDesktopTable = (groups) => {
 	groups.forEach((group) => {
 		const tr = document.createElement('tr');
 		tr.innerHTML = `
-			<td class="font-weight-bold">${escapeHtml(group.reimbursementId)}</td>
-			<td>${escapeHtml(group.salesman)}</td>
-			<td class="text-right">${formatPHP(group.totalAmount)}</td>
-			<td class="text-truncate" style="max-width:180px;">${group.items.length} item(s)</td>
-			<td>${escapeHtml(getCostCenterDisplay(group))}</td>
-			<td>${escapeHtml(group.statusName)}</td>
-			<td>${escapeHtml(group.createdDate)}</td>
+			<td class="font-weight-bold" style="white-space:nowrap;">${escapeHtml(group.reimbursementId)}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;">${escapeHtml(group.salesman)}</td>
+			<td class="text-right" style="white-space:nowrap;">${formatPHP(group.totalAmount)}</td>
+			<td style="white-space:nowrap;">${group.items.length} item(s)</td>
+			<td style="white-space:normal;overflow-wrap:break-word;">${escapeHtml(getCostCenterDisplay(group))}</td>
+			<td style="white-space:nowrap;">${escapeHtml(group.statusName)}</td>
+			<td style="white-space:nowrap;">${escapeHtml(group.createdDate)}</td>
 			<td class="text-center kna-actions">
 				<button type="button" class="btn btn-sm btn-outline-primary" data-action="view-team-details" data-reimbursement-id="${escapeHtml(group.reimbursementId)}">View</button>
 			</td>

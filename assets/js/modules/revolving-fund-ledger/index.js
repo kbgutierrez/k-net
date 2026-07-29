@@ -282,18 +282,18 @@ const renderDesktopTable = (rows) => {
 			? `<a href="#" class="kna-row-link" data-ref="${escapeHtml(row.referenceNo)}">${escapeHtml(row.referenceNo)}</a>`
 			: escapeHtml(row.referenceNo || '-');
 		tr.innerHTML = `
-			<td>${escapeHtml(toIsoDate(row.trxDate) || '-')}</td>
-			<td class="font-weight-bold">${escapeHtml(row.fundCode || '-')}</td>
-			<td style="max-width:200px;white-space:normal;word-break:break-word;" title="${escapeHtml(row.fundScopeName)}">${escapeHtml(row.fundScopeName || '-')}</td>
-			<td>${escapeHtml(row.trxTypeName || row.trxType || '-')}</td>
-			<td>${refCell}</td>
-			<td style="max-width:160px;white-space:normal;word-break:break-word;" title="${escapeHtml(row.employeeName)}">${escapeHtml(row.employeeName || '-')}</td>
-			<td style="max-width:140px;white-space:normal;word-break:break-word;" title="${escapeHtml(row.employeePosition)}">${escapeHtml(row.employeePosition || '-')}</td>
-			<td class="text-right"><span class="kna-badge ${getAmountBadgeClass(row.amount)}">${formatAmount(row.amount)}</span></td>
-			<td class="text-right">${formatAmount(row.balanceAfter)}</td>
-			<td style="max-width:200px;white-space:normal;word-break:break-word;" title="${escapeHtml(row.remarks)}">${escapeHtml(row.remarks || '-')}</td>
-			<td style="max-width:130px;white-space:normal;word-break:break-word;" title="${escapeHtml(row.createdByName)}">${escapeHtml(row.createdByName || '-')}</td>
-			<td>${escapeHtml(toDisplayDateTime(row.createdDate) || '-')}</td>
+			<td style="white-space:nowrap;">${escapeHtml(toIsoDate(row.trxDate) || '-')}</td>
+			<td class="font-weight-bold" style="white-space:nowrap;">${escapeHtml(row.fundCode || '-')}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.fundScopeName)}">${escapeHtml(row.fundScopeName || '-')}</td>
+			<td style="white-space:nowrap;">${escapeHtml(row.trxTypeName || row.trxType || '-')}</td>
+			<td style="white-space:nowrap;">${refCell}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.employeeName)}">${escapeHtml(row.employeeName || '-')}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.employeePosition)}">${escapeHtml(row.employeePosition || '-')}</td>
+			<td class="text-right" style="white-space:nowrap;"><span class="kna-badge ${getAmountBadgeClass(row.amount)}">${formatAmount(row.amount)}</span></td>
+			<td class="text-right" style="white-space:nowrap;">${formatAmount(row.balanceAfter)}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.remarks)}">${escapeHtml(row.remarks || '-')}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.createdByName)}">${escapeHtml(row.createdByName || '-')}</td>
+			<td style="white-space:nowrap;">${escapeHtml(toDisplayDateTime(row.createdDate) || '-')}</td>
 		`;
 		dom.ledgerTbody.appendChild(tr);
 	});

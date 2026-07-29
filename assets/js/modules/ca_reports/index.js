@@ -175,15 +175,15 @@ const renderDesktopTable = (rows) => {
 	rows.forEach((row) => {
 		const tr = document.createElement('tr');
 		tr.innerHTML = `
-			<td class="text-nowrap" style="max-width:170px;">${escapeHtml(row.refNo)}</td>
-			<td>${escapeHtml(row.employee)}</td>
-			<td>${escapeHtml(row.department)}</td>
-			<td>${escapeHtml(row.company)}</td>
-			<td class="text-right">${formatPHP(row.amount)}</td>
-			<td class="text-truncate" style="max-width:360px;" title="${escapeHtml(row.purpose)}">${escapeHtml(row.purpose)}</td>
-			<td>${escapeHtml(row.neededDate)}</td>
-			<td>${escapeHtml(row.requestedDate)}</td>
-			<td>${getStatusBadge(row.status)}</td>
+			<td style="white-space:nowrap;">${escapeHtml(row.refNo)}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.employee)}">${escapeHtml(row.employee)}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.department)}">${escapeHtml(row.department)}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.company)}">${escapeHtml(row.company)}</td>
+			<td class="text-right" style="white-space:nowrap;">${formatPHP(row.amount)}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.purpose)}">${escapeHtml(row.purpose)}</td>
+			<td style="white-space:nowrap;">${escapeHtml(row.neededDate)}</td>
+			<td style="white-space:nowrap;">${escapeHtml(row.requestedDate)}</td>
+			<td style="white-space:nowrap;">${getStatusBadge(row.status)}</td>
 			<td class="text-center kna-actions">
 				<button type="button" class="btn btn-sm btn-outline-primary" data-action="view" data-ref="${escapeHtml(row.refNo)}">View</button>
 			</td>

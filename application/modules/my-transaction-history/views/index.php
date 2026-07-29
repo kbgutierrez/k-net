@@ -117,7 +117,15 @@
 				</div>
 				<div>
 					<label class="kna-small kna-form-label mb-1">Status</label>
-					<input type="text" class="form-control form-control-sm kna-small" id="filterStatus" placeholder="e.g. Completed" style="width:150px;">
+					<select class="form-control form-control-sm kna-small" id="filterStatus" style="width:170px;">
+						<option value="">All Statuses</option>
+						<option value="Submitted">Submitted</option>
+						<option value="Approved">Approved</option>
+						<option value="For Liquidation">For Liquidation</option>
+						<option value="Paid">Paid</option>
+						<option value="RMB_FOR_RELEASE">For Release</option>
+						<option value="Completed">Completed</option>
+					</select>
 				</div>
 				<div>
 					<button type="button" class="btn btn-outline-secondary btn-sm" id="btnReset" title="Clear filters" style="height:31px;width:31px;padding:0;">
@@ -135,18 +143,18 @@
 				<div class="kna-small text-muted" id="resultCount">0 record(s)</div>
 			</div>
 			<div class="table-responsive">
-				<table class="table table-sm kna-table" id="historyTable" style="width:100%">
+				<table class="table table-sm kna-table" id="historyTable" style="width:100%;">
 					<thead>
 						<tr>
-							<th style="width:130px;">Type</th>
-							<th style="width:150px;">Reference No.</th>
-							<th style="width:220px;">Description</th>
-							<th style="width:170px;">Cost Center</th>
-							<th style="width:110px;" class="text-right">Amount</th>
-							<th style="width:120px;">Status</th>
-							<th style="width:110px;">Needed Date</th>
-							<th style="width:130px;">Created Date</th>
-							<th style="width:130px;">Updated Date</th>
+							<th style="min-width:140px;">Type</th>
+							<th style="min-width:130px;">Reference No.</th>
+							<th style="min-width:260px;">Description</th>
+							<th style="min-width:190px;">Cost Center</th>
+							<th style="min-width:110px;" class="text-right">Amount</th>
+							<th style="min-width:130px;">Status</th>
+							<th style="min-width:105px;">Needed Date</th>
+							<th style="min-width:105px;">Created Date</th>
+							<th style="min-width:105px;">Updated Date</th>
 						</tr>
 					</thead>
 					<tbody id="historyTbody"></tbody>

@@ -113,17 +113,17 @@
 				<div class="kna-small text-muted" id="resultCount">0 record(s)</div>
 			</div>
 			<div class="table-responsive">
-				<table class="table table-sm kna-table" id="varianceTable" style="width:100%">
+				<table class="table table-sm kna-table" id="varianceTable" style="width:100%;">
 					<thead>
 						<tr>
-							<th style="width:140px;">CA No.</th>
-							<th style="width:150px;">Employee</th>
-							<th style="width:150px;">Cost Center</th>
-							<th style="width:110px;">CA Amount</th>
-							<th style="width:110px;">Liquidated</th>
-							<th style="width:110px;">Variance</th>
-							<th style="width:120px;">Status</th>
-							<th style="width:90px;">Age (days)</th>
+							<th style="min-width:130px;">CA No.</th>
+							<th style="min-width:150px;">Employee</th>
+							<th style="min-width:180px;">Cost Center</th>
+							<th style="min-width:110px;" class="text-right">CA Amount</th>
+							<th style="min-width:110px;" class="text-right">Liquidated</th>
+							<th style="min-width:110px;" class="text-right">Variance</th>
+							<th style="min-width:130px;">Status</th>
+							<th style="min-width:100px;" class="text-center">Age (days)</th>
 						</tr>
 					</thead>
 					<tbody id="varianceTbody"></tbody>

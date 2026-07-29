@@ -105,20 +105,20 @@
 				<div class="kna-small text-muted" id="resultCount">0 record(s)</div>
 			</div>
 			<div class="table-responsive">
-				<table class="table table-sm kna-table" id="breakdownTable" style="width:100%">
+				<table class="table table-sm kna-table" id="breakdownTable" style="width:100%;">
 					<thead>
 						<tr>
-							<th style="width:110px;">Source</th>
-							<th style="width:130px;">Reference No.</th>
-							<th style="width:220px;">GL</th>
-							<th style="width:170px;">Cost Center</th>
-							<th style="width:110px;">Document Date</th>
-							<th style="width:120px;">Invoice No.</th>
-							<th style="width:110px;">Actual Amount</th>
-							<th style="width:110px;">Net Amount</th>
-							<th style="width:100px;">VAT Amount</th>
-							<th style="width:180px;">Vendor</th>
-							<th style="width:120px;">Vendor TIN</th>
+							<th style="min-width:130px;">Source</th>
+							<th style="min-width:130px;">Reference No.</th>
+							<th style="min-width:260px;">GL</th>
+							<th style="min-width:180px;">Cost Center</th>
+							<th style="min-width:110px;">Document Date</th>
+							<th style="min-width:120px;">Invoice No.</th>
+							<th style="min-width:110px;" class="text-right">Actual Amount</th>
+							<th style="min-width:110px;" class="text-right">Net Amount</th>
+							<th style="min-width:100px;" class="text-right">VAT Amount</th>
+							<th style="min-width:190px;">Vendor</th>
+							<th style="min-width:130px;">Vendor TIN</th>
 						</tr>
 					</thead>
 					<tbody id="breakdownTbody"></tbody>

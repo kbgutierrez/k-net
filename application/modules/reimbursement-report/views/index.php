@@ -117,17 +117,17 @@
 				<div class="kna-small text-muted" id="resultCount">0 record(s)</div>
 			</div>
 			<div class="table-responsive">
-				<table class="table table-sm kna-table" id="reimbursementTable" style="width:100%">
+				<table class="table table-sm kna-table" id="reimbursementTable" style="width:100%;">
 					<thead>
 						<tr>
-							<th style="width:150px;">Reimbursement No.</th>
-							<th style="width:170px;">Employee</th>
-							<th style="width:150px;">Department</th>
-							<th style="width:170px;">Cost Center</th>
-							<th style="width:120px;" class="text-right">Amount</th>
-							<th style="width:250px;">Description</th>
-							<th style="width:130px;">Requested Date</th>
-							<th style="width:120px;">Status</th>
+							<th style="min-width:130px;">Reimbursement No.</th>
+							<th style="min-width:150px;">Employee</th>
+							<th style="min-width:170px;">Department</th>
+							<th style="min-width:200px;">Cost Center</th>
+							<th style="min-width:110px;" class="text-right">Amount</th>
+							<th style="min-width:260px;">Description</th>
+							<th style="min-width:105px;">Requested Date</th>
+							<th style="min-width:130px;">Status</th>
 						</tr>
 					</thead>
 					<tbody id="reimbursementTbody"></tbody>

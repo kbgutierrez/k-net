@@ -304,14 +304,14 @@
 			</div>
 
 			<div class="table-responsive">
-				<table class="table table-sm kna-table" id="reimbursementTable" style="width:100%">
+				<table class="table table-sm kna-table" id="reimbursementTable" style="width:100%;">
 					<thead>
 						<tr>
-							<th>Reimbursement No</th>
-							<th class="text-right">Total Amount</th>
-							<th>Submitted</th>
-							<th>Status</th>
-							<th class="text-center">Actions</th>
+							<th style="min-width:140px;">Reimbursement No</th>
+							<th style="min-width:120px;" class="text-right">Total Amount</th>
+							<th style="min-width:105px;">Submitted</th>
+							<th style="min-width:130px;">Status</th>
+							<th style="min-width:150px;" class="text-center">Actions</th>
 						</tr>
 					</thead>
 					<tbody id="reimbursementTbody">
@@ -373,17 +373,17 @@
 					<div class="kna-small text-muted" id="teamResultCount">0 record(s)</div>
 				</div>
 				<div class="table-responsive">
-					<table class="table table-sm kna-table" id="teamReportTable" style="width:100%">
+					<table class="table table-sm kna-table" id="teamReportTable" style="width:100%;">
 						<thead>
 							<tr>
-								<th>Reimbursement No</th>
-								<th>Salesman</th>
-								<th class="text-right">Amount</th>
-								<th>Description</th>
-								<th>Cost Center</th>
-								<th>Status</th>
-								<th>Filed Date</th>
-								<th class="text-center">Actions</th>
+								<th style="min-width:140px;">Reimbursement No</th>
+								<th style="min-width:150px;">Salesman</th>
+								<th style="min-width:110px;" class="text-right">Amount</th>
+								<th style="min-width:140px;">Description</th>
+								<th style="min-width:190px;">Cost Center</th>
+								<th style="min-width:130px;">Status</th>
+								<th style="min-width:105px;">Filed Date</th>
+								<th style="min-width:100px;" class="text-center">Actions</th>
 							</tr>
 						</thead>
 						<tbody id="teamReportTbody"></tbody>

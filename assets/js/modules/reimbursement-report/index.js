@@ -237,14 +237,14 @@ const renderDesktopTable = (rows) => {
 		const tr = document.createElement('tr');
 		const costCenterDisplay = window.knetFormatCodeName(row.costCenterId, row.costCenterName);
 		tr.innerHTML = `
-			<td class="font-weight-bold"><a href="#" class="kna-row-link" data-ref="${escapeHtml(row.reimbursementId)}">${escapeHtml(row.reimbursementId || '-')}</a></td>
-			<td style="max-width:170px;white-space:normal;word-break:break-word;" title="${escapeHtml(row.employeeName)}">${escapeHtml(row.employeeName || '-')}</td>
-			<td style="max-width:150px;white-space:normal;word-break:break-word;" title="${escapeHtml(row.departmentName)}">${escapeHtml(row.departmentName || '-')}</td>
-			<td style="max-width:170px;white-space:normal;word-break:break-word;" title="${escapeHtml(costCenterDisplay)}">${escapeHtml(costCenterDisplay)}</td>
-			<td class="text-right">${formatAmount(row.totalAmount)}</td>
-			<td style="max-width:250px;white-space:normal;word-break:break-word;" title="${escapeHtml(row.description)}">${escapeHtml(row.description || '-')}</td>
-			<td>${escapeHtml(row.createdDate || '-')}</td>
-			<td>${getStatusBadge(row.statusName)}</td>
+			<td class="font-weight-bold" style="white-space:nowrap;"><a href="#" class="kna-row-link" data-ref="${escapeHtml(row.reimbursementId)}">${escapeHtml(row.reimbursementId || '-')}</a></td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.employeeName)}">${escapeHtml(row.employeeName || '-')}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.departmentName)}">${escapeHtml(row.departmentName || '-')}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(costCenterDisplay)}">${escapeHtml(costCenterDisplay)}</td>
+			<td class="text-right" style="white-space:nowrap;">${formatAmount(row.totalAmount)}</td>
+			<td style="white-space:normal;overflow-wrap:break-word;" title="${escapeHtml(row.description)}">${escapeHtml(row.description || '-')}</td>
+			<td style="white-space:nowrap;">${escapeHtml(row.createdDate || '-')}</td>
+			<td style="white-space:nowrap;">${getStatusBadge(row.statusName)}</td>
 		`;
 		dom.reimbursementTbody.appendChild(tr);
 	});

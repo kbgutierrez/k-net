@@ -118,20 +118,20 @@
 				<div class="kna-small text-muted" id="resultCount">0 record(s)</div>
 			</div>
 			<div class="table-responsive">
-				<table class="table table-sm kna-table" id="registerTable" style="width:100%">
+				<table class="table table-sm kna-table" id="registerTable" style="width:100%;">
 					<thead>
 						<tr>
-							<th style="width:150px;">Reference No.</th>
-							<th style="width:130px;">Type</th>
-							<th style="width:90px;">Event</th>
-							<th style="width:160px;">Requester</th>
-							<th style="width:150px;">Payable To</th>
-							<th style="width:150px;">Department</th>
-							<th style="width:170px;">Cost Center</th>
-							<th style="width:110px;" class="text-right">Amount</th>
-							<th style="width:150px;">Actioned By</th>
-							<th style="width:140px;">Date/Time</th>
-							<th style="width:180px;">Remarks</th>
+							<th style="min-width:130px;">Reference No.</th>
+							<th style="min-width:130px;">Type</th>
+							<th style="min-width:120px;">Event</th>
+							<th style="min-width:160px;">Requester</th>
+							<th style="min-width:160px;">Payable To</th>
+							<th style="min-width:170px;">Department</th>
+							<th style="min-width:180px;">Cost Center</th>
+							<th style="min-width:110px;" class="text-right">Amount</th>
+							<th style="min-width:150px;">Actioned By</th>
+							<th style="min-width:140px;">Date/Time</th>
+							<th style="min-width:260px;">Remarks</th>
 						</tr>
 					</thead>
 					<tbody id="registerTbody"></tbody>
