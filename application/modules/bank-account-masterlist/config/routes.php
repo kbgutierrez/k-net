@@ -9,5 +9,8 @@ $route['maintenance/bank-account-masterlist/api/reveal'] = 'Bank_Account_Masterl
 $route['maintenance/bank-account-masterlist/api/toggle'] = 'Bank_Account_Masterlist/api_toggle_active';
 $route['maintenance/bank-account-masterlist/api/mass-upload'] = 'Bank_Account_Masterlist/api_mass_upload';
 $route['maintenance/bank-account-masterlist/api/download-template'] = 'Bank_Account_Masterlist/download_template';
+$route['maintenance/bank-account-masterlist/api/company-settings/get'] = 'Bank_Account_Masterlist/api_get_company_settings';
+$route['maintenance/bank-account-masterlist/api/company-settings/save'] = 'Bank_Account_Masterlist/api_save_company_settings';
+$route['maintenance/bank-account-masterlist/api/company-settings/reveal'] = 'Bank_Account_Masterlist/api_reveal_company_account';
 
 ?>

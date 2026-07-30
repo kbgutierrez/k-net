@@ -24,7 +24,23 @@ const bamDom = {
 	massUploadSummaryHeadline: null,
 	massUploadSkippedList: null,
 	btnSubmitMassUpload: null,
+	tabCompanyLink: null,
+	companyCode: null,
+	companyAccountMasked: null,
+	companyAccountNumber: null,
+	presentingOfficeCode: null,
+	ceilingAmount: null,
+	btnRevealCompanyAccount: null,
+	btnSaveCompanySettings: null,
+	viewCompanyCode: null,
+	viewPresentingOfficeCode: null,
+	viewCeilingAmount: null,
+	companySettingsUpdatedLabel: null,
 };
+
+let bamCompanySettingsLoaded = false;
+let bamCompanyAccountRevealed = false;
+let bamCompanyAccountMaskedValue = '';
 
 const bamState = {
 	keyword: '',
@@ -392,6 +408,95 @@ const bamSubmitMassUpload = () => {
 	});
 };
 
+const bamLoadCompanySettings = () => {
+	ajax_loader('maintenance/bank-account-masterlist/api/company-settings/get', {}).done((response) => {
+		const res = (typeof response === 'string') ? JSON.parse(response) : response;
+		if (!res || res.status !== 'success') return;
+
+		const data = res.data || {};
+		bamCompanyAccountRevealed = false;
+		bamCompanyAccountMaskedValue = data.account_number_masked || 'Not set';
+		if (bamDom.companyCode) bamDom.companyCode.value = data.company_code || '';
+		if (bamDom.presentingOfficeCode) bamDom.presentingOfficeCode.value = data.presenting_office_code || '';
+		if (bamDom.ceilingAmount) bamDom.ceilingAmount.value = data.ceiling_amount !== null && data.ceiling_amount !== undefined ? data.ceiling_amount : '';
+		if (bamDom.companyAccountMasked) bamDom.companyAccountMasked.textContent = bamCompanyAccountMaskedValue;
+		if (bamDom.companyAccountNumber) bamDom.companyAccountNumber.value = '';
+		if (bamDom.btnRevealCompanyAccount) bamDom.btnRevealCompanyAccount.innerHTML = '<i class="fas fa-eye"></i>';
+
+		if (bamDom.viewCompanyCode) bamDom.viewCompanyCode.textContent = data.company_code || '—';
+		if (bamDom.viewPresentingOfficeCode) bamDom.viewPresentingOfficeCode.textContent = data.presenting_office_code || '—';
+		if (bamDom.viewCeilingAmount) {
+			bamDom.viewCeilingAmount.textContent = (data.ceiling_amount !== null && data.ceiling_amount !== undefined)
+				? Number(data.ceiling_amount).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+				: '—';
+		}
+		if (bamDom.companySettingsUpdatedLabel) {
+			bamDom.companySettingsUpdatedLabel.textContent = data.updated_date ? `Last updated: ${data.updated_date}` : '';
+		}
+	});
+};
+
+const bamToggleCompanyAccount = () => {
+	if (bamCompanyAccountRevealed) {
+		bamCompanyAccountRevealed = false;
+		if (bamDom.companyAccountMasked) bamDom.companyAccountMasked.textContent = bamCompanyAccountMaskedValue;
+		if (bamDom.btnRevealCompanyAccount) bamDom.btnRevealCompanyAccount.innerHTML = '<i class="fas fa-eye"></i>';
+		return;
+	}
+
+	ajax_loader('maintenance/bank-account-masterlist/api/company-settings/reveal', {}).done((response) => {
+		const res = (typeof response === 'string') ? JSON.parse(response) : response;
+		if (!res || res.status !== 'success') {
+			Swal.fire({ icon: 'error', title: 'Failed', text: (res && res.response) || 'Unable to reveal the account number.' });
+			return;
+		}
+		bamCompanyAccountRevealed = true;
+		if (bamDom.companyAccountMasked) bamDom.companyAccountMasked.textContent = (res.data && res.data.account_number) || '';
+		if (bamDom.btnRevealCompanyAccount) bamDom.btnRevealCompanyAccount.innerHTML = '<i class="fas fa-eye-slash"></i>';
+	}).fail(() => {
+		Swal.fire({ icon: 'error', title: 'Error', text: 'Server error while revealing the account number.' });
+	});
+};
+
+const bamSaveCompanySettings = () => {
+	const companyCode = bamDom.companyCode ? bamDom.companyCode.value.trim() : '';
+	const accountNumber = bamDom.companyAccountNumber ? bamDom.companyAccountNumber.value.trim() : '';
+	const presentingOfficeCode = bamDom.presentingOfficeCode ? bamDom.presentingOfficeCode.value.trim() : '';
+	const ceilingAmount = bamDom.ceilingAmount ? bamDom.ceilingAmount.value : '';
+
+	if (!companyCode || !presentingOfficeCode || !ceilingAmount) {
+		Swal.fire({ icon: 'warning', title: 'Missing fields', text: 'Please complete all required fields before saving.' });
+		return;
+	}
+
+	Swal.fire({
+		icon: 'question',
+		title: 'Save these BizLink settings?',
+		text: 'These details are used to build the company\'s bank disbursement file. Please confirm they are correct.',
+		showCancelButton: true,
+		confirmButtonText: 'Yes, save',
+	}).then((result) => {
+		if (!result.isConfirmed) return;
+
+		ajax_loader('maintenance/bank-account-masterlist/api/company-settings/save', {
+			CompanyCode: companyCode,
+			CompanyAccountNumber: accountNumber,
+			PresentingOfficeCode: presentingOfficeCode,
+			CeilingAmount: ceilingAmount,
+		}).done((response) => {
+			const res = (typeof response === 'string') ? JSON.parse(response) : response;
+			if (!res || res.status !== 'success') {
+				Swal.fire({ icon: 'error', title: 'Failed', text: (res && res.response) || 'Failed to save.' });
+				return;
+			}
+			Swal.fire({ icon: 'success', title: 'Saved', text: res.response, timer: 1500, showConfirmButton: false });
+			bamLoadCompanySettings();
+		}).fail(() => {
+			Swal.fire({ icon: 'error', title: 'Error', text: 'Server error while saving.' });
+		});
+	});
+};
+
 const bamCacheDom = () => {
 	bamDom.filterKeyword = document.getElementById('filterKeyword');
 	bamDom.btnResetFilters = document.getElementById('btnResetFilters');
@@ -416,6 +521,18 @@ const bamCacheDom = () => {
 	bamDom.massUploadSummaryHeadline = document.getElementById('massUploadSummaryHeadline');
 	bamDom.massUploadSkippedList = document.getElementById('massUploadSkippedList');
 	bamDom.btnSubmitMassUpload = document.getElementById('btnSubmitMassUpload');
+	bamDom.tabCompanyLink = document.getElementById('bamTabCompanyLink');
+	bamDom.companyCode = document.getElementById('companyCode');
+	bamDom.companyAccountMasked = document.getElementById('companyAccountMasked');
+	bamDom.companyAccountNumber = document.getElementById('companyAccountNumber');
+	bamDom.presentingOfficeCode = document.getElementById('presentingOfficeCode');
+	bamDom.ceilingAmount = document.getElementById('ceilingAmount');
+	bamDom.btnRevealCompanyAccount = document.getElementById('btnRevealCompanyAccount');
+	bamDom.btnSaveCompanySettings = document.getElementById('btnSaveCompanySettings');
+	bamDom.viewCompanyCode = document.getElementById('viewCompanyCode');
+	bamDom.viewPresentingOfficeCode = document.getElementById('viewPresentingOfficeCode');
+	bamDom.viewCeilingAmount = document.getElementById('viewCeilingAmount');
+	bamDom.companySettingsUpdatedLabel = document.getElementById('companySettingsUpdatedLabel');
 };
 
 const bamBindEvents = () => {
@@ -457,6 +574,21 @@ const bamBindEvents = () => {
 
 	bamBindTableEvents(bamDom.tbody);
 	bamBindTableEvents(bamDom.mobileList);
+
+	if (bamDom.tabCompanyLink && typeof $ !== 'undefined') {
+		$(bamDom.tabCompanyLink).on('shown.bs.tab', () => {
+			if (!bamCompanySettingsLoaded) {
+				bamCompanySettingsLoaded = true;
+				bamLoadCompanySettings();
+			}
+		});
+	}
+	if (bamDom.btnRevealCompanyAccount) {
+		bamDom.btnRevealCompanyAccount.addEventListener('click', bamToggleCompanyAccount);
+	}
+	if (bamDom.btnSaveCompanySettings) {
+		bamDom.btnSaveCompanySettings.addEventListener('click', bamSaveCompanySettings);
+	}
 };
 
 const initBankAccountMasterlist = () => {

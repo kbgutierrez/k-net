@@ -402,6 +402,167 @@ class Bank_Account_Masterlist extends MY_Controller
         }
     }
 
+    public function api_get_company_settings()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+
+            $row = $this->sp->readData(
+                'EXEC sp_fetch_bizlink_company_settings',
+                array(),
+                'row'
+            );
+
+            if (!is_array($row) || empty($row['id'])) {
+                return $this->respondSuccess('OK', array(
+                    'exists' => false,
+                    'company_code' => '',
+                    'account_number_masked' => '',
+                    'presenting_office_code' => '',
+                    'ceiling_amount' => null,
+                ));
+            }
+
+            $plaintext = $row['company_account_number'] !== null
+                ? bank_account_decrypt($row['company_account_number'])
+                : '';
+
+            return $this->respondSuccess('OK', array(
+                'exists' => true,
+                'company_code' => $row['company_code'],
+                'account_number_masked' => bank_account_mask($plaintext),
+                'presenting_office_code' => $row['presenting_office_code'],
+                'ceiling_amount' => $row['ceiling_amount'] !== null ? (float) $row['ceiling_amount'] : null,
+                'updated_date' => $row['updated_date'],
+            ));
+        } catch (\Throwable $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
+    public function api_reveal_company_account()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+
+            $userId = (int) $this->session->userdata('user_id');
+            if ($userId <= 0) {
+                return $this->respondError('User not authenticated.');
+            }
+
+            $row = $this->sp->readData(
+                'EXEC sp_fetch_bizlink_company_settings',
+                array(),
+                'row'
+            );
+
+            if (!is_array($row) || empty($row['id']) || $row['company_account_number'] === null) {
+                return $this->respondError('No company account number is on file yet.');
+            }
+
+            $plaintext = bank_account_decrypt($row['company_account_number']);
+
+            $this->logAuditTrail(
+                'BIZLINK_COMPANY_SETTINGS',
+                (string) $row['id'],
+                'REVEAL',
+                'bizlink_company_settings',
+                (string) $row['id'],
+                'company_account_number',
+                null,
+                'Company debit account number revealed by user #' . $userId
+            );
+
+            return $this->respondSuccess('OK', array(
+                'account_number' => $plaintext,
+            ));
+        } catch (\Throwable $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
+    public function api_save_company_settings()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $userId = (int) $this->session->userdata('user_id');
+            if ($userId <= 0) {
+                return $this->respondError('User not authenticated.');
+            }
+
+            $companyCode = trim((string) (isset($data['CompanyCode']) ? $data['CompanyCode'] : ''));
+            $accountNumber = trim((string) (isset($data['CompanyAccountNumber']) ? $data['CompanyAccountNumber'] : ''));
+            $presentingOfficeCode = trim((string) (isset($data['PresentingOfficeCode']) ? $data['PresentingOfficeCode'] : ''));
+            $ceilingAmount = isset($data['CeilingAmount']) ? (float) $data['CeilingAmount'] : 0;
+
+            if ($companyCode === '') {
+                return $this->respondError('Company Code is required.');
+            }
+            if ($presentingOfficeCode === '') {
+                return $this->respondError('Presenting Office Code is required.');
+            }
+            if ($ceilingAmount <= 0) {
+                return $this->respondError('Ceiling Amount must be greater than zero.');
+            }
+
+            // Account number left blank on an edit means "keep the
+            // existing one on file" -- otherwise every save would force
+            // re-entering the debit account number even when only the
+            // ceiling amount or office code changed.
+            if ($accountNumber !== '') {
+                if (!preg_match('/^[0-9\- ]{4,50}$/', $accountNumber)) {
+                    return $this->respondError('Company Account Number format looks invalid.');
+                }
+                $encrypted = bank_account_encrypt($accountNumber);
+            } else {
+                $existing = $this->sp->readData(
+                    'EXEC sp_fetch_bizlink_company_settings',
+                    array(),
+                    'row'
+                );
+                if (!is_array($existing) || empty($existing['company_account_number'])) {
+                    return $this->respondError('Company Account Number is required.');
+                }
+                $encrypted = $existing['company_account_number'];
+            }
+
+            $params = array(
+                'CompanyCode' => $companyCode,
+                'CompanyAccountNumberEncrypted' => $encrypted,
+                'PresentingOfficeCode' => $presentingOfficeCode,
+                'CeilingAmount' => $ceilingAmount,
+                'UserId' => $userId,
+            );
+
+            $result = $this->sp->readData(
+                build_sp('sp_save_bizlink_company_settings', count($params)),
+                $params,
+                'row'
+            );
+
+            if (!is_array($result) || empty($result['id'])) {
+                return $this->respondError('Failed to save the company BizLink settings.');
+            }
+
+            $this->logAuditTrail(
+                'BIZLINK_COMPANY_SETTINGS',
+                (string) $result['id'],
+                $result['action'] === 'INSERTED' ? 'CREATE' : 'UPDATE',
+                'bizlink_company_settings',
+                (string) $result['id'],
+                'company_account_number',
+                null,
+                'BizLink company settings updated by user #' . $userId
+            );
+
+            return $this->respondSuccess('Company BizLink settings saved.', array('id' => (int) $result['id']));
+        } catch (\Throwable $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
     public function download_template()
     {
         $spreadsheet = new Spreadsheet();

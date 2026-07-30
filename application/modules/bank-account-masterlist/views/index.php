@@ -63,6 +63,18 @@
 		</div>
 	</div>
 
+	<ul class="nav nav-tabs mb-2" id="bamTabs" role="tablist">
+		<li class="nav-item">
+			<a class="nav-link active kna-small" id="bamTabEmployeesLink" data-toggle="tab" href="#bamTabEmployees" role="tab">Employee Accounts</a>
+		</li>
+		<li class="nav-item">
+			<a class="nav-link kna-small" id="bamTabCompanyLink" data-toggle="tab" href="#bamTabCompany" role="tab">Company / BizLink Settings</a>
+		</li>
+	</ul>
+
+	<div class="tab-content">
+	<div class="tab-pane fade show active" id="bamTabEmployees" role="tabpanel">
+
 	<div class="card kna-card mb-2">
 		<div class="card-body py-2">
 			<div class="d-flex flex-wrap align-items-end justify-content-between kna-stack-mobile" style="gap:.5rem;">
@@ -131,6 +143,72 @@
 				</nav>
 			</div>
 		</div>
+	</div>
+
+	</div>
+
+	<div class="tab-pane fade" id="bamTabCompany" role="tabpanel">
+		<div class="card kna-card mb-2" style="max-width:640px;">
+			<div class="card-body">
+				<div class="d-flex align-items-center justify-content-between mb-2">
+					<div class="kna-form-section-title mb-0">Current Settings</div>
+					<span class="kna-small text-muted" id="companySettingsUpdatedLabel"></span>
+				</div>
+				<div class="kna-small" id="companySettingsView">
+					<div class="kna-row d-flex justify-content-between py-1" style="border-bottom:1px solid #f0f2f5;">
+						<span class="text-muted">Company Code</span>
+						<span id="viewCompanyCode">—</span>
+					</div>
+					<div class="kna-row d-flex justify-content-between py-1" style="border-bottom:1px solid #f0f2f5;">
+						<span class="text-muted">Company Account Number</span>
+						<span>
+							<span class="kna-acct-masked" id="companyAccountMasked">Not set</span>
+							<button type="button" class="kna-btn-reveal" id="btnRevealCompanyAccount" title="Reveal"><i class="fas fa-eye"></i></button>
+						</span>
+					</div>
+					<div class="kna-row d-flex justify-content-between py-1" style="border-bottom:1px solid #f0f2f5;">
+						<span class="text-muted">Presenting Office Code</span>
+						<span id="viewPresentingOfficeCode">—</span>
+					</div>
+					<div class="kna-row d-flex justify-content-between py-1">
+						<span class="text-muted">Ceiling Amount</span>
+						<span id="viewCeilingAmount">—</span>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="card kna-card mb-2" style="max-width:640px;">
+			<div class="card-body">
+				<div class="kna-form-section-title">Edit Settings</div>
+
+				<form id="formCompanySettings">
+					<div class="form-group">
+						<label class="kna-small kna-form-label">Company Code <span class="text-danger">*</span></label>
+						<input type="text" class="form-control form-control-sm kna-small" id="companyCode" maxlength="10" placeholder="e.g. 05972">
+					</div>
+					<div class="form-group">
+						<label class="kna-small kna-form-label">Company Account Number (to be debited)</label>
+						<input type="text" class="form-control form-control-sm kna-small" id="companyAccountNumber" maxlength="50" placeholder="Leave blank to keep the current account number" autocomplete="off">
+						<small class="text-muted kna-small">Stored encrypted, same as employee accounts. Leave blank when saving to keep the existing account number.</small>
+					</div>
+					<div class="form-group">
+						<label class="kna-small kna-form-label">Presenting Office Code (receiving BPI branch code) <span class="text-danger">*</span></label>
+						<input type="text" class="form-control form-control-sm kna-small" id="presentingOfficeCode" maxlength="20" placeholder="e.g. 46300000">
+					</div>
+					<div class="form-group mb-0">
+						<label class="kna-small kna-form-label">Ceiling Amount (highest allowed net pay per batch) <span class="text-danger">*</span></label>
+						<input type="number" step="0.01" class="form-control form-control-sm kna-small" id="ceilingAmount" placeholder="e.g. 1200000.00">
+					</div>
+				</form>
+			</div>
+			<div class="card-footer text-right py-2" style="background:#f8f9fa;">
+				<button type="button" class="btn btn-primary btn-sm kna-small" id="btnSaveCompanySettings">
+					<i class="fas fa-save mr-1"></i>Save Changes
+				</button>
+			</div>
+		</div>
+	</div>
 	</div>
 </div>
 
