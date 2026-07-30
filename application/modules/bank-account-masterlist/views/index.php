@@ -26,6 +26,20 @@
 	.kna-form-section-title { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; font-weight: 700; color: #6c757d; margin-bottom: .6rem; padding-bottom: .35rem; border-bottom: 1px solid #eef2f7; }
 	.form-control-sm, .custom-select-sm { font-size: 12px; }
 
+	#bamTabCompany .kna-card .card-body { padding: 1.5rem; }
+	.kna-bizlink-section-title { font-size: 13px; text-transform: uppercase; letter-spacing: .4px; font-weight: 700; color: #495869; padding-bottom: .6rem; border-bottom: 1px solid #eef2f7; }
+	#bamTabCompany .form-group { margin-bottom: 1.25rem; }
+	#bamTabCompany .form-control { font-size: 13px; }
+
+	.kna-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem 1.5rem; }
+	.kna-detail-cell-span2 { grid-column: span 2; }
+	.kna-detail-label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: #898781; font-weight: 700; margin-bottom: 4px; }
+	.kna-detail-value { font-size: 14px; font-weight: 600; color: #0b0b0b; }
+	@media (max-width: 575.98px) {
+		.kna-detail-grid { grid-template-columns: 1fr; }
+		.kna-detail-cell-span2 { grid-column: span 1; }
+	}
+
 	.kna-upload-drop { border: 2px dashed #d6dee7; border-radius: 8px; padding: 24px 16px; text-align: center; color: #6c7c8c; font-size: 12px; }
 	.kna-upload-summary { font-size: 12px; }
 	.kna-upload-summary .skip-item { padding: 4px 0; border-bottom: 1px dashed #eef2f7; color: #a12626; }
@@ -148,64 +162,70 @@
 	</div>
 
 	<div class="tab-pane fade" id="bamTabCompany" role="tabpanel">
-		<div class="card kna-card mb-2" style="max-width:640px;">
-			<div class="card-body">
-				<div class="d-flex align-items-center justify-content-between mb-2">
-					<div class="kna-form-section-title mb-0">Current Settings</div>
-					<span class="kna-small text-muted" id="companySettingsUpdatedLabel"></span>
-				</div>
-				<div class="kna-small" id="companySettingsView">
-					<div class="kna-row d-flex justify-content-between py-1" style="border-bottom:1px solid #f0f2f5;">
-						<span class="text-muted">Company Code</span>
-						<span id="viewCompanyCode">—</span>
-					</div>
-					<div class="kna-row d-flex justify-content-between py-1" style="border-bottom:1px solid #f0f2f5;">
-						<span class="text-muted">Company Account Number</span>
-						<span>
-							<span class="kna-acct-masked" id="companyAccountMasked">Not set</span>
-							<button type="button" class="kna-btn-reveal" id="btnRevealCompanyAccount" title="Reveal"><i class="fas fa-eye"></i></button>
-						</span>
-					</div>
-					<div class="kna-row d-flex justify-content-between py-1" style="border-bottom:1px solid #f0f2f5;">
-						<span class="text-muted">Presenting Office Code</span>
-						<span id="viewPresentingOfficeCode">—</span>
-					</div>
-					<div class="kna-row d-flex justify-content-between py-1">
-						<span class="text-muted">Ceiling Amount</span>
-						<span id="viewCeilingAmount">—</span>
+		<div class="row">
+			<div class="col-lg-5 mb-3">
+				<div class="card kna-card h-100">
+					<div class="card-body p-4">
+						<div class="d-flex align-items-center justify-content-between mb-3">
+							<div class="kna-bizlink-section-title mb-0">Current Settings</div>
+							<span class="kna-small text-muted" id="companySettingsUpdatedLabel"></span>
+						</div>
+						<div class="kna-detail-grid" id="companySettingsView">
+							<div class="kna-detail-cell">
+								<div class="kna-detail-label">Company Code</div>
+								<div class="kna-detail-value" id="viewCompanyCode">—</div>
+							</div>
+							<div class="kna-detail-cell">
+								<div class="kna-detail-label">Presenting Office Code</div>
+								<div class="kna-detail-value" id="viewPresentingOfficeCode">—</div>
+							</div>
+							<div class="kna-detail-cell kna-detail-cell-span2">
+								<div class="kna-detail-label">Company Account Number</div>
+								<div class="kna-detail-value">
+									<span class="kna-acct-masked" id="companyAccountMasked">Not set</span>
+									<button type="button" class="kna-btn-reveal" id="btnRevealCompanyAccount" title="Reveal"><i class="fas fa-eye"></i></button>
+								</div>
+							</div>
+							<div class="kna-detail-cell kna-detail-cell-span2">
+								<div class="kna-detail-label">Ceiling Amount</div>
+								<div class="kna-detail-value" id="viewCeilingAmount">—</div>
+							</div>
+						</div>
 					</div>
 				</div>
 			</div>
-		</div>
 
-		<div class="card kna-card mb-2" style="max-width:640px;">
-			<div class="card-body">
-				<div class="kna-form-section-title">Edit Settings</div>
+			<div class="col-lg-7 mb-3">
+				<div class="card kna-card h-100">
+					<div class="card-body p-4">
+						<div class="kna-bizlink-section-title mb-3">Edit Settings</div>
 
-				<form id="formCompanySettings">
-					<div class="form-group">
-						<label class="kna-small kna-form-label">Company Code <span class="text-danger">*</span></label>
-						<input type="text" class="form-control form-control-sm kna-small" id="companyCode" maxlength="10" placeholder="e.g. 05972">
+						<form id="formCompanySettings">
+							<div class="form-group">
+								<label class="kna-form-label">Company Code <span class="text-danger">*</span></label>
+								<input type="text" class="form-control" id="companyCode" maxlength="10" placeholder="e.g. 05972">
+							</div>
+							<div class="form-group">
+								<label class="kna-form-label">Company Account Number (to be debited)</label>
+								<input type="text" class="form-control" id="companyAccountNumber" maxlength="50" placeholder="Leave blank to keep the current account number" autocomplete="off">
+								<small class="text-muted kna-small d-block mt-1">Stored encrypted, same as employee accounts. Leave blank when saving to keep the existing account number.</small>
+							</div>
+							<div class="form-group">
+								<label class="kna-form-label">Presenting Office Code (receiving BPI branch code) <span class="text-danger">*</span></label>
+								<input type="text" class="form-control" id="presentingOfficeCode" maxlength="20" placeholder="e.g. 46300000">
+							</div>
+							<div class="form-group mb-0">
+								<label class="kna-form-label">Ceiling Amount (highest allowed net pay per batch) <span class="text-danger">*</span></label>
+								<input type="number" step="0.01" class="form-control" id="ceilingAmount" placeholder="e.g. 1200000.00">
+							</div>
+						</form>
 					</div>
-					<div class="form-group">
-						<label class="kna-small kna-form-label">Company Account Number (to be debited)</label>
-						<input type="text" class="form-control form-control-sm kna-small" id="companyAccountNumber" maxlength="50" placeholder="Leave blank to keep the current account number" autocomplete="off">
-						<small class="text-muted kna-small">Stored encrypted, same as employee accounts. Leave blank when saving to keep the existing account number.</small>
+					<div class="card-footer text-right py-2" style="background:#f8f9fa;">
+						<button type="button" class="btn btn-primary btn-sm kna-small" id="btnSaveCompanySettings">
+							<i class="fas fa-save mr-1"></i>Save Changes
+						</button>
 					</div>
-					<div class="form-group">
-						<label class="kna-small kna-form-label">Presenting Office Code (receiving BPI branch code) <span class="text-danger">*</span></label>
-						<input type="text" class="form-control form-control-sm kna-small" id="presentingOfficeCode" maxlength="20" placeholder="e.g. 46300000">
-					</div>
-					<div class="form-group mb-0">
-						<label class="kna-small kna-form-label">Ceiling Amount (highest allowed net pay per batch) <span class="text-danger">*</span></label>
-						<input type="number" step="0.01" class="form-control form-control-sm kna-small" id="ceilingAmount" placeholder="e.g. 1200000.00">
-					</div>
-				</form>
-			</div>
-			<div class="card-footer text-right py-2" style="background:#f8f9fa;">
-				<button type="button" class="btn btn-primary btn-sm kna-small" id="btnSaveCompanySettings">
-					<i class="fas fa-save mr-1"></i>Save Changes
-				</button>
+				</div>
 			</div>
 		</div>
 	</div>
