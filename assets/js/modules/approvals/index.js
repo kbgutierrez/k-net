@@ -793,6 +793,67 @@ const initListPage = () => {
 		});
 	}
 
+	const downloadBizlinkExportBatch = (referenceNumbers, payrollDate, batchNumber) => {
+		const actionUrl = `${base_url}transactions/approvals/bizlink-export-batch`;
+		const form = document.createElement('form');
+		form.method = 'POST';
+		form.action = actionUrl;
+		form.target = '_blank';
+
+		const appendField = (name, value) => {
+			const input = document.createElement('input');
+			input.type = 'hidden';
+			input.name = name;
+			input.value = value;
+			form.appendChild(input);
+		};
+
+		referenceNumbers.forEach((ref) => appendField('reference_numbers[]', ref));
+		appendField('PayrollDate', payrollDate);
+		appendField('BatchNumber', batchNumber);
+
+		document.body.appendChild(form);
+		form.submit();
+		form.remove();
+	};
+
+	const promptBizlinkExportBatch = (referenceNumbers) => {
+		const today = new Date().toISOString().slice(0, 10);
+		Swal.fire({
+			title: 'Generate BizLink Text File',
+			html: `
+				<div class="text-left kna-small">
+					<label class="kna-form-label d-block">Payroll Date</label>
+					<input type="date" id="swalBizlinkPayrollDate" class="swal2-input" style="width:100%;margin:0 0 12px;" value="${today}">
+					<label class="kna-form-label d-block">Batch Number</label>
+					<input type="number" id="swalBizlinkBatchNumber" class="swal2-input" style="width:100%;margin:0;" min="1" max="99" value="1">
+				</div>
+			`,
+			showCancelButton: true,
+			confirmButtonText: 'Generate',
+			cancelButtonText: 'Cancel',
+			reverseButtons: true,
+			focusConfirm: false,
+			preConfirm: () => {
+				const payrollDate = document.getElementById('swalBizlinkPayrollDate').value;
+				const batchNumber = parseInt(document.getElementById('swalBizlinkBatchNumber').value, 10);
+				if (!payrollDate) {
+					Swal.showValidationMessage('Payroll Date is required.');
+					return false;
+				}
+				if (!batchNumber || batchNumber < 1 || batchNumber > 99) {
+					Swal.showValidationMessage('Batch Number must be between 1 and 99.');
+					return false;
+				}
+				return { payrollDate, batchNumber: String(batchNumber).padStart(2, '0') };
+			},
+		}).then((result) => {
+			if (result.isConfirmed) {
+				downloadBizlinkExportBatch(referenceNumbers, result.value.payrollDate, result.value.batchNumber);
+			}
+		});
+	};
+
 	const btnDownloadBizlinkExport = document.getElementById('btnDownloadBizlinkExport');
 	if (btnDownloadBizlinkExport) {
 		btnDownloadBizlinkExport.addEventListener('click', () => {
@@ -828,18 +889,22 @@ const initListPage = () => {
 					return;
 				}
 
-				ajax_loader_loading('transactions/approvals/bizlink-export-batch', {
-					reference_numbers: allowed,
-				}).done((exportResponse) => {
-					const exportRes = (typeof exportResponse === 'string') ? $.parseJSON(exportResponse) : exportResponse;
+				if (skipped.length > 0) {
 					Swal.fire({
-						icon: exportRes.status === 'success' ? 'success' : 'info',
-						title: exportRes.status === 'success' ? 'Generated' : 'Not Available Yet',
-						text: exportRes.response || 'Text file generation is not yet available.',
+						icon: 'info',
+						title: `${skipped.length} Will Be Skipped`,
+						html: `Not allowed for:<br>${refListHtml(skipped)}<br><br>Generate for the other ${allowed.length}?`,
+						showCancelButton: true,
+						confirmButtonText: 'Continue',
+						cancelButtonText: 'Cancel',
+						reverseButtons: true,
+					}).then((result) => {
+						if (result.isConfirmed) promptBizlinkExportBatch(allowed);
 					});
-				}).fail(() => {
-					Swal.fire({ icon: 'error', title: 'Error', text: 'Server error while generating the text file.' });
-				});
+					return;
+				}
+
+				promptBizlinkExportBatch(allowed);
 			}).fail(() => {
 				Swal.fire({ icon: 'error', title: 'Error', text: 'Server error while checking text file export eligibility.' });
 			});

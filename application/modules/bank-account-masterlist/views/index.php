@@ -212,7 +212,7 @@
 							</div>
 							<div class="form-group">
 								<label class="kna-form-label">Presenting Office Code (receiving BPI branch code) <span class="text-danger">*</span></label>
-								<input type="text" class="form-control" id="presentingOfficeCode" maxlength="20" placeholder="e.g. 46300000">
+								<input type="text" class="form-control" id="presentingOfficeCode" maxlength="3" placeholder="e.g. 463">
 							</div>
 							<div class="form-group mb-0">
 								<label class="kna-form-label">Ceiling Amount (highest allowed net pay per batch) <span class="text-danger">*</span></label>

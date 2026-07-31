@@ -836,37 +836,189 @@ class Approvals extends MY_Controller
         }
     }
 
+    private function bizlinkPad($value, $length)
+    {
+        return str_pad((string) $value, $length, '0', STR_PAD_LEFT);
+    }
+
+    private function bizlinkNormalizeAccountNumber($accountNumber)
+    {
+        $accountNumber = $this->bizlinkPad(preg_replace('/\D/', '', (string) $accountNumber), 10);
+        if (strlen($accountNumber) > 10) {
+            $accountNumber = substr($accountNumber, -10);
+        }
+        return $accountNumber;
+    }
+
+    private function bizlinkApplySavingsDigitSwap($accountNumber)
+    {
+        $accountNumber = $this->bizlinkNormalizeAccountNumber($accountNumber);
+        if ($accountNumber[3] === '5') {
+            $accountNumber[3] = '6';
+        }
+        return $accountNumber;
+    }
+
+    private function bizlinkAmountToCents($amount)
+    {
+        return (int) round(((float) $amount) * 100);
+    }
+
     public function download_bizlink_export_batch()
     {
-        try {
-            $this->output->set_content_type('application/json');
-            $data = $this->getRequestPayload();
+        $data = $this->getRequestPayload();
 
-            $referenceNumbers = isset($data['reference_numbers']) && is_array($data['reference_numbers'])
-                ? $data['reference_numbers']
-                : array();
+        $referenceNumbers = isset($data['reference_numbers']) && is_array($data['reference_numbers'])
+            ? $data['reference_numbers']
+            : array();
+        $payrollDateRaw = isset($data['PayrollDate']) ? trim((string) $data['PayrollDate']) : '';
+        $batchNumberRaw = isset($data['BatchNumber']) ? trim((string) $data['BatchNumber']) : '';
 
-            $userId = (int) $this->session->userdata('user_id');
-            if ($userId <= 0) {
-                throw new Exception('User not authenticated.');
-            }
-
-            $eligible = array();
-            foreach ($referenceNumbers as $referenceNo) {
-                $referenceNo = trim((string) $referenceNo);
-                if ($referenceNo !== '' && $this->userHasBizlinkExportCapability($referenceNo, $userId)) {
-                    $eligible[] = $referenceNo;
-                }
-            }
-
-            if (count($eligible) === 0) {
-                return $this->respondError('You are not assigned to generate the text file for the selected transaction(s). Please ask your administrator to enable the BizLink Export control for you on the approval matrix used by these transactions.');
-            }
-
-            return $this->respondError('Text file generation is not yet available -- the exact BPI file format is still being verified. This will be enabled once confirmed.');
-        } catch (Throwable $e) {
-            return $this->respondError($e->getMessage());
+        $userId = (int) $this->session->userdata('user_id');
+        if ($userId <= 0) {
+            show_error('User not authenticated.', 400);
+            return;
         }
+
+        $eligible = array();
+        foreach ($referenceNumbers as $referenceNo) {
+            $referenceNo = trim((string) $referenceNo);
+            if ($referenceNo !== '' && $this->userHasBizlinkExportCapability($referenceNo, $userId)) {
+                $eligible[] = $referenceNo;
+            }
+        }
+
+        if (count($eligible) === 0) {
+            show_error('You are not assigned to generate the text file for the selected transaction(s). Please ask your administrator to enable the BizLink Export control for you on the approval matrix used by these transactions.', 400);
+            return;
+        }
+
+        $payrollDate = DateTime::createFromFormat('Y-m-d', $payrollDateRaw);
+        if (!$payrollDate) {
+            $payrollDate = DateTime::createFromFormat('m/d/Y', $payrollDateRaw);
+        }
+        if (!$payrollDate) {
+            show_error('A valid Payroll Date is required.', 400);
+            return;
+        }
+
+        $batchNumber = (int) $batchNumberRaw;
+        if ($batchNumber < 1 || $batchNumber > 99) {
+            show_error('Batch Number must be between 01 and 99.', 400);
+            return;
+        }
+
+        $company = $this->sp->readData('EXEC sp_fetch_bizlink_company_settings', array(), 'row');
+        if (!is_array($company) || empty($company['id']) || empty($company['company_account_number'])) {
+            show_error('Company / BizLink Settings must be configured before generating the text file.', 400);
+            return;
+        }
+
+        $lines = array();
+        $missingAccount = array();
+        foreach ($eligible as $referenceNo) {
+            $line = $this->sp->readData(
+                build_sp('sp_fetch_bizlink_batch_line', 1),
+                array('ReferenceNo' => $referenceNo),
+                'row'
+            );
+
+            if (!is_array($line) || empty($line['account_number'])) {
+                $missingAccount[] = $referenceNo;
+                continue;
+            }
+
+            $lines[] = $line;
+        }
+
+        if (count($missingAccount) > 0) {
+            show_error('No active bank account on file for: ' . implode(', ', $missingAccount) . '. Please add it in the Bank Account Masterlist first.', 400);
+            return;
+        }
+
+        $companyCode = $this->bizlinkPad(preg_replace('/\D/', '', (string) $company['company_code']), 5);
+        $companyAccountNumber = $this->bizlinkNormalizeAccountNumber(bank_account_decrypt($company['company_account_number']));
+        $presentingOfficeCode = $this->bizlinkPad(preg_replace('/\D/', '', (string) $company['presenting_office_code']), 3);
+        $bpiPayrollIdentifier = $company['bpi_payroll_identifier'] !== null && $company['bpi_payroll_identifier'] !== ''
+            ? (string) $company['bpi_payroll_identifier']
+            : '1';
+        $ceilingAmountCents = $this->bizlinkAmountToCents($company['ceiling_amount']);
+
+        $payrollDateStr = $payrollDate->format('mdy');
+        $batchNumberStr = $this->bizlinkPad($batchNumber, 2);
+
+        $detailRecords = array();
+        $totalDebitCents = 0;
+        $accountHashTotal = 0;
+        $grandHorizontalHashTotal = 0;
+
+        foreach ($lines as $line) {
+            $employeeAccountNumber = $this->bizlinkApplySavingsDigitSwap(bank_account_decrypt($line['account_number']));
+            $amountCents = $this->bizlinkAmountToCents($line['amount']);
+
+            $horizontalHash =
+                ((int) substr($employeeAccountNumber, 4, 2)) * $amountCents +
+                ((int) substr($employeeAccountNumber, 6, 2)) * $amountCents +
+                ((int) substr($employeeAccountNumber, 8, 2)) * $amountCents;
+
+            $detailRecords[] = 'D'
+                . $companyCode
+                . $payrollDateStr
+                . $batchNumberStr
+                . '3'
+                . $employeeAccountNumber
+                . $this->bizlinkPad($amountCents, 12)
+                . $this->bizlinkPad($horizontalHash, 12)
+                . str_repeat(' ', 79);
+
+            $totalDebitCents += $amountCents;
+            $accountHashTotal += (int) $employeeAccountNumber;
+            $grandHorizontalHashTotal += $horizontalHash;
+        }
+
+        $header = 'H'
+            . $companyCode
+            . $payrollDateStr
+            . $batchNumberStr
+            . '1'
+            . $companyAccountNumber
+            . $presentingOfficeCode
+            . $this->bizlinkPad($ceilingAmountCents, 12)
+            . $this->bizlinkPad($totalDebitCents, 12)
+            . $bpiPayrollIdentifier
+            . str_repeat(' ', 75);
+
+        $trailer = 'T'
+            . $companyCode
+            . $payrollDateStr
+            . $batchNumberStr
+            . '2'
+            . $companyAccountNumber
+            . $this->bizlinkPad($accountHashTotal, 15)
+            . $this->bizlinkPad($totalDebitCents, 15)
+            . $this->bizlinkPad($grandHorizontalHashTotal, 18)
+            . $this->bizlinkPad(count($detailRecords), 5)
+            . str_repeat(' ', 50);
+
+        $content = $header . "\r\n" . implode("\r\n", $detailRecords) . "\r\n" . $trailer . "\r\n";
+
+        $this->logAuditTrail(
+            'BIZLINK_EXPORT',
+            $companyCode . '-' . $payrollDateStr . '-' . $batchNumberStr,
+            'GENERATE',
+            'bizlink_export',
+            $companyCode . '-' . $payrollDateStr . '-' . $batchNumberStr,
+            null,
+            null,
+            'BizLink text file generated for ' . count($detailRecords) . ' transaction(s) by user #' . $userId . ': ' . implode(', ', $eligible)
+        );
+
+        $filename = 'BizLink_' . $companyCode . '_' . $payrollDateStr . '_' . $batchNumberStr . '.txt';
+
+        $this->output
+            ->set_content_type('text/plain')
+            ->set_header('Content-Disposition: attachment; filename="' . $filename . '"')
+            ->set_output($content);
     }
 
     private function fetchPettyCashSlipFields($referenceNo)
