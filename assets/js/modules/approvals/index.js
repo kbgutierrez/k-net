@@ -95,7 +95,10 @@ const normalizeApprovalRows = (rows) =>
 			decidedDate,
 			paymentAction: normalizeDate(row.payment_action).toUpperCase(),
 			agingDays: daysBetween(submittedDate, todayIso()),
-			turnaroundDays: daysBetween(submittedDate, decidedDate),
+			turnaroundDays: (() => {
+				const days = daysBetween(submittedDate, decidedDate);
+				return days === null ? null : Math.max(1, days);
+			})(),
 		};
 	});
 
@@ -471,10 +474,6 @@ const updateApprovalTabChrome = () => {
 	if (btnDownloadBatchPettyCashSlipsEl) {
 		btnDownloadBatchPettyCashSlipsEl.classList.toggle('d-none', !isPastTab());
 	}
-	const btnDownloadBizlinkExportEl = document.getElementById('btnDownloadBizlinkExport');
-	if (btnDownloadBizlinkExportEl) {
-		btnDownloadBizlinkExportEl.classList.toggle('d-none', !isPastTab());
-	}
 	if (!isBatchSelectableTab()) {
 		paymentSelectedRefs.clear();
 	}
@@ -493,10 +492,6 @@ const updatePaymentBatchBar = () => {
 	const btnDownloadSlips = document.getElementById('btnDownloadBatchPettyCashSlips');
 	if (btnDownloadSlips) {
 		btnDownloadSlips.disabled = paymentSelectedRefs.size === 0;
-	}
-	const btnDownloadBizlink = document.getElementById('btnDownloadBizlinkExport');
-	if (btnDownloadBizlink) {
-		btnDownloadBizlink.disabled = paymentSelectedRefs.size === 0;
 	}
 	const selectAll = document.getElementById('paymentSelectAll');
 	if (selectAll) {
@@ -789,124 +784,6 @@ const initListPage = () => {
 				openPettyCashSlipPreview(allowed);
 			}).fail(() => {
 				Swal.fire({ icon: 'error', title: 'Error', text: 'Server error while checking petty cash slip eligibility.' });
-			});
-		});
-	}
-
-	const downloadBizlinkExportBatch = (referenceNumbers, payrollDate, batchNumber) => {
-		const actionUrl = `${base_url}transactions/approvals/bizlink-export-batch`;
-		const form = document.createElement('form');
-		form.method = 'POST';
-		form.action = actionUrl;
-		form.target = '_blank';
-
-		const appendField = (name, value) => {
-			const input = document.createElement('input');
-			input.type = 'hidden';
-			input.name = name;
-			input.value = value;
-			form.appendChild(input);
-		};
-
-		referenceNumbers.forEach((ref) => appendField('reference_numbers[]', ref));
-		appendField('PayrollDate', payrollDate);
-		appendField('BatchNumber', batchNumber);
-
-		document.body.appendChild(form);
-		form.submit();
-		form.remove();
-	};
-
-	const promptBizlinkExportBatch = (referenceNumbers) => {
-		const today = new Date().toISOString().slice(0, 10);
-		Swal.fire({
-			title: 'Generate BizLink Text File',
-			html: `
-				<div class="text-left kna-small">
-					<label class="kna-form-label d-block">Payroll Date</label>
-					<input type="date" id="swalBizlinkPayrollDate" class="swal2-input" style="width:100%;margin:0 0 12px;" value="${today}">
-					<label class="kna-form-label d-block">Batch Number</label>
-					<input type="number" id="swalBizlinkBatchNumber" class="swal2-input" style="width:100%;margin:0;" min="1" max="99" value="1">
-				</div>
-			`,
-			showCancelButton: true,
-			confirmButtonText: 'Generate',
-			cancelButtonText: 'Cancel',
-			reverseButtons: true,
-			focusConfirm: false,
-			preConfirm: () => {
-				const payrollDate = document.getElementById('swalBizlinkPayrollDate').value;
-				const batchNumber = parseInt(document.getElementById('swalBizlinkBatchNumber').value, 10);
-				if (!payrollDate) {
-					Swal.showValidationMessage('Payroll Date is required.');
-					return false;
-				}
-				if (!batchNumber || batchNumber < 1 || batchNumber > 99) {
-					Swal.showValidationMessage('Batch Number must be between 1 and 99.');
-					return false;
-				}
-				return { payrollDate, batchNumber: String(batchNumber).padStart(2, '0') };
-			},
-		}).then((result) => {
-			if (result.isConfirmed) {
-				downloadBizlinkExportBatch(referenceNumbers, result.value.payrollDate, result.value.batchNumber);
-			}
-		});
-	};
-
-	const btnDownloadBizlinkExport = document.getElementById('btnDownloadBizlinkExport');
-	if (btnDownloadBizlinkExport) {
-		btnDownloadBizlinkExport.addEventListener('click', () => {
-			if (paymentSelectedRefs.size === 0) {
-				return;
-			}
-
-			ajax_loader_loading('transactions/approvals/api/bizlink-export/eligibility', {
-				reference_numbers: Array.from(paymentSelectedRefs),
-			}).done((response) => {
-				const res = (typeof response === 'string') ? $.parseJSON(response) : response;
-				if (res.status !== 'success') {
-					Swal.fire({ icon: 'error', title: 'Failed', text: res.response || 'Could not check text file export eligibility.' });
-					return;
-				}
-
-				const data = res.data || {};
-				const allowed = data.allowed || [];
-				const skipped = data.skipped || [];
-
-				const refListHtml = (refs) => {
-					const shown = refs.slice(0, 3).map(escapeHtml).join('<br>');
-					const more = refs.length > 3 ? `<br>+${refs.length - 3} more` : '';
-					return `<b>${shown}</b>${more}`;
-				};
-
-				if (allowed.length === 0) {
-					Swal.fire({
-						icon: 'warning',
-						title: 'Not Allowed',
-						html: `You can't generate the text file for:<br>${refListHtml(skipped)}`,
-					});
-					return;
-				}
-
-				if (skipped.length > 0) {
-					Swal.fire({
-						icon: 'info',
-						title: `${skipped.length} Will Be Skipped`,
-						html: `Not allowed for:<br>${refListHtml(skipped)}<br><br>Generate for the other ${allowed.length}?`,
-						showCancelButton: true,
-						confirmButtonText: 'Continue',
-						cancelButtonText: 'Cancel',
-						reverseButtons: true,
-					}).then((result) => {
-						if (result.isConfirmed) promptBizlinkExportBatch(allowed);
-					});
-					return;
-				}
-
-				promptBizlinkExportBatch(allowed);
-			}).fail(() => {
-				Swal.fire({ icon: 'error', title: 'Error', text: 'Server error while checking text file export eligibility.' });
 			});
 		});
 	}

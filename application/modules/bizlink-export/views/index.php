@@ -70,23 +70,6 @@
         background: #f8fbff;
     }
 
-    .kna-tab {
-        border: 1px solid #d9e0e7;
-        border-radius: 6px;
-        padding: 6px 10px;
-        font-size: 12px;
-        font-weight: 600;
-        background: #fff;
-        color: #32475b;
-        cursor: pointer;
-    }
-
-    .kna-tab.is-active {
-        background: #2f6eb4;
-        border-color: #2f6eb4;
-        color: #fff;
-    }
-
     .kna-form-label {
         margin-bottom: .3rem;
         font-weight: 600;
@@ -118,57 +101,6 @@
     .kna-badge-rejected {
         background: #fff5f5;
         color: #e03131;
-    }
-
-    .kna-timeline {
-        position: relative;
-        padding-left: 24px;
-        list-style: none;
-        margin: 0;
-    }
-
-    .kna-timeline::before {
-        content: '';
-        position: absolute;
-        left: 7px;
-        top: 5px;
-        bottom: 5px;
-        width: 2px;
-        background: #e9ecef;
-    }
-
-    .kna-timeline-item {
-        position: relative;
-        margin-bottom: 12px;
-        font-size: 12px;
-    }
-
-    .kna-timeline-item::before {
-        content: '';
-        position: absolute;
-        left: -21px;
-        top: 4px;
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        border: 2px solid #fff;
-        background: #dee2e6;
-        box-shadow: 0 0 0 2px #dee2e6;
-    }
-
-    .kna-timeline-item.is-current::before {
-        background: #2f6eb4;
-        box-shadow: 0 0 0 2px #2f6eb4;
-    }
-
-    .kna-timeline-item.is-done::before {
-        background: #17663a;
-        box-shadow: 0 0 0 2px #17663a;
-    }
-
-    .kna-timeline-item.is-error::before {
-        background: #e03131;
-        box-shadow: 0 0 0 2px #e03131;
     }
 
     @media (max-width: 767.98px) {
@@ -203,22 +135,15 @@
 }
 </style>
 
-<div class="page-inner kna-page" id="approvalsListPage">
+<div class="page-inner kna-page" id="bizlinkExportListPage">
     <div class="d-flex align-items-center justify-content-between mb-2">
         <div>
-            <div class="kna-title" id="approvalsPageTitle">Pending Approvals</div>
+            <div class="kna-title">BizLink Export</div>
         </div>
     </div>
 
     <div class="card kna-card mb-2">
         <div class="card-body py-2 d-flex align-items-end flex-wrap" style="gap:.5rem;">
-            <div class="d-flex align-items-center flex-wrap" style="gap:.5rem;">
-                <button class="kna-tab is-active" data-approval-tab="pending">Pending Approvals</button>
-                <button class="kna-tab" data-approval-tab="past">Past Approvals</button>
-                <?php if (!empty($hasPaymentCapability)): ?>
-                <button class="kna-tab" data-approval-tab="payment">For Payment</button>
-                <?php endif; ?>
-            </div>
             <div>
                 <label class="kna-small kna-form-label mb-1">Search</label>
                 <input type="text" class="form-control form-control-sm kna-small" id="filterKeyword" placeholder="Ref no. or requestor" autocomplete="off" style="width:180px;">
@@ -245,38 +170,22 @@
         </div>
     </div>
 
-    <div class="card kna-card mb-2 d-none" id="paymentBatchBar">
+    <div class="card kna-card mb-2">
         <div class="card-body py-2 d-flex align-items-center flex-wrap" style="gap:.85rem;">
             <div class="kna-small font-weight-bold"><span id="paymentSelectedCount">0</span> selected</div>
-            <div id="paymentActionCheckboxes" class="d-flex align-items-center flex-wrap" style="gap:.85rem;">
-                <?php if (!empty($hasAdvisoryCapability)): ?>
-                <div class="custom-control custom-checkbox">
-                    <input type="checkbox" class="custom-control-input" id="paymentDoAdvise">
-                    <label class="custom-control-label kna-small" for="paymentDoAdvise">Payment Advisory</label>
-                </div>
-                <?php endif; ?>
-                <?php if (!empty($hasReleaseCapability)): ?>
-                <div class="custom-control custom-checkbox">
-                    <input type="checkbox" class="custom-control-input" id="paymentDoRelease">
-                    <label class="custom-control-label kna-small" for="paymentDoRelease">Payment Release</label>
-                </div>
-                <?php endif; ?>
-            </div>
-            <button type="button" class="btn btn-primary btn-sm kna-small" id="btnProcessBatchPayment" disabled>
-                Process Selected
+            <button type="button" class="btn btn-outline-secondary btn-sm kna-small" id="btnDownloadBizlinkExport" disabled>
+                <i class="fas fa-university mr-1"></i> Generate Text File
             </button>
-            <?php if (!empty($hasPettyCashSlipCapability)): ?>
-            <button type="button" class="btn btn-outline-secondary btn-sm kna-small" id="btnDownloadBatchPettyCashSlips" disabled>
-                <i class="fas fa-file-download mr-1"></i> Generate Petty Cash Slips
+            <button type="button" class="btn btn-outline-secondary btn-sm kna-small" id="btnOpenBizlinkBatchHistory">
+                <i class="fas fa-history mr-1"></i> Batch History
             </button>
-            <?php endif; ?>
         </div>
     </div>
 
     <div class="card kna-card">
         <div class="card-body">
             <div class="d-flex align-items-center justify-content-between mb-2">
-                <div class="kna-small text-muted" id="resultLabel">Awaiting Your Action</div>
+                <div class="kna-small text-muted">Already Reviewed</div>
                 <div class="kna-small text-muted" id="resultCount">0 Records</div>
             </div>
             <div class="kna-table-shell">
@@ -284,17 +193,15 @@
                     <table class="table table-sm kna-table kna-table-main" style="width:100%">
                         <thead>
                             <tr>
-                                <th class="d-none" id="paymentCheckboxColumnHeader" style="width:28px;"><input type="checkbox" id="paymentSelectAll"></th>
+                                <th style="width:28px;"><input type="checkbox" id="paymentSelectAll"></th>
                                 <th>Transaction No.</th>
                                 <th>Type</th>
                                 <th>Requestor</th>
                                 <th>Department</th>
                                 <th>Amount</th>
                                 <th>Submission Date</th>
-                                <th class="d-none text-center" id="agingColumnHeader">Aging (Days)</th>
-                                <th class="d-none" id="statusColumnHeader">Status</th>
-                                <th class="d-none" id="turnaroundColumnHeader">Turnaround (Days)</th>
-                                <th class="d-none" id="paymentActionColumnHeader">Payment Step</th>
+                                <th>Status</th>
+                                <th>Turnaround (Days)</th>
                             </tr>
                         </thead>
                         <tbody id="matrixTbodyMain"></tbody>
@@ -311,11 +218,11 @@
                     </table>
                 </div>
             </div>
-                    <div class="kna-mobile-list d-md-none" id="approvalsMobileList">
-            <div class="text-center text-muted kna-small py-4">No Pending Approvals</div>
-        </div>
+            <div class="kna-mobile-list d-md-none" id="approvalsMobileList">
+                <div class="text-center text-muted kna-small py-4">No Records</div>
+            </div>
             <div class="d-flex justify-content-end mt-2">
-                <nav aria-label="Approvals desktop pagination">
+                <nav aria-label="BizLink Export pagination">
                     <ul class="pagination pagination-sm mb-0" id="desktopPagination"></ul>
                 </nav>
             </div>
@@ -323,4 +230,43 @@
 
     </div>
 
+</div>
+
+<div class="modal fade" id="modalBizlinkBatchHistory" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document" style="max-width:95vw;width:95vw;">
+        <div class="modal-content">
+            <div class="modal-header py-2" style="background:#f8f9fa;border-bottom:1px solid #e9ecef;">
+                <h5 class="modal-title kna-small" style="font-weight:600;">
+                    <i class="fas fa-history text-primary"></i> BizLink Batch History
+                </h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-sm kna-table">
+                        <thead>
+                            <tr>
+                                <th>Payroll Date</th>
+                                <th>Batch #</th>
+                                <th>Records</th>
+                                <th>Total Debit</th>
+                                <th>Generated By</th>
+                                <th>Status</th>
+                                <th>Remarks</th>
+                                <th class="text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bizlinkBatchHistoryTbody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer py-2" style="background:#f8f9fa;border-top:1px solid #e9ecef;">
+                <button type="button" class="btn btn-outline-secondary btn-sm kna-small" data-dismiss="modal">
+                    <i class="fas fa-times mr-1"></i>Close
+                </button>
+            </div>
+        </div>
+    </div>
 </div>

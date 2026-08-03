@@ -419,7 +419,6 @@ class Bank_Account_Masterlist extends MY_Controller
                     'company_code' => '',
                     'account_number_masked' => '',
                     'presenting_office_code' => '',
-                    'ceiling_amount' => null,
                 ));
             }
 
@@ -432,7 +431,6 @@ class Bank_Account_Masterlist extends MY_Controller
                 'company_code' => $row['company_code'],
                 'account_number_masked' => bank_account_mask($plaintext),
                 'presenting_office_code' => $row['presenting_office_code'],
-                'ceiling_amount' => $row['ceiling_amount'] !== null ? (float) $row['ceiling_amount'] : null,
                 'updated_date' => $row['updated_date'],
             ));
         } catch (\Throwable $e) {
@@ -495,16 +493,12 @@ class Bank_Account_Masterlist extends MY_Controller
             $companyCode = trim((string) (isset($data['CompanyCode']) ? $data['CompanyCode'] : ''));
             $accountNumber = trim((string) (isset($data['CompanyAccountNumber']) ? $data['CompanyAccountNumber'] : ''));
             $presentingOfficeCode = trim((string) (isset($data['PresentingOfficeCode']) ? $data['PresentingOfficeCode'] : ''));
-            $ceilingAmount = isset($data['CeilingAmount']) ? (float) $data['CeilingAmount'] : 0;
 
             if ($companyCode === '') {
                 return $this->respondError('Company Code is required.');
             }
             if ($presentingOfficeCode === '') {
                 return $this->respondError('Presenting Office Code is required.');
-            }
-            if ($ceilingAmount <= 0) {
-                return $this->respondError('Ceiling Amount must be greater than zero.');
             }
 
             // Account number left blank on an edit means "keep the
@@ -532,7 +526,6 @@ class Bank_Account_Masterlist extends MY_Controller
                 'CompanyCode' => $companyCode,
                 'CompanyAccountNumberEncrypted' => $encrypted,
                 'PresentingOfficeCode' => $presentingOfficeCode,
-                'CeilingAmount' => $ceilingAmount,
                 'UserId' => $userId,
             );
 

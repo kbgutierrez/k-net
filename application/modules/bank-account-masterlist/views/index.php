@@ -186,10 +186,6 @@
 									<button type="button" class="kna-btn-reveal" id="btnRevealCompanyAccount" title="Reveal"><i class="fas fa-eye"></i></button>
 								</div>
 							</div>
-							<div class="kna-detail-cell kna-detail-cell-span2">
-								<div class="kna-detail-label">Ceiling Amount</div>
-								<div class="kna-detail-value" id="viewCeilingAmount">—</div>
-							</div>
 						</div>
 					</div>
 				</div>
@@ -203,20 +199,16 @@
 						<form id="formCompanySettings">
 							<div class="form-group">
 								<label class="kna-form-label">Company Code <span class="text-danger">*</span></label>
-								<input type="text" class="form-control" id="companyCode" maxlength="10" placeholder="e.g. 05972">
+								<input type="text" class="form-control" id="companyCode" maxlength="5" placeholder="e.g. 05972">
 							</div>
 							<div class="form-group">
 								<label class="kna-form-label">Company Account Number (to be debited)</label>
 								<input type="text" class="form-control" id="companyAccountNumber" maxlength="50" placeholder="Leave blank to keep the current account number" autocomplete="off">
 								<small class="text-muted kna-small d-block mt-1">Stored encrypted, same as employee accounts. Leave blank when saving to keep the existing account number.</small>
 							</div>
-							<div class="form-group">
+							<div class="form-group mb-0">
 								<label class="kna-form-label">Presenting Office Code (receiving BPI branch code) <span class="text-danger">*</span></label>
 								<input type="text" class="form-control" id="presentingOfficeCode" maxlength="3" placeholder="e.g. 463">
-							</div>
-							<div class="form-group mb-0">
-								<label class="kna-form-label">Ceiling Amount (highest allowed net pay per batch) <span class="text-danger">*</span></label>
-								<input type="number" step="0.01" class="form-control" id="ceilingAmount" placeholder="e.g. 1200000.00">
 							</div>
 						</form>
 					</div>

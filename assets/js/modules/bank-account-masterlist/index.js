@@ -29,12 +29,10 @@ const bamDom = {
 	companyAccountMasked: null,
 	companyAccountNumber: null,
 	presentingOfficeCode: null,
-	ceilingAmount: null,
 	btnRevealCompanyAccount: null,
 	btnSaveCompanySettings: null,
 	viewCompanyCode: null,
 	viewPresentingOfficeCode: null,
-	viewCeilingAmount: null,
 	companySettingsUpdatedLabel: null,
 };
 
@@ -418,18 +416,12 @@ const bamLoadCompanySettings = () => {
 		bamCompanyAccountMaskedValue = data.account_number_masked || 'Not set';
 		if (bamDom.companyCode) bamDom.companyCode.value = data.company_code || '';
 		if (bamDom.presentingOfficeCode) bamDom.presentingOfficeCode.value = data.presenting_office_code || '';
-		if (bamDom.ceilingAmount) bamDom.ceilingAmount.value = data.ceiling_amount !== null && data.ceiling_amount !== undefined ? data.ceiling_amount : '';
 		if (bamDom.companyAccountMasked) bamDom.companyAccountMasked.textContent = bamCompanyAccountMaskedValue;
 		if (bamDom.companyAccountNumber) bamDom.companyAccountNumber.value = '';
 		if (bamDom.btnRevealCompanyAccount) bamDom.btnRevealCompanyAccount.innerHTML = '<i class="fas fa-eye"></i>';
 
 		if (bamDom.viewCompanyCode) bamDom.viewCompanyCode.textContent = data.company_code || '—';
 		if (bamDom.viewPresentingOfficeCode) bamDom.viewPresentingOfficeCode.textContent = data.presenting_office_code || '—';
-		if (bamDom.viewCeilingAmount) {
-			bamDom.viewCeilingAmount.textContent = (data.ceiling_amount !== null && data.ceiling_amount !== undefined)
-				? Number(data.ceiling_amount).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-				: '—';
-		}
 		if (bamDom.companySettingsUpdatedLabel) {
 			bamDom.companySettingsUpdatedLabel.textContent = data.updated_date ? `Last updated: ${data.updated_date}` : '';
 		}
@@ -462,9 +454,8 @@ const bamSaveCompanySettings = () => {
 	const companyCode = bamDom.companyCode ? bamDom.companyCode.value.trim() : '';
 	const accountNumber = bamDom.companyAccountNumber ? bamDom.companyAccountNumber.value.trim() : '';
 	const presentingOfficeCode = bamDom.presentingOfficeCode ? bamDom.presentingOfficeCode.value.trim() : '';
-	const ceilingAmount = bamDom.ceilingAmount ? bamDom.ceilingAmount.value : '';
 
-	if (!companyCode || !presentingOfficeCode || !ceilingAmount) {
+	if (!companyCode || !presentingOfficeCode) {
 		Swal.fire({ icon: 'warning', title: 'Missing fields', text: 'Please complete all required fields before saving.' });
 		return;
 	}
@@ -482,7 +473,6 @@ const bamSaveCompanySettings = () => {
 			CompanyCode: companyCode,
 			CompanyAccountNumber: accountNumber,
 			PresentingOfficeCode: presentingOfficeCode,
-			CeilingAmount: ceilingAmount,
 		}).done((response) => {
 			const res = (typeof response === 'string') ? JSON.parse(response) : response;
 			if (!res || res.status !== 'success') {
@@ -526,12 +516,10 @@ const bamCacheDom = () => {
 	bamDom.companyAccountMasked = document.getElementById('companyAccountMasked');
 	bamDom.companyAccountNumber = document.getElementById('companyAccountNumber');
 	bamDom.presentingOfficeCode = document.getElementById('presentingOfficeCode');
-	bamDom.ceilingAmount = document.getElementById('ceilingAmount');
 	bamDom.btnRevealCompanyAccount = document.getElementById('btnRevealCompanyAccount');
 	bamDom.btnSaveCompanySettings = document.getElementById('btnSaveCompanySettings');
 	bamDom.viewCompanyCode = document.getElementById('viewCompanyCode');
 	bamDom.viewPresentingOfficeCode = document.getElementById('viewPresentingOfficeCode');
-	bamDom.viewCeilingAmount = document.getElementById('viewCeilingAmount');
 	bamDom.companySettingsUpdatedLabel = document.getElementById('companySettingsUpdatedLabel');
 };
 
