@@ -525,14 +525,20 @@
     <div>
       <div class="kna-title">Cash Advance Details</div>
     </div>
-    <a href="<?=base_url('transactions/cash-advance');?>" class="btn btn-outline-secondary">
-      <i class="fas fa-arrow-left mr-1"></i> Back
-    </a>
+    <div class="d-flex align-items-center" style="gap:.5rem;">
+      <button type="button" class="btn btn-outline-danger d-none" id="btnCancelCashAdvance">
+        <i class="fas fa-ban mr-1"></i> Cancel Request
+      </button>
+      <a href="<?=base_url('transactions/cash-advance');?>" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left mr-1"></i> Back
+      </a>
+    </div>
   </div>
 
   <div class="card kna-card">
     <div class="card-body">
       <input type="hidden" id="cashAdvanceRef" value="<?=html_escape($cash_advance_no);?>">
+      <input type="hidden" id="currentUserId" value="<?=isset($current_user_id) ? (int) $current_user_id : 0;?>">
       <input type="hidden" id="serverKflowUrl" value="<?=html_escape(isset($resume_kflow_url) ? $resume_kflow_url : '');?>">
 
       <div class="kna-section-title kna-section-title-row">

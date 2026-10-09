@@ -285,7 +285,7 @@
 									<div class="input-group-prepend">
 										<span class="input-group-text"><i class="fas fa-barcode"></i></span>
 									</div>
-									<input type="text" class="form-control" id="expenseTypeCode" maxlength="50" placeholder="e.g. 6000000101" required>
+									<input type="text" class="form-control" id="expenseTypeCode" maxlength="10" inputmode="numeric" pattern="[0-9]{10}" placeholder="e.g. 6000000101" required>
 								</div>
 							</div>
 							<div class="col-md-6 form-group">

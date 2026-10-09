@@ -432,6 +432,10 @@ const validateForm = () => {
 		Swal.fire({ icon: 'warning', title: 'Missing fields', text: 'Expense code is required.' });
 		return false;
 	}
+	if (!/^[0-9]{10}$/.test(expenseCode)) {
+		Swal.fire({ icon: 'warning', title: 'Invalid expense code', text: 'Expense code must be exactly 10 digits.' });
+		return false;
+	}
 	if (!categoryName) {
 		Swal.fire({ icon: 'warning', title: 'Missing fields', text: 'Description is required.' });
 		return false;
@@ -553,6 +557,12 @@ const bindEvents = () => {
 	dom.btnReset.addEventListener('click', resetFilters);
 	dom.btnOpenNewExpenseType.addEventListener('click', openCreateModal);
 	dom.btnSaveExpenseType.addEventListener('click', saveExpenseType);
+	dom.expenseTypeCode.addEventListener('input', () => {
+		const digitsOnly = dom.expenseTypeCode.value.replace(/[^0-9]/g, '').slice(0, 10);
+		if (dom.expenseTypeCode.value !== digitsOnly) {
+			dom.expenseTypeCode.value = digitsOnly;
+		}
+	});
 
 	if (dom.desktopPagination) {
 		dom.desktopPagination.addEventListener('click', (event) => {

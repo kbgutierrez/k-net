@@ -57,6 +57,9 @@ const getStatusBadge = (status) => {
 	if (status === 'Completed') {
 		return '<span class="kna-badge kna-badge-completed">Completed</span>';
 	}
+	if (status === 'Cancelled') {
+		return '<span class="kna-badge kna-badge-rejected">Cancelled</span>';
+	}
 	return `<span class="kna-badge kna-badge-pending">${escapeHtml(status || 'Pending')}</span>`;
 };
 

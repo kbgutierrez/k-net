@@ -105,7 +105,7 @@ const getItemApprovalStatus = (item) => {
   const allApproved = approvals.every((a) => normalizeDate(a.status) === 'APPROVED');
   if (allApproved) return { status: 'approved', canEdit: false, rejections: [] };
   if (rejections.length) return { status: 'rejected', canEdit: true, rejections };
-  if (hasApproved) return { status: 'partial', canEdit: true, rejections: [] };
+  if (hasApproved) return { status: 'partial', canEdit: false, rejections: [] };
   return { status: 'pending', canEdit: true, rejections: [] };
 };
 

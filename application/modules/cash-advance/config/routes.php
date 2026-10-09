@@ -14,4 +14,5 @@ $route['transactions/cash-advance/api/check-pending'] = 'Cash_Advance/api_check_
 $route['transactions/cash-advance/api/get/payable-to-options'] = 'Cash_Advance/api_get_payable_to_options';
 $route['transactions/cash-advance/test-pdf-coords'] = 'Cash_Advance/test_pdf_coords';
 $route['transactions/cash-advance/api/kflow_callback'] = 'Cash_Advance/api_kflow_callback';
+$route['transactions/cash-advance/api/cancel'] = 'Cash_Advance/api_cancel';
 ?>

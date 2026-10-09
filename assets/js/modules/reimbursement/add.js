@@ -103,6 +103,50 @@ const getTeamMemberOptions = (selectedValue) => {
 	}
 };
 
+// ─── Payable To Options ───
+const getPayableToUsers = () => {
+	const dataEl = document.getElementById('payableToUsersData');
+	if (!dataEl) return [];
+	try {
+		const users = JSON.parse(dataEl.value);
+		return Array.isArray(users) ? users : [];
+	} catch (e) {
+		return [];
+	}
+};
+
+const getPayableToOptions = (selectedValue) => {
+	const selected = normalizeDate(selectedValue);
+	const opts = getPayableToUsers().map((u) => {
+		const value = escapeHtml(String(u.id || ''));
+		const text = escapeHtml(`${u.firstname || ''} ${u.lastname || ''}${u.designation ? ' (' + u.designation + ')' : ''}`.trim());
+		return `<option value="${value}"${value === selected ? ' selected' : ''}>${text}</option>`;
+	}).join('');
+	return `<option value="">Select payable to</option>${opts}`;
+};
+
+const hasPayableToUser = (userId) => getPayableToUsers().some((u) => String(u.id || '') === normalizeDate(userId));
+
+const setPayableTo = (userId) => {
+	if (!domAdd.newPayableTo) return;
+	const value = hasPayableToUser(userId) ? normalizeDate(userId) : '';
+	domAdd.newPayableTo.innerHTML = getPayableToOptions(value);
+	initPayableToSelect2();
+};
+
+const initPayableToSelect2 = () => {
+	if (!domAdd.newPayableTo || typeof jQuery.fn?.select2 === 'undefined') return;
+	const $s = jQuery(domAdd.newPayableTo);
+	if ($s.hasClass('select2-hidden-accessible')) $s.select2('destroy');
+	const $dropdownParent = $s.closest('.page-inner').length ? $s.closest('.page-inner') : jQuery(document.body);
+	$s.select2({ placeholder: 'Select payable to', allowClear: false, width: '100%', dropdownAutoWidth: false, minimumResultsForSearch: 5, dropdownParent: $dropdownParent });
+	const $c = $s.next('.select2-container');
+	$c.find('.select2-selection--single').css({ height: '32px', border: '1px solid #ced4da', borderRadius: '4px', background: '#fff', fontSize: '12px' });
+	$c.find('.select2-selection__rendered').css({ lineHeight: '30px', paddingLeft: '10px', paddingRight: '20px', color: '#495057' });
+	$c.find('.select2-selection__arrow').css({ height: '30px', width: '20px' });
+	$c.find('.select2-selection__arrow b').css({ borderWidth: '3px 3px 0 3px', marginTop: '-2px' });
+};
+
 // ─── Cost Center Options ───
 const getCostCenterOptions = (selectedValue) => {
 	const dataEl = document.getElementById('costCentersData');
@@ -141,7 +185,7 @@ const syncDateRange = () => {
 
 // ─── DOM Cache ───
 const cacheAddDom = () => {
-	const ids = ['reimbursementRef', 'draftEditWindowDays', 'isEditMode', 'newDescription', 'newDateRange', 'newTotalAmount', 'newAddress', 'newCostCenter', 'newIoNumber', 'newFileFor', 'btnAddExpenseItem', 'expenseItemsContainer', 'btnSaveDraftReimbursement', 'btnSaveNewReimbursement'];
+	const ids = ['reimbursementRef', 'draftEditWindowDays', 'isEditMode', 'currentUserId', 'newDescription', 'newDateRange', 'newTotalAmount', 'newAddress', 'newCostCenter', 'newPayableTo', 'newIoNumber', 'newFileFor', 'btnAddExpenseItem', 'expenseItemsContainer', 'btnSaveDraftReimbursement', 'btnSaveNewReimbursement'];
 	ids.forEach((id) => { domAdd[id] = document.getElementById(id); });
 };
 
@@ -240,6 +284,7 @@ const getFormState = () => {
 		description: normalizeDate(domAdd.newDescription.value),
 		address: normalizeDate(domAdd.newAddress?.value || ''),
 		costCenterId: normalizeDate(domAdd.newCostCenter?.value || ''),
+		payableToUserId: normalizeDate(domAdd.newPayableTo?.value || ''),
 		ioNumber: normalizeDate(domAdd.newIoNumber?.value || ''),
 		fileForUserId: normalizeDate(domAdd.newFileFor?.value || ''),
 	};
@@ -250,6 +295,7 @@ const validateBeforeSave = (statusCode) => {
 	const missingIndex = expenseItems.findIndex((it) => !normalizeDate(it.documentDate) || !normalizeDate(it.expenseType) || !normalizeDate(it.reference) || getItemAmount(it) <= 0 || !normalizeDate(it.remarks));
 
 	if (!state.description) return swal('warning', 'Missing fields', 'Description is required.'), null;
+	if (domAdd.newPayableTo && getPayableToUsers().length && !state.payableToUserId) return swal('warning', 'Missing fields', 'Payable To is required.'), null;
 	if (!expenseItems.length) return swal('warning', 'Item required', 'Please add at least one expense item.'), null;
 	if (missingIndex >= 0) {
 		const item = expenseItems[missingIndex] || {};
@@ -284,6 +330,7 @@ const sendReimbursement = (statusCode) => {
 		fd.append('Address', state.address);
 		fd.append('IoNumber', state.ioNumber);
 		if (state.fileForUserId) fd.append('FileForUserId', state.fileForUserId);
+		if (state.payableToUserId) fd.append('PayableTo', state.payableToUserId);
 		fd.append('Expenses', JSON.stringify(expenseItems.map((it) => ({
 			DocumentDate: it.documentDate, ExpenseCategory: it.expenseType, InvoiceReceiptNo: it.reference,
 			ActualAmount: getItemAmount(it), IsVatable: Boolean(it.isVattable), Description: it.remarks,
@@ -326,7 +373,7 @@ const sendReimbursement = (statusCode) => {
 const setEditability = (editable) => {
 	draftCanEdit = editable;
 	const d = !editable;
-	['newDescription', 'newAddress', 'newCostCenter', 'newIoNumber', 'newFileFor', 'btnAddExpenseItem', 'btnSaveNewReimbursement', 'btnSaveDraftReimbursement'].forEach((k) => { if (domAdd[k]) domAdd[k].disabled = d; });
+	['newDescription', 'newAddress', 'newCostCenter', 'newPayableTo', 'newIoNumber', 'newFileFor', 'btnAddExpenseItem', 'btnSaveNewReimbursement', 'btnSaveDraftReimbursement'].forEach((k) => { if (domAdd[k]) domAdd[k].disabled = d; });
 };
 
 const loadDraftForEdit = () => {
@@ -350,6 +397,8 @@ const loadDraftForEdit = () => {
 			if (domAdd.newAddress) domAdd.newAddress.value = normalizeDate(header.address);
 			if (domAdd.newIoNumber) domAdd.newIoNumber.value = normalizeDate(header.io_number);
 			if (domAdd.newCostCenter) { domAdd.newCostCenter.innerHTML = getCostCenterOptions(header.cost_center_id); initCostCenterSelect2(); }
+			const draftPayableTo = normalizeDate(header.payable_to_user_id || (/^\d+$/.test(normalizeDate(header.payable_to)) ? header.payable_to : ''));
+			if (draftPayableTo) setPayableTo(draftPayableTo);
 
 			expenseItems = details.map((d) => ({
 				id: ++expenseItemCounter, documentDate: normalizeDate(d.document_date).slice(0, 10),
@@ -419,6 +468,12 @@ const initAddPage = () => {
 	currentReimbursementId = normalizeDate(domAdd.reimbursementRef?.value || '');
 	if (domAdd.newCostCenter) { domAdd.newCostCenter.innerHTML = getCostCenterOptions(''); initCostCenterSelect2(); }
 	if (domAdd.newFileFor) { domAdd.newFileFor.innerHTML = getTeamMemberOptions(''); initFileForSelect2(); }
+	setPayableTo(domAdd.currentUserId?.value || '');
+	if (domAdd.newFileFor) {
+		jQuery(domAdd.newFileFor).on('change', () => {
+			setPayableTo(normalizeDate(domAdd.newFileFor.value) || domAdd.currentUserId?.value || '');
+		});
+	}
 
 	reimbursementReceiptOcr = window.SharedReceiptOcr && window.SharedReceiptOcr.create({
 		maxAttachmentBytes: MAX_ATTACHMENT_BYTES, getExpenseItem: findExpenseItem, getExpenseTypeOptions: () => expenseTypeOptions,

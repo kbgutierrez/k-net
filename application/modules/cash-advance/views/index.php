@@ -214,6 +214,7 @@
             <option value="For Liquidation">For Liquidation</option>
             <option value="Approved">Approved</option>
             <option value="Rejected">Rejected</option>
+            <option value="Cancelled">Cancelled</option>
           </select>
         </div>
         <div class="kna-filter-field">

@@ -128,6 +128,9 @@ const getStatusBadge = (status) => {
 	if (status === 'Rejected') {
 		return '<span class="kna-badge kna-badge-rejected">Rejected</span>';
 	}
+	if (status === 'Cancelled') {
+		return '<span class="kna-badge kna-badge-rejected">Cancelled</span>';
+	}
 	return `<span class="kna-badge kna-badge-pending">${escapeHtml(status || 'Pending')}</span>`;
 };
 
@@ -347,7 +350,8 @@ const renderDocumentPanels = (record) => {
 	const kflowEmbedUrl = forcedKflowEmbedUrl || apiKflowEmbedUrl;
 	const finalApproved = Number(record.is_final_approved || 0) === 1;
 	const kflowDocStatus = Number(record.kflow_doc_status || 0);
-	const isRejected = kflowDocStatus === 3;
+	const isKflowCancelled = kflowDocStatus === 5;
+	const isRejected = kflowDocStatus === 3 || isKflowCancelled;
 	// kflow_doc_status 2 = sent for signature but not yet signed — show
 	// the unsigned PDF, not the live K-flow embed. Previously the embed
 	// showed for ANY kflowEmbedUrl regardless of status, so it appeared
@@ -370,7 +374,7 @@ const renderDocumentPanels = (record) => {
 	}
 
 	if (isRejected) {
-		stateText = 'Document Hidden (Rejected in K-flow)';
+		stateText = isKflowCancelled ? 'Document Hidden (Cancelled)' : 'Document Hidden (Rejected in K-flow)';
 	}
 
 	if (domDetail.viewPdfState) {
@@ -740,9 +744,58 @@ const cacheDetailDom = () => {
 	domDetail.viewWorkflowIframe = document.getElementById('viewWorkflowIframe');
 	domDetail.viewWorkflowOpenNewTab = document.getElementById('viewWorkflowOpenNewTab');
 	domDetail.serverKflowUrl = document.getElementById('serverKflowUrl');
+	domDetail.currentUserId = document.getElementById('currentUserId');
+	domDetail.btnCancelCashAdvance = document.getElementById('btnCancelCashAdvance');
 
 	applyEmbeddedKflowChrome();
 	initHistoryModal();
+	bindCancelCashAdvance();
+};
+
+const bindCancelCashAdvance = () => {
+	if (!domDetail.btnCancelCashAdvance) {
+		return;
+	}
+
+	domDetail.btnCancelCashAdvance.addEventListener('click', () => {
+		const ref = normalizeDate(domDetail.cashAdvanceRef ? domDetail.cashAdvanceRef.value : '');
+		if (!ref) {
+			return;
+		}
+
+		Swal.fire({
+			icon: 'warning',
+			title: 'Cancel this cash advance?',
+			html: `<div class="kna-small">${escapeHtml(ref)} will be cancelled and removed from the approvers' queue. If it is still being signed in K-Flow, the K-Flow document will be cancelled too. This cannot be undone.</div>`,
+			input: 'textarea',
+			inputLabel: 'Reason for cancelling',
+			inputPlaceholder: 'e.g. Trip was moved, no longer needed',
+			inputValidator: (value) => (!value || !value.trim() ? 'Please enter the reason for cancelling.' : undefined),
+			showCancelButton: true,
+			confirmButtonText: 'Yes, cancel request',
+			cancelButtonText: 'Keep request',
+			confirmButtonColor: '#e03131',
+			reverseButtons: true,
+		}).then((result) => {
+			if (!result.isConfirmed) {
+				return;
+			}
+
+			ajax_loader('transactions/cash-advance/api/cancel', { CashAdvanceId: ref, Remarks: result.value.trim() })
+				.done((response) => {
+					const res = (typeof response === 'string') ? $.parseJSON(response) : response;
+					if (!res || res.status !== 'success') {
+						Swal.fire({ icon: 'error', title: 'Unable to Cancel', text: (res && res.response) || 'Failed to cancel the cash advance.' });
+						return;
+					}
+					Swal.fire({ icon: 'success', title: 'Cancelled', text: 'The cash advance has been cancelled.' })
+						.then(() => window.location.reload());
+				})
+				.fail(() => {
+					Swal.fire({ icon: 'error', title: 'Connection Problem', text: 'We couldn\'t reach the server. Please try again.' });
+				});
+		});
+	});
 };
 
 // Fires every KFLOW_POLL_INTERVAL_MS while the workflow embed is showing.
@@ -802,6 +855,13 @@ const loadDetailData = (loadTimeline = true) => {
 		}
 		if (domDetail.viewStatus) {
 			domDetail.viewStatus.innerHTML = getStatusBadge(normalizeDate(record.status_name || ''));
+		}
+		if (domDetail.btnCancelCashAdvance) {
+			const currentUserId = normalizeDate(domDetail.currentUserId ? domDetail.currentUserId.value : '');
+			const canCancel = normalizeDate(record.status_code || '') === 'CA_PENDING'
+				&& currentUserId !== ''
+				&& String(record.user_id || '') === currentUserId;
+			domDetail.btnCancelCashAdvance.classList.toggle('d-none', !canCancel);
 		}
 		if (domDetail.viewPurpose) {
 			domDetail.viewPurpose.textContent = normalizeDate(record.description || '') || '-';

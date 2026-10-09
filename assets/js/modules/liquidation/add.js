@@ -180,10 +180,21 @@ const loadPendingCA = () => {
     .done((r) => {
       const res = parseRes(r);
       if (res.status !== 'success') { domAdd.newCaRef.innerHTML = '<option value="">No pending cash advance</option>'; resetCADetails(); return swal('error', 'Load Failed', res.response || 'Unable to load pending cash advances.'); }
-      const opts = (res.data || []).map((it) => normalizeDate(it.cash_advance_id)).filter(Boolean);
-      domAdd.newCaRef.innerHTML = '<option value="">Select cash advance</option>';
-      if (opts.length === 1) { domAdd.newCaRef.innerHTML = `<option value="${escapeHtml(opts[0])}" selected>${escapeHtml(opts[0])}</option>`; syncCADetails(); }
-      else if (!opts.length) resetCADetails();
+      const opts = (res.data || []).map((it) => ({
+        id: normalizeDate(it.cash_advance_id),
+        status: normalizeDate(it.status_name),
+        amount: Number(it.approved_amount || 0),
+      })).filter((it) => it.id);
+      const optLabel = (it) => {
+        const parts = [it.id];
+        if (it.status) parts.push(it.status);
+        if (it.amount > 0) parts.push(`₱${it.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+        return parts.join(' — ');
+      };
+      const optHtml = (it, selected) => `<option value="${escapeHtml(it.id)}"${selected ? ' selected' : ''}>${escapeHtml(optLabel(it))}</option>`;
+      if (opts.length === 1) { domAdd.newCaRef.innerHTML = optHtml(opts[0], true); syncCADetails(); }
+      else if (opts.length > 1) { domAdd.newCaRef.innerHTML = '<option value="">Select cash advance</option>' + opts.map((it) => optHtml(it, false)).join(''); resetCADetails(); }
+      else { domAdd.newCaRef.innerHTML = '<option value="">No pending cash advance</option>'; resetCADetails(); }
     })
     .fail(() => { domAdd.newCaRef.innerHTML = '<option value="">No pending cash advance</option>'; resetCADetails(); swal('error', 'Load Failed', 'Could not load pending cash advance numbers.'); });
 };

@@ -149,6 +149,21 @@
 	<input type="hidden" id="costCentersData" value="<?=html_escape(json_encode($ccData));?>">
 	<input type="hidden" id="expenseTypesData" value="<?=html_escape(json_encode($expenseTypeData));?>">
 	<input type="hidden" id="teamMembersData" value="<?=html_escape(json_encode(!empty($team_members) ? $team_members : array()));?>">
+	<?php
+	$payableToData = array();
+	if (!empty($payable_to_users) && is_array($payable_to_users)) {
+		foreach ($payable_to_users as $u) {
+			$payableToData[] = array(
+				'id' => isset($u['id']) ? (int) $u['id'] : 0,
+				'firstname' => isset($u['firstname']) ? $u['firstname'] : '',
+				'lastname' => isset($u['lastname']) ? $u['lastname'] : '',
+				'designation' => isset($u['designation']) ? $u['designation'] : '',
+			);
+		}
+	}
+	?>
+	<input type="hidden" id="payableToUsersData" value="<?=html_escape(json_encode($payableToData));?>">
+	<input type="hidden" id="currentUserId" value="<?=isset($current_user_id) ? (int) $current_user_id : 0;?>">
 	<div class="d-flex align-items-center justify-content-between mb-2">
 		<div>
 			<div class="kna-title"><?=!empty($is_edit_mode) ? 'Edit Draft Reimbursement' : 'New Reimbursement';?></div>
@@ -198,6 +213,12 @@
 						<label class="kna-form-label">Cost Center</label>
 						<select class="form-control form-control-sm kna-small" id="newCostCenter">
 							<option value="">Select cost center</option>
+						</select>
+					</div>
+					<div class="form-group">
+						<label class="kna-form-label">Payable To</label>
+						<select class="form-control form-control-sm kna-small" id="newPayableTo">
+							<option value="">Select payable to</option>
 						</select>
 					</div>
 				</div>

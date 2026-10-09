@@ -385,6 +385,15 @@ class Reimbursement extends MY_Controller
 
         $teamMembers = $this->getTeamForUser((int) $this->session->userdata('user_id'));
 
+        $payableToUsers = $this->sp->readData(
+            build_sp('sp_fetch_payable_to_users', 1),
+            array('DepartmentId' => (int) $departmentId),
+            'result'
+        );
+        if (!is_array($payableToUsers)) {
+            $payableToUsers = array();
+        }
+
         $data = array(
             'title' => $isEditMode ? 'Edit Draft Reimbursement' : 'New Reimbursement',
             'main_view' => '../modules/reimbursement/views/add',
@@ -396,6 +405,8 @@ class Reimbursement extends MY_Controller
             'cost_centers' => $costCenters,
             'expense_types' => $expenseTypes,
             'team_members' => $teamMembers,
+            'payable_to_users' => $payableToUsers,
+            'current_user_id' => (int) $this->session->userdata('user_id'),
             'scripts' => array(
                 '../shared/pdfjs/pdf.min.js',
                 '../shared/receipt-ocr.js',
@@ -606,6 +617,26 @@ class Reimbursement extends MY_Controller
                 }
                 $ownerUserId = $fileForUserId;
                 $payableTo = isset($matchedMember['member_name']) ? (string) $matchedMember['member_name'] : $payableTo;
+            }
+
+            $payableToUserId = isset($data['PayableTo']) ? (int) $data['PayableTo'] : 0;
+            if ($payableToUserId > 0) {
+                $allowedPayableTo = $this->sp->readData(
+                    build_sp('sp_fetch_payable_to_users', 1),
+                    array('DepartmentId' => (int) ($userInfo['department_id'] ?? 0)),
+                    'result'
+                );
+                $isAllowedPayableTo = false;
+                foreach ((is_array($allowedPayableTo) ? $allowedPayableTo : array()) as $payableUser) {
+                    if ((int) ($payableUser['id'] ?? 0) === $payableToUserId) {
+                        $isAllowedPayableTo = true;
+                        break;
+                    }
+                }
+                if (!$isAllowedPayableTo) {
+                    return $this->respondError('Please select a valid Payable To from your department.');
+                }
+                $payableTo = (string) $payableToUserId;
             }
 
             if ($requestedReimbursementId !== '') {

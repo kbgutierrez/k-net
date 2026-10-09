@@ -74,3 +74,9 @@ application/config/notification_email.php
 test1.xlsx
 .gitignore
 assets/templates/Mass Journal Entries Template.xlsx
+application/helpers/k-net-kflow.code-workspace
+K-Net_User_Guide_Phase1.pdf
+K-Net_BPML (Phase 1).xlsx
+K-Net_BPML (answered).xlsx
+K-Net_BPML (answered - dev remarks).xlsx
+CLAUDE.md

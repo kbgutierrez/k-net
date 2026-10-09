@@ -83,6 +83,10 @@ class Expense_Types extends MY_Controller
                 return $this->respondError('Expense code is required');
             }
 
+            if (!preg_match('/^[0-9]{10}$/', $expenseCode)) {
+                return $this->respondError('Expense code must be exactly 10 digits.');
+            }
+
             if ($categoryName === '') {
                 return $this->respondError('Category name is required');
             }
@@ -141,6 +145,10 @@ class Expense_Types extends MY_Controller
 
             if ($expenseCode === '') {
                 return $this->respondError('Expense code is required');
+            }
+
+            if (!preg_match('/^[0-9]{10}$/', $expenseCode)) {
+                return $this->respondError('Expense code must be exactly 10 digits.');
             }
 
             if ($categoryName === '') {

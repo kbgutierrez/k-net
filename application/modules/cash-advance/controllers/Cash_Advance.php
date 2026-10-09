@@ -125,7 +125,8 @@ class Cash_Advance extends MY_Controller
                 'row'
             );
 
-            if (is_array($row) && isset($row['kflow_doc_status']) && trim((string) $row['kflow_doc_status']) !== '4') {
+            $isOpenCa = is_array($row) && isset($row['status_code']) && trim((string) $row['status_code']) === 'CA_PENDING';
+            if ($isOpenCa && isset($row['kflow_doc_status']) && !in_array(trim((string) $row['kflow_doc_status']), array('3', '4', '5'), true)) {
                 $batchId = isset($row['kflow_batch_id']) ? trim((string) $row['kflow_batch_id']) : '';
                 if ($batchId !== '') {
                     $resumeKflowUrl = $this->buildKflowEmbedUrl($batchId);
@@ -140,6 +141,7 @@ class Cash_Advance extends MY_Controller
             'module' => $this->module,
             'cash_advance_no' => $cash_advance_no,
             'resume_kflow_url' => $resumeKflowUrl,
+            'current_user_id' => (int) $this->session->userdata('user_id'),
             'scripts' => array(
 
                 '../cash-advance/detail.js',
@@ -654,6 +656,50 @@ class Cash_Advance extends MY_Controller
         $this->load->view('main', $data);
     }
 
+    public function api_cancel()
+    {
+        try {
+            $this->output->set_content_type('application/json');
+            $data = $this->getRequestPayload();
+
+            $cashAdvanceId = isset($data['CashAdvanceId']) ? trim((string) $data['CashAdvanceId']) : '';
+            $remarks = isset($data['Remarks']) ? trim((string) $data['Remarks']) : '';
+            $userId = (int) $this->session->userdata('user_id');
+
+            if ($cashAdvanceId === '') {
+                return $this->respondError('Missing required field: CashAdvanceId');
+            }
+            if ($remarks === '') {
+                return $this->respondError('Please enter the reason for cancelling.');
+            }
+            if ($userId <= 0) {
+                return $this->respondError('User not authenticated.');
+            }
+
+            $params = array(
+                'CashAdvanceId' => $cashAdvanceId,
+                'UserId' => $userId,
+                'Remarks' => $remarks,
+                'Source' => 'KNET',
+            );
+            $result = $this->sp->createReturnId(
+                build_sp('sp_cancel_cash_advance', count($params)),
+                $params
+            );
+
+            if (!is_array($result) || (int) ($result['is_cancelled'] ?? 0) !== 1) {
+                $message = is_array($result) && !empty($result['message']) ? $result['message'] : 'Failed to cancel the cash advance.';
+                return $this->respondError($message);
+            }
+
+            $this->logAuditTrail('CASH_ADVANCE', $cashAdvanceId, 'CANCELLED', 'HEADER', $cashAdvanceId, 'remarks', null, $remarks);
+
+            return $this->respondSuccess('Cash advance cancelled successfully.', $result);
+        } catch (Exception $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage());
+        }
+    }
+
     public function api_kflow_callback()
     {
         $this->output->set_content_type('application/json');
@@ -706,12 +752,53 @@ class Cash_Advance extends MY_Controller
         $normalizedStatus = strtoupper(trim((string) $status));
         $isApproved = in_array($normalizedStatus, array('FULLY APPROVED', 'APPROVED', 'CA_KFLOW_APPROVED'), true);
         $isRejected = in_array($normalizedStatus, array('REJECTED', 'DISAPPROVED', 'DECLINED', 'CA_KFLOW_REJECTED'), true);
+        $isCancelled = in_array($normalizedStatus, array('CANCELLED', 'CANCELED', 'CA_KFLOW_CANCELLED'), true);
         $debug['steps']['normalized_status'] = $normalizedStatus;
 
-        if (!$isApproved && !$isRejected) {
+        if (!$isApproved && !$isRejected && !$isCancelled) {
             echo json_encode(array(
                 'status' => 'error',
                 'response' => 'Invalid callback status.',
+                'debug' => $debug,
+            ));
+            return;
+        }
+
+        if ($isCancelled) {
+            $cancelParams = array(
+                'CashAdvanceId' => $caRef,
+                'UserId' => 0,
+                'Remarks' => 'Cancelled in K-Flow',
+                'Source' => 'KFLOW',
+            );
+            $cancelResult = $this->sp->createReturnId(
+                build_sp('sp_cancel_cash_advance', count($cancelParams)),
+                $cancelParams
+            );
+            $debug['steps']['sp_cancel_cash_advance_result'] = $cancelResult;
+
+            if (!is_array($cancelResult) || !isset($cancelResult['cash_advance_id'])) {
+                echo json_encode(array(
+                    'status' => 'error',
+                    'response' => is_array($cancelResult) && !empty($cancelResult['message']) ? $cancelResult['message'] : 'Failed to cancel the cash advance.',
+                    'debug' => $debug,
+                ));
+                return;
+            }
+
+            if ((int) ($cancelResult['is_cancelled'] ?? 0) === 1) {
+                $this->logAuditTrail('CASH_ADVANCE', $caRef, 'CANCELLED', 'HEADER', $caRef, 'remarks', null, 'Cancelled in K-Flow');
+            }
+
+            echo json_encode(array(
+                'status' => 'success',
+                'message' => 'K-net updated',
+                'internal_status' => 'CA_KFLOW_CANCELLED',
+                'data' => array(
+                    'cash_advance_id' => $caRef,
+                    'status_code' => $cancelResult['status_code'] ?? null,
+                    'is_cancelled' => (int) ($cancelResult['is_cancelled'] ?? 0),
+                ),
                 'debug' => $debug,
             ));
             return;
@@ -831,6 +918,19 @@ class Cash_Advance extends MY_Controller
 
         if ($isApproved) {
             $this->notifyFirstKnetApprover($caRef);
+        }
+
+        if ($isRejected) {
+            $rejectParams = array('CashAdvanceId' => $caRef);
+            $rejectResult = $this->sp->createReturnId(
+                build_sp('sp_reject_cash_advance_from_kflow', count($rejectParams)),
+                $rejectParams
+            );
+            $debug['steps']['sp_reject_cash_advance_from_kflow_result'] = $rejectResult;
+
+            if (is_array($rejectResult) && (int) ($rejectResult['is_rejected'] ?? 0) === 1) {
+                $this->logAuditTrail('CASH_ADVANCE', $caRef, 'REJECTED', 'HEADER', $caRef, 'remarks', null, 'Rejected in K-Flow');
+            }
         }
 
         echo json_encode(array(

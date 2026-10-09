@@ -48,6 +48,12 @@ class Notification_Templates extends MY_Controller
             'sent_to' => 'The person who originally submitted the request.',
             'accent' => '#17663a',
         ),
+        'LIQUIDATION_OVERDUE' => array(
+            'label' => 'Liquidation Overdue Reminder',
+            'fires_when' => 'An approver clicks "Notify Selected" on the Dashboard\'s Pending Liquidations panel for a released cash advance that has not been liquidated yet.',
+            'sent_to' => 'The employee holding the cash advance.',
+            'accent' => '#e8590c',
+        ),
     );
 
     private $mergeFields = array(
@@ -61,6 +67,8 @@ class Notification_Templates extends MY_Controller
         'remarks' => 'Remarks or reason entered by the approver, if any',
         'action_date' => 'Date and time the action was taken',
         'review_link' => "A clickable link straight to the transaction's review page",
+        'due_date' => 'Liquidation due date (Liquidation Overdue Reminder only)',
+        'days_overdue' => 'Number of days past the due date (Liquidation Overdue Reminder only)',
     );
 
     public function __construct()
@@ -185,7 +193,10 @@ class Notification_Templates extends MY_Controller
                 'created_by' => (int) $this->session->userdata('user_id'),
             );
 
-            $this->sp->createData(build_sp('sp_insert_notification_template', count($params)), $params);
+            $result = $this->sp->createData(build_sp('sp_insert_notification_template', count($params)), $params);
+            if ($result !== true) {
+                return $this->respondError(is_string($result) ? $result : 'Failed to save the notification template.');
+            }
 
             return $this->respondSuccess('Notification template created successfully.');
         } catch (Throwable $e) {
@@ -219,7 +230,10 @@ class Notification_Templates extends MY_Controller
                 'updated_by' => (int) $this->session->userdata('user_id'),
             );
 
-            $this->sp->createData(build_sp('sp_update_notification_template', count($params)), $params);
+            $result = $this->sp->createData(build_sp('sp_update_notification_template', count($params)), $params);
+            if ($result !== true) {
+                return $this->respondError(is_string($result) ? $result : 'Failed to update the notification template.');
+            }
 
             return $this->respondSuccess('Notification template updated successfully.');
         } catch (Throwable $e) {
@@ -247,6 +261,8 @@ class Notification_Templates extends MY_Controller
                 'remarks' => 'Sample remarks for preview.',
                 'action_date' => date('Y-m-d H:i:s'),
                 'review_link' => base_url('transactions/approvals/review/RMB2026070100001'),
+                'due_date' => date('Y-m-d', strtotime('-3 days')),
+                'days_overdue' => '3',
             );
 
             $replace = array();
@@ -360,6 +376,15 @@ class Notification_Templates extends MY_Controller
                 'extra_rows' => '<b style="color:#333333;">Released By:</b> {{approver_name}}<br>',
                 'cta_label' => 'View Details',
                 'closing' => 'This transaction is now complete.',
+            ),
+            'LIQUIDATION_OVERDUE' => array(
+                'subject' => 'Reminder: Liquidation overdue for {{reference_no}}',
+                'accent' => '#e8590c',
+                'greeting' => 'Dear {{requester_name}},',
+                'intro' => 'Your cash advance below was released but has not been liquidated yet. Please file your liquidation as soon as possible.',
+                'extra_rows' => '<b style="color:#333333;">Due Date:</b> {{due_date}}<br><b style="color:#333333;">Days Overdue:</b> {{days_overdue}}<br>',
+                'cta_label' => 'File Liquidation',
+                'closing' => 'If you have already filed your liquidation, please disregard this reminder.',
             ),
         );
 
