@@ -1448,7 +1448,7 @@ class Approvals extends MY_Controller
 
             $referenceNo = isset($data['reference_no']) ? trim((string) $data['reference_no']) : '';
             $costCenterId = isset($data['cost_center_id']) ? trim((string) $data['cost_center_id']) : '';
-            $payableTo = isset($data['payable_to']) ? trim((string) $data['payable_to']) : '';
+            $payableTo = isset($data['payable_to']) ? trim((string) $data['payable_to']) : null;
             $address = isset($data['address']) ? trim((string) $data['address']) : '';
             $io = isset($data['io']) ? trim((string) $data['io']) : '';
 

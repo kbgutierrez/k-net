@@ -468,10 +468,10 @@ const initCaHeaderEditor = (referenceNo, options = {}) => {
       const payload = {
         reference_no: referenceNo,
         cost_center_id: ccSelect ? ccSelect.value : '',
-        payable_to: payableInput ? payableInput.value.trim() : '',
         address: addressInput ? addressInput.value.trim() : '',
         io: ioInput ? ioInput.value.trim() : ''
       };
+      if (payableInput) payload.payable_to = payableInput.value.trim();
 
       $.ajax({
         url: base_url + endpoint,
@@ -1013,14 +1013,6 @@ const renderReimbursement = (data, attachments = []) => {
       <div class="kna-overview-label">Approved Total</div>
       <div class="kna-overview-value kna-amount">${formatPHP(totalApproved)}</div>
     </div>
-   <div class="kna-overview-cell">
-      <div class="kna-overview-label">Payable To</div>
-      <div class="kna-overview-value">
-        <select class="kna-cost-center-select" id="reviewPayableTo" data-field="payable_to" data-original="${escapeHtml(normalizeDate(first.payable_to_user_id))}" style="min-width:140px;">
-          ${getPayableToOptions(first.payable_to_user_id, first.payable_to)}
-        </select>
-      </div>
-    </div>
     <div class="kna-overview-cell">
       <div class="kna-overview-label">Cost Center</div>
       <div class="kna-overview-value">
@@ -1079,16 +1071,6 @@ const renderReimbursement = (data, attachments = []) => {
   if (rmbCcSelect && window.jQuery && $.fn.select2) {
     $(rmbCcSelect).select2({
       placeholder: 'Select Cost Center',
-      allowClear: false,
-      width: 'style'
-    });
-  }
-
-  // Initialize Select2 for payable to
-  const rmbPayableToSelect = document.getElementById('reviewPayableTo');
-  if (rmbPayableToSelect && window.jQuery && $.fn.select2) {
-    $(rmbPayableToSelect).select2({
-      placeholder: 'Select Payable To',
       allowClear: false,
       width: 'style'
     });

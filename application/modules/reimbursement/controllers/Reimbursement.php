@@ -547,9 +547,44 @@ class Reimbursement extends MY_Controller
                 'result'
             );
 
+            $approvalParams = array(
+                'ReimbursementId' => $reimbursementId,
+            );
+            $approvals = $this->sp->readData(
+                build_sp('sp_fetch_reimbursement_approvals', count($approvalParams)),
+                $approvalParams,
+                'result'
+            );
+
+            $approvalMap = array();
+            if (is_array($approvals)) {
+                foreach ($approvals as $approval) {
+                    $lineItemId = isset($approval['line_item_id']) ? (int) $approval['line_item_id'] : 0;
+                    if ($lineItemId > 0) {
+                        if (!isset($approvalMap[$lineItemId])) {
+                            $approvalMap[$lineItemId] = array();
+                        }
+                        $approvalMap[$lineItemId][] = array(
+                            'approver_name' => isset($approval['approver_name']) ? $approval['approver_name'] : '',
+                            'status' => isset($approval['status']) ? $approval['status'] : '',
+                            'remarks' => isset($approval['remarks']) ? $approval['remarks'] : '',
+                        );
+                    }
+                }
+            }
+
+            $detailsWithStatus = array();
+            if (is_array($details)) {
+                foreach ($details as $detail) {
+                    $detailId = isset($detail['id']) ? (int) $detail['id'] : 0;
+                    $detail['approvals'] = isset($approvalMap[$detailId]) ? $approvalMap[$detailId] : array();
+                    $detailsWithStatus[] = $detail;
+                }
+            }
+
             return $this->respondSuccess('success', array(
                 'header' => $header,
-                'details' => is_array($details) ? $details : array(),
+                'details' => $detailsWithStatus,
                 'canEdit' => $canEdit,
                 'draftAgeDays' => $ageDays,
                 'draftEditWindowDays' => $this->draftEditWindowDays,
